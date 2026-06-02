@@ -1,0 +1,53 @@
+# .github/workflows/test.yml
+name: Test
+
+on:
+  push:
+    branches:
+      - "phase-*"
+      - main
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install xcbeautify
+        run: brew install xcbeautify
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-derived-data-test-${{ hashFiles('perch.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-derived-data-test-
+
+      - name: Resolve SPM dependencies
+        run: |
+          xcodebuild \
+            -scheme perch \
+            -resolvePackageDependencies \
+            2>&1 | xcbeautify
+
+      - name: Run Tests
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -scheme perch \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            test \
+            2>&1 | xcbeautify --renderer github-actions
