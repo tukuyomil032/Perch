@@ -1,6 +1,6 @@
 # Perch Development Progress
 
-**Current Phase**: Phase 0 — Project Setup
+**Current Phase**: Phase 1 — Core Island UI ✅
 **Last Updated**: 2026-06-02
 
 ---
@@ -10,7 +10,7 @@
 - [x] T0-1: デザインリファレンス収集（docs/design-references.md, docs/img/）
 - [x] T0-2: Xcodeプロジェクト再編（App/Core/Island/UI/Features/Providers構造）
 - [x] T0-3: .gitignore整備
-- [ ] T0-4: SPM依存ライブラリ追加（KeyboardShortcuts, Defaults, swift-log）— Phase 1開始時にXcodeから追加
+- [x] T0-4: SPM依存ライブラリ追加（KeyboardShortcuts, Defaults, swift-log）— Phase 1開始時にXcodeから追加
 - [x] T0-5: Info.plist / Entitlements設定（LSUIElement, network.client）
 - [x] T0-6: CLAUDE.md作成（プロジェクトレベル、包括的）
 - [x] T0-7: AGENTS.md作成（CLAUDE.mdへのシンボリックリンク）
@@ -23,19 +23,19 @@
 
 ## Phase 1: Core Island UI (v0.1)
 
-- [ ] T1-1: AppDelegate + アプリライフサイクル
-- [ ] T1-2: IslandWindow（NSWindow透明オーバーレイ）
-- [ ] T1-3: NotchDetector（ノッチ有無判定）
-- [ ] T1-4: IslandGeometry + IslandConfiguration
-- [ ] T1-5: IslandWindowController（SwiftUI hosting）
-- [ ] T1-6: CompactPillView（ピル型UI + vibrancy）
-- [ ] T1-7: ExpandedIslandView（展開カード）
-- [ ] T1-8: RootIslandView（compact↔expandedモーフィング）
-- [ ] T1-9: AppState（@Observable状態管理）
-- [ ] T1-10: MouseEventMonitor（hover/click検知）
-- [ ] T1-11: MenuBarController（NSStatusItem）
-- [ ] T1-12: Settings画面（SwiftUI Settings scene）
-- [ ] T1-13: Login at launch（ServiceManagement）
+- [x] T1-1: AppDelegate + アプリライフサイクル
+- [x] T1-2: IslandWindow（NSWindow透明オーバーレイ）
+- [x] T1-3: NotchDetector（ノッチ有無判定）
+- [x] T1-4: IslandGeometry + IslandMode（floatingPill / physicalNotch）
+- [x] T1-5: IslandWindowController（SwiftUI hosting + withObservationTracking）
+- [x] T1-6: CompactPillView（ピル型UI + vibrancy + hover）
+- [x] T1-7: ExpandedIslandView（展開カード）
+- [x] T1-8: RootIslandView（compact↔expandedモーフィング）
+- [x] T1-9: AppState（@Observable状態管理 + expand/collapse + swift-log）
+- [x] T1-10: MouseEventMonitor（hover/click検知 + autoCollapseDelay）
+- [x] T1-11: MenuBarController（NSStatusItem + bird icon）
+- [x] T1-12: Settings画面（SwiftUI Settings scene + Defaults integration）
+- [x] T1-13: Login at launch（SMAppService + LoginItemManager）
 
 ---
 
