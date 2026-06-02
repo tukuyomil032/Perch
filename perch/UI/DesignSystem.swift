@@ -10,3 +10,16 @@ enum DesignSystem {
     static let expandAnimation = Animation.spring(response: 0.35, dampingFraction: 0.86)
     static let subtleAnimation = Animation.easeInOut(duration: 0.2)
 }
+
+// MARK: - Shared UI Components
+
+struct VibrancyBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}

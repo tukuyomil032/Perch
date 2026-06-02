@@ -1,13 +1,6 @@
 import CoreGraphics
 
 enum IslandMode: Equatable {
-    case physicalNotch
+    case physicalNotch(notchSize: CGSize)
     case floatingPill
-}
-
-struct IslandConfiguration: Equatable {
-    var mode: IslandMode
-    var compactSize: CGSize
-    var expandedSize: CGSize
-    var topOffset: CGFloat
 }
