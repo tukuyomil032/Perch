@@ -1,4 +1,5 @@
 import AppKit
+import Defaults
 
 final class IslandWindow: NSWindow {
     override init(
@@ -21,12 +22,11 @@ final class IslandWindow: NSWindow {
         isOpaque = false
         hasShadow = false
         level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 1)
-        collectionBehavior = [
-            .fullScreenAuxiliary,
-            .stationary,
-            .canJoinAllSpaces,
-            .ignoresCycle
-        ]
+        var behavior: NSWindow.CollectionBehavior = [.fullScreenAuxiliary, .stationary, .ignoresCycle]
+        if Defaults[.showInAllSpaces] {
+            behavior.insert(.canJoinAllSpaces)
+        }
+        collectionBehavior = behavior
         isMovableByWindowBackground = false
         isReleasedWhenClosed = false
     }
