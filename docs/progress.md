@@ -15,9 +15,9 @@
 - [x] T0-6: CLAUDE.md作成（プロジェクトレベル、包括的）
 - [x] T0-7: AGENTS.md作成（CLAUDE.mdへのシンボリックリンク）
 - [x] T0-8: progress.md作成
-- [ ] T0-9: 既存スキルのPerch向けカスタマイズ（swiftui-pro, swift-concurrency, macos-design-guidelines）
-- [ ] T0-10: 新規スキル作成（appkit-window-control, dynamic-island-ui, ai-provider-integration）
-- [ ] T0-11: spec doc作成（docs/superpowers/specs/）
+- [x] T0-9: 既存スキルのPerch向けカスタマイズ（swiftui-pro, swift-concurrency, macos-design-guidelines）
+- [x] T0-10: 新規スキル作成（appkit-window-control, dynamic-island-ui, ai-provider-integration）
+- [x] T0-11: spec doc作成（docs/superpowers/specs/）
 
 ---
 
