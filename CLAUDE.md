@@ -122,7 +122,7 @@ Integration Layer (AppKit)
 - `macos-design-guidelines` — macOS HIG実装ガイド
 - `hallmark` — Anti-AI-Slop デザイン品質ガードレール
 
-### Project-specific (to be created)
+### Project-specific
 - `appkit-window-control` — NSWindow/NSPanel、透明ウィンドウ、level
 - `dynamic-island-ui` — ピルUI、展開アニメーション、カード切り替え
 - `ai-provider-integration` — AIProvider protocol、認証、エラーハンドリング
