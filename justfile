@@ -1,16 +1,16 @@
 # justfile — Perch command runner
-# Requires Nix dev environment: nix develop
+# Requires Homebrew tools: brew install xcbeautify swift-format lefthook
 # Usage: just <command>
 
 # Default: list available commands
 default:
     @just --list
 
-# Verify dev tools are available (run inside 'nix develop')
+# Verify dev tools are available
 setup:
-    @command -v xcbeautify >/dev/null 2>&1 || (echo "Error: xcbeautify not found. Run 'nix develop' first." && exit 1)
-    @command -v swift-format >/dev/null 2>&1 || (echo "Error: swift-format not found. Run 'nix develop' first." && exit 1)
-    @command -v lefthook >/dev/null 2>&1 || (echo "Error: lefthook not found. Run 'nix develop' first." && exit 1)
+    @command -v xcbeautify >/dev/null 2>&1 || (echo "Error: xcbeautify not found. Run 'brew install xcbeautify'." && exit 1)
+    @command -v swift-format >/dev/null 2>&1 || (echo "Error: swift-format not found. Run 'brew install swift-format'." && exit 1)
+    @command -v lefthook >/dev/null 2>&1 || (echo "Error: lefthook not found. Run 'brew install lefthook'." && exit 1)
     lefthook install
     @echo "Dev environment ready. Git hooks installed."
 
@@ -38,11 +38,11 @@ test:
 
 # Format Swift files in-place
 format:
-    swift-format format --recursive --in-place perch/
+    swift-format format --recursive --in-place perch/ perchTests/
 
 # Lint Swift files (check only, no modification)
 lint:
-    swift-format lint --recursive perch/
+    swift-format lint --recursive perch/ perchTests/
 
 # Build for Release
 release:
@@ -58,6 +58,7 @@ release:
 # Clean DerivedData
 clean:
     #!/bin/bash
+    set -o pipefail
     xcodebuild -scheme perch clean 2>&1 | xcbeautify
     rm -rf ~/Library/Developer/Xcode/DerivedData/perch-*
     echo "Cleaned DerivedData for perch"
