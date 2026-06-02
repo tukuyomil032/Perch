@@ -110,6 +110,11 @@ NotificationCenter.default.addObserver(
 }
 ```
 
+## Xcode Project Notes
+- Perchは `PBXFileSystemSynchronizedRootGroup` を使用。ファイルシステム上でファイルを追加/移動すればXcodeが自動同期するため、pbxproj手動編集は不要
+- SPMパッケージ依存の追加はXcode GUIから行うこと（CLIからのpbxproj編集は破損リスクが高い）
+- NSWindow/NSPanel サブクラスには `@MainActor` を明示すること（NSWindow自体が@MainActorだがプロジェクト規約として明示）
+
 ## Common Pitfalls
 - `canBecomeMain`をtrueにすると他アプリのフォーカスを奪う → `false`推奨
 - `canBecomeKey`はtrueにしないとキーボード入力を受け取れない

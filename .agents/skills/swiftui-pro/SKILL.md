@@ -122,6 +122,10 @@ End of example.
 - ハードコードされたマジックナンバーを避ける
 - 4pt gridに従う（padding: 8/12/16/20/24）
 
+### Import Pitfalls
+- `CGSize`, `CGFloat`, `CGRect` を使うファイルは `import CoreGraphics`（`import Foundation` では不十分）
+- AppKit型を使わないモデルファイルでも幾何型を使うなら CoreGraphics が必要
+
 ### View Structure Pattern
 ```swift
 struct SomeCard: View {
