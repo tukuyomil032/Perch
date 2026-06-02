@@ -1,6 +1,7 @@
 // perch/Features/NowPlaying/NowPlayingState.swift
 import AppKit
 
+@MainActor
 struct NowPlayingState {
     let title: String
     let artist: String
@@ -26,7 +27,7 @@ struct NowPlayingState {
     }
 
     private func formatTime(_ seconds: TimeInterval) -> String {
-        let s = Int(seconds)
+        let s = max(0, Int(seconds))
         return String(format: "%d:%02d", s / 60, s % 60)
     }
 
@@ -50,6 +51,9 @@ struct NowPlayingState {
 }
 
 extension NowPlayingState: Equatable {
+    // Equality is intentionally coarse: title + artist + isPlaying.
+    // NSImage does not conform to Equatable; album/timing excluded
+    // to avoid spurious re-renders on MR timestamp ticks.
     static func == (lhs: NowPlayingState, rhs: NowPlayingState) -> Bool {
         lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying
     }

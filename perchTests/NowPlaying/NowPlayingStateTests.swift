@@ -64,4 +64,23 @@ struct NowPlayingStateTests {
         let state = NowPlayingState(from: dict)
         #expect(state?.progress == 0)
     }
+
+    @Test("progress clamps to 1 when elapsed exceeds duration")
+    func progressClamped() {
+        let dict: [String: Any] = [
+            MRInfoKey.title: "Song",
+            MRInfoKey.duration: Double(100),
+            MRInfoKey.elapsedTime: Double(120),
+        ]
+        #expect(NowPlayingState(from: dict)?.progress == 1.0)
+    }
+
+    @Test("formattedDuration formats seconds correctly")
+    func formattedDurationFormatted() {
+        let dict: [String: Any] = [
+            MRInfoKey.title: "Song",
+            MRInfoKey.duration: Double(240),
+        ]
+        #expect(NowPlayingState(from: dict)?.formattedDuration == "4:00")
+    }
 }
