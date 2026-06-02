@@ -1,0 +1,67 @@
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches:
+      - "phase-*"
+      - main
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install xcbeautify
+        run: brew install xcbeautify
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-derived-data-${{ hashFiles('perch.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-derived-data-
+
+      - name: Resolve SPM dependencies
+        run: |
+          xcodebuild \
+            -scheme perch \
+            -resolvePackageDependencies \
+            2>&1 | xcbeautify
+
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -scheme perch \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            build \
+            2>&1 | xcbeautify --renderer github-actions
+
+  lint:
+    name: Lint
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install swift-format
+        run: brew install swift-format
+
+      - name: Lint
+        run: swift-format lint --recursive perch/
