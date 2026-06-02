@@ -6,6 +6,14 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		BA0A723D2FCEBA1A00F08C06 /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A723C2FCEBA1A00F08C06 /* Defaults */; };
+		BA0A723F2FCEBA1A00F08C06 /* DefaultsMacros in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A723E2FCEBA1A00F08C06 /* DefaultsMacros */; };
+		BA0A72422FCEBA4F00F08C06 /* InMemoryLogging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */; };
+		BA0A72442FCEBA4F00F08C06 /* Logging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72432FCEBA4F00F08C06 /* Logging */; };
+		BA0A72472FCEBA7600F08C06 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		BA0A708C2FCD694E00F08C06 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +60,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BA0A723D2FCEBA1A00F08C06 /* Defaults in Frameworks */,
+				BA0A72422FCEBA4F00F08C06 /* InMemoryLogging in Frameworks */,
+				BA0A72472FCEBA7600F08C06 /* KeyboardShortcuts in Frameworks */,
+				BA0A72442FCEBA4F00F08C06 /* Logging in Frameworks */,
+				BA0A723F2FCEBA1A00F08C06 /* DefaultsMacros in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +125,11 @@
 			);
 			name = perch;
 			packageProductDependencies = (
+				BA0A723C2FCEBA1A00F08C06 /* Defaults */,
+				BA0A723E2FCEBA1A00F08C06 /* DefaultsMacros */,
+				BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */,
+				BA0A72432FCEBA4F00F08C06 /* Logging */,
+				BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */,
 			);
 			productName = perch;
 			productReference = BA0A707E2FCD694B00F08C06 /* perch.app */;
@@ -195,6 +213,11 @@
 			);
 			mainGroup = BA0A70752FCD694B00F08C06;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BA0A723B2FCEBA1A00F08C06 /* XCRemoteSwiftPackageReference "Defaults" */,
+				BA0A72402FCEBA4F00F08C06 /* XCRemoteSwiftPackageReference "swift-log" */,
+				BA0A72452FCEBA7600F08C06 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA0A707F2FCD694B00F08C06 /* Products */;
 			projectDirPath = "";
@@ -408,6 +431,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				EXCLUDED_SOURCE_FILE_NAMES = ".gitkeep";
 				PRODUCT_BUNDLE_IDENTIFIER = com.tukuyomi032.perch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -438,6 +462,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				EXCLUDED_SOURCE_FILE_NAMES = ".gitkeep";
 				PRODUCT_BUNDLE_IDENTIFIER = com.tukuyomi032.perch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -569,6 +594,61 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BA0A723B2FCEBA1A00F08C06 /* XCRemoteSwiftPackageReference "Defaults" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/Defaults";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.8;
+			};
+		};
+		BA0A72402FCEBA4F00F08C06 /* XCRemoteSwiftPackageReference "swift-log" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-log";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.13.1;
+			};
+		};
+		BA0A72452FCEBA7600F08C06 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BA0A723C2FCEBA1A00F08C06 /* Defaults */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA0A723B2FCEBA1A00F08C06 /* XCRemoteSwiftPackageReference "Defaults" */;
+			productName = Defaults;
+		};
+		BA0A723E2FCEBA1A00F08C06 /* DefaultsMacros */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA0A723B2FCEBA1A00F08C06 /* XCRemoteSwiftPackageReference "Defaults" */;
+			productName = DefaultsMacros;
+		};
+		BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA0A72402FCEBA4F00F08C06 /* XCRemoteSwiftPackageReference "swift-log" */;
+			productName = InMemoryLogging;
+		};
+		BA0A72432FCEBA4F00F08C06 /* Logging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA0A72402FCEBA4F00F08C06 /* XCRemoteSwiftPackageReference "swift-log" */;
+			productName = Logging;
+		};
+		BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA0A72452FCEBA7600F08C06 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = BA0A70762FCD694B00F08C06 /* Project object */;
 }
