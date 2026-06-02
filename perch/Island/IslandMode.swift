@@ -1,4 +1,4 @@
-import Foundation
+import CoreGraphics
 
 enum IslandMode: Equatable {
     case physicalNotch
