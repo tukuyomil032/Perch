@@ -19,14 +19,6 @@ struct WaveformView: View {
                 RoundedRectangle(cornerRadius: 1)
                     .fill(color)
                     .frame(width: barWidth, height: maxHeight * heights[i])
-                    .animation(
-                        isPlaying
-                            ? .easeInOut(duration: 0.4 + Double(i) * 0.1)
-                                .repeatForever(autoreverses: true)
-                                .delay(Double(i) * 0.12)
-                            : .easeInOut(duration: 0.2),
-                        value: heights[i]
-                    )
             }
         }
         .frame(height: maxHeight)

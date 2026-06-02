@@ -7,13 +7,14 @@ import Logging
 final class NowPlayingManager {
     private(set) var currentState: NowPlayingState?
 
+    // nonisolated(unsafe): written once in init on MainActor, read once in deinit — lifecycle guarantees no data race
     private nonisolated(unsafe) var observers: [NSObjectProtocol] = []
     private let logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
 
     init() {
         MRMediaRemote.shared.registerForNotifications()
         setupNotificationObservers()
-        Task { @MainActor in await self.refresh() }
+        Task { @MainActor [weak self] in await self?.refresh() }
     }
 
     deinit {
