@@ -1,0 +1,4 @@
+import AppKit
+
+enum IslandGeometry {
+}
