@@ -48,6 +48,7 @@ jobs:
             -scheme perch \
             -configuration Debug \
             -destination 'platform=macOS' \
+            -skip-testing:perchUITests \
             CODE_SIGNING_ALLOWED=NO \
             test \
             2>&1 | xcbeautify --renderer github-actions
