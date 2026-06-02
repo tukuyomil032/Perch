@@ -39,7 +39,7 @@ final class MRMediaRemote: @unchecked Sendable {
 
     private typealias GetNowPlayingInfoFn =
         @convention(c) (
-            DispatchQueue, @escaping ([String: Any]?) -> Void
+            DispatchQueue, @escaping (CFDictionary?) -> Void
         ) -> Void
     private typealias SendCommandFn = @convention(c) (UInt32, AnyObject?) -> Bool
     private typealias RegisterFn = @convention(c) (DispatchQueue) -> Void
@@ -73,19 +73,24 @@ final class MRMediaRemote: @unchecked Sendable {
         guard let fn = _getNowPlayingInfo else { return nil }
         nonisolated(unsafe) var result: [String: Any]? = nil
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            fn(.main) { info in
-                result = info
+            fn(.main) { cfDict in
+                result = cfDict.map { $0 as NSDictionary as? [String: Any] } ?? nil
                 continuation.resume()
             }
         }
         return result
     }
 
-    func sendCommand(_ command: MRCommand) {
-        _ = _sendCommand?(command.rawValue, nil)
+    @discardableResult
+    func sendCommand(_ command: MRCommand) -> Bool {
+        return _sendCommand?(command.rawValue, nil) ?? false
     }
 
+    private var isRegistered = false
+
     func registerForNotifications() {
+        guard !isRegistered else { return }
         _registerForNotifications?(.main)
+        isRegistered = true
     }
 }
