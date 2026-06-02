@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		BA0A723D2FCEBA1A00F08C06 /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A723C2FCEBA1A00F08C06 /* Defaults */; };
-		BA0A723F2FCEBA1A00F08C06 /* DefaultsMacros in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A723E2FCEBA1A00F08C06 /* DefaultsMacros */; };
 		BA0A72422FCEBA4F00F08C06 /* InMemoryLogging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */; };
 		BA0A72442FCEBA4F00F08C06 /* Logging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72432FCEBA4F00F08C06 /* Logging */; };
 		BA0A72472FCEBA7600F08C06 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */; };
@@ -64,7 +63,6 @@
 				BA0A72422FCEBA4F00F08C06 /* InMemoryLogging in Frameworks */,
 				BA0A72472FCEBA7600F08C06 /* KeyboardShortcuts in Frameworks */,
 				BA0A72442FCEBA4F00F08C06 /* Logging in Frameworks */,
-				BA0A723F2FCEBA1A00F08C06 /* DefaultsMacros in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -126,7 +124,6 @@
 			name = perch;
 			packageProductDependencies = (
 				BA0A723C2FCEBA1A00F08C06 /* Defaults */,
-				BA0A723E2FCEBA1A00F08C06 /* DefaultsMacros */,
 				BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */,
 				BA0A72432FCEBA4F00F08C06 /* Logging */,
 				BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */,
@@ -627,11 +624,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BA0A723B2FCEBA1A00F08C06 /* XCRemoteSwiftPackageReference "Defaults" */;
 			productName = Defaults;
-		};
-		BA0A723E2FCEBA1A00F08C06 /* DefaultsMacros */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BA0A723B2FCEBA1A00F08C06 /* XCRemoteSwiftPackageReference "Defaults" */;
-			productName = DefaultsMacros;
 		};
 		BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */ = {
 			isa = XCSwiftPackageProductDependency;
