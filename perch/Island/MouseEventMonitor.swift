@@ -28,6 +28,7 @@ final class MouseEventMonitor {
             NSEvent.removeMonitor(monitor)
             globalMonitor = nil
         }
+        cancelCollapse()
     }
 
     private func handleEvent(_ event: NSEvent) {
@@ -39,7 +40,9 @@ final class MouseEventMonitor {
         case .leftMouseDown where !isInWindow && appState.isExpanded:
             scheduleCollapse(after: 0)
         case .mouseMoved where !isInWindow && appState.isExpanded:
-            scheduleCollapse(after: Defaults[.autoCollapseDelay])
+            if collapseTask == nil {
+                scheduleCollapse(after: Defaults[.autoCollapseDelay])
+            }
         case .mouseMoved where isInWindow:
             cancelCollapse()
         default:
