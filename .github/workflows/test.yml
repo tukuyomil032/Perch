@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Unit Tests
@@ -37,6 +40,7 @@ jobs:
 
       - name: Resolve SPM dependencies
         run: |
+          set -o pipefail
           xcodebuild \
             -scheme perch \
             -resolvePackageDependencies \
