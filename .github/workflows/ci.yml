@@ -38,13 +38,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-derived-data-
 
-      - name: Resolve SPM dependencies
-        run: |
-          xcodebuild \
-            -scheme perch \
-            -resolvePackageDependencies \
-            2>&1
-
       - name: Build
         run: |
           set -o pipefail
