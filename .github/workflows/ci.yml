@@ -40,11 +40,10 @@ jobs:
 
       - name: Resolve SPM dependencies
         run: |
-          set -o pipefail
           xcodebuild \
             -scheme perch \
             -resolvePackageDependencies \
-            2>&1 | xcbeautify
+            2>&1
 
       - name: Build
         run: |
