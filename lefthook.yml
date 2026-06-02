@@ -3,7 +3,7 @@
 # Install hooks: just setup (inside nix develop)
 
 pre-commit:
-  parallel: true
+  parallel: false
   commands:
     format:
       glob: "*.swift"
