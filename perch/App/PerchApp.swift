@@ -6,7 +6,7 @@ struct PerchApp: App {
 
     var body: some Scene {
         Settings {
-            Text("Perch Settings")
+            SettingsView()
         }
     }
 }
