@@ -31,10 +31,17 @@ final class IslandWindowController: NSWindowController {
         guard let screen = NSScreen.perchPreferredScreen ?? NSScreen.main else { return }
         let notchSize = screen.perchNotchSize
         let mode: IslandMode = notchSize == .zero ? .floatingPill : .physicalNotch(notchSize: notchSize)
-        let frame = appState.isExpanded
+        let frame =
+            appState.isExpanded
             ? IslandGeometry.expandedFrame(mode: mode, screen: screen)
             : IslandGeometry.compactFrame(mode: mode, screen: screen)
-        window?.setFrame(frame, display: true, animate: true)
+        // Synchronized with SwiftUI spring(response:0.28, dampingFraction:0.65)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.28
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            context.allowsImplicitAnimation = true
+            window?.animator().setFrame(frame, display: true)
+        }
     }
 
     private func startObserving() {

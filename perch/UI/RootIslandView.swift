@@ -6,8 +6,15 @@ struct RootIslandView: View {
     @Namespace private var animation
     @Default(.animationSpeed) private var animationSpeed
 
-    private var expandAnimation: Animation {
-        .spring(response: 0.35 / animationSpeed, dampingFraction: 0.86)
+    // iOS Dynamic Island: faster response, bouncier damping
+    private var shapeAnimation: Animation {
+        .spring(response: 0.28 / animationSpeed, dampingFraction: 0.65)
+    }
+
+    // Content appears slightly after shape on expand, simultaneous on collapse
+    private var contentAnimation: Animation {
+        .spring(response: 0.30 / animationSpeed, dampingFraction: 0.70)
+            .delay(appState.isExpanded ? 0.06 : 0.0)
     }
 
     var body: some View {
@@ -17,19 +24,23 @@ struct RootIslandView: View {
                     .matchedGeometryEffect(id: "island", in: animation)
                     .transition(
                         .asymmetric(
-                            insertion: .scale(scale: 0.8).combined(with: .opacity),
-                            removal: .scale(scale: 0.8).combined(with: .opacity)
-                        ))
+                            insertion: .scale(scale: 0.92).combined(with: .opacity),
+                            removal: .scale(scale: 0.92).combined(with: .opacity)
+                        )
+                    )
+                    .animation(contentAnimation, value: appState.isExpanded)
             } else {
                 CompactPillView()
                     .matchedGeometryEffect(id: "island", in: animation)
                     .transition(
                         .asymmetric(
-                            insertion: .scale(scale: 0.8).combined(with: .opacity),
-                            removal: .scale(scale: 0.8).combined(with: .opacity)
-                        ))
+                            insertion: .scale(scale: 0.92).combined(with: .opacity),
+                            removal: .scale(scale: 0.92).combined(with: .opacity)
+                        )
+                    )
+                    .animation(contentAnimation, value: appState.isExpanded)
             }
         }
-        .animation(expandAnimation, value: appState.isExpanded)
+        .animation(shapeAnimation, value: appState.isExpanded)
     }
 }
