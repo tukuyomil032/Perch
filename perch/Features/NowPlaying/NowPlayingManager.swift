@@ -47,9 +47,46 @@ final class NowPlayingManager {
 
     // MARK: - Playback Controls
 
-    func togglePlayPause() { MRMediaRemote.shared.sendCommand(.togglePlayPause) }
-    func nextTrack() { MRMediaRemote.shared.sendCommand(.nextTrack) }
-    func previousTrack() { MRMediaRemote.shared.sendCommand(.previousTrack) }
+    func togglePlayPause() {
+        switch currentState?.source {
+        case .spotify:
+            Task { @MainActor [weak self] in _ = await self?.runAppleScript("tell application \"Spotify\" to playpause")
+            }
+        case .appleMusic:
+            Task { @MainActor [weak self] in _ = await self?.runAppleScript("tell application \"Music\" to playpause") }
+        default:
+            MRMediaRemote.shared.sendCommand(.togglePlayPause)
+        }
+    }
+
+    func nextTrack() {
+        switch currentState?.source {
+        case .spotify:
+            Task { @MainActor [weak self] in
+                _ = await self?.runAppleScript("tell application \"Spotify\" to next track")
+            }
+        case .appleMusic:
+            Task { @MainActor [weak self] in _ = await self?.runAppleScript("tell application \"Music\" to next track")
+            }
+        default:
+            MRMediaRemote.shared.sendCommand(.nextTrack)
+        }
+    }
+
+    func previousTrack() {
+        switch currentState?.source {
+        case .spotify:
+            Task { @MainActor [weak self] in
+                _ = await self?.runAppleScript("tell application \"Spotify\" to previous track")
+            }
+        case .appleMusic:
+            Task { @MainActor [weak self] in
+                _ = await self?.runAppleScript("tell application \"Music\" to previous track")
+            }
+        default:
+            MRMediaRemote.shared.sendCommand(.previousTrack)
+        }
+    }
 
     // MARK: - Spotify (DistributedNotificationCenter)
 
