@@ -67,6 +67,7 @@ struct MarqueeText: View {
                     }
                 )
                 .onAppear { containerWidth = geo.size.width }
+                .onChange(of: geo.size.width) { _, new in containerWidth = new }
         }
         .clipped()
         .onPreferenceChange(TextWidthKey.self) { width in
@@ -82,7 +83,7 @@ struct MarqueeText: View {
 
     private func startScrolling() {
         let overflow = contentWidth - containerWidth
-        guard overflow > 8 else { return }
+        guard overflow > 8, offset == 0 else { return }
         let gen = scrollGeneration
         let duration = Double(overflow) / 40.0
         Task { @MainActor in
