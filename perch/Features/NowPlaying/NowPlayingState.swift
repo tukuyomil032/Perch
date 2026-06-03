@@ -70,12 +70,12 @@ struct NowPlayingState {
 }
 
 extension NowPlayingState: Equatable {
-    // Equality includes artwork byte count so deferred full-res artwork
-    // updates (e.g. Spotify low-res → full-res) propagate even when
-    // title/artist/isPlaying haven't changed. album/timing still excluded
-    // to avoid spurious re-renders on MR timestamp ticks.
-    static func == (lhs: NowPlayingState, rhs: NowPlayingState) -> Bool {
+    // nonisolated required: Equatable.== is a nonisolated protocol requirement.
+    // All compared properties are `let` on a value type, so nonisolated access is safe.
+    // artwork uses === (reference identity): two distinct NSImage objects from different
+    // data payloads (e.g. Spotify low-res → full-res deferred update) are never ===.
+    nonisolated static func == (lhs: NowPlayingState, rhs: NowPlayingState) -> Bool {
         lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying
-            && lhs.artwork?.tiffRepresentation?.count == rhs.artwork?.tiffRepresentation?.count
+            && lhs.artwork === rhs.artwork
     }
 }
