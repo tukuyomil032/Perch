@@ -47,7 +47,7 @@ struct ExpandedIslandView: View {
             if let state = manager.currentState {
                 NowPlayingCard(state: state, manager: manager)
             } else {
-                emptyState(icon: "music.note", message: "音楽を再生してください")
+                emptyState(icon: "music.note", message: "Play some music")
             }
         case .idle:
             emptyState(icon: "bird", message: "Nothing here yet")
