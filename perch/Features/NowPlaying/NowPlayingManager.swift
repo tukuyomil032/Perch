@@ -7,7 +7,10 @@ import Logging
 final class NowPlayingManager {
     private(set) var currentState: NowPlayingState?
 
-    // nonisolated(unsafe): written once in init on MainActor, read once in deinit — lifecycle guarantees no data race
+    // nonisolated(unsafe): written once in init on MainActor, read once in deinit.
+    // @Observable macro generates observation tracking that makes `nonisolated` alone
+    // inapplicable to mutable stored properties — nonisolated(unsafe) is the correct escape.
+    // Safety: no concurrent writes; deinit read is single-threaded on dealloc.
     private nonisolated(unsafe) var observers: [NSObjectProtocol] = []
     private let logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
 

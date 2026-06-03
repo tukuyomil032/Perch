@@ -65,11 +65,11 @@ final class MRMediaRemote: @unchecked Sendable {
         _registerForNotifications = ptr("MRMediaRemoteRegisterForNowPlayingNotifications")
     }
 
-    // Async wrapper: resolves on main queue via continuation.
-    // Uses nonisolated(unsafe) to ferry the non-Sendable [String:Any]? value
-    // across the concurrency boundary from the C callback. The callback always
-    // fires on DispatchQueue.main so there is no actual data race.
-    nonisolated func fetchNowPlayingInfo() async -> [String: Any]? {
+    // @MainActor: callback always fires on .main, caller (NowPlayingManager) is @MainActor.
+    // Marking @MainActor eliminates the nonisolated→MainActor isolation crossing that would
+    // require [String:Any]? to be Sendable. nonisolated(unsafe) var ferries the value within
+    // the single actor's execution context — no data race.
+    @MainActor func fetchNowPlayingInfo() async -> [String: Any]? {
         guard let fn = _getNowPlayingInfo else { return nil }
         nonisolated(unsafe) var result: [String: Any]? = nil
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
