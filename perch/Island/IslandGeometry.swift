@@ -20,7 +20,7 @@ enum IslandGeometry {
 
     private static func expandedSize(mode: IslandMode) -> CGSize {
         switch mode {
-        case .floatingPill: return CGSize(width: 420, height: 180)
+        case .floatingPill: return CGSize(width: 420, height: 280)
         case .physicalNotch: return CGSize(width: 460, height: 190)
         }
     }
