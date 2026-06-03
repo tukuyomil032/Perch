@@ -1,7 +1,7 @@
 # Perch Development Progress
 
-**Current Phase**: Phase 1 — Core Island UI ✅
-**Last Updated**: 2026-06-02
+**Current Phase**: Phase 2c-fix 完了 → Phase 3 へ
+**Last Updated**: 2026-06-03
 
 ---
 
@@ -73,15 +73,32 @@
 - `perch/Resources/en.lproj/Localizable.strings`
 - `perch/Resources/ja.lproj/Localizable.strings`
 
-### 既知バグ（Phase 2c-fix で対応予定）
-- CI ビルド/テスト 4件失敗（PR #2）
-- YTM active tab のみ検索 → バックグラウンドタブ未検出
-- Settings ウィンドウ非表示（macOS 14+ SettingsLink 必須）
-- ピル背景色がグレー（real Dynamic Island は near-black）
-- 展開カード高さ不足（180pt → 280pt 必要）
-- YTM アートワーク未取得（iTunes/Deezer API で実装予定）
-- MRMediaRemote.sendCommand が誤った App に送信される（DMMTV 起動 / Apple Music 起動バグ）
-- コンパクトピル タイトル縦位置ずれ
+### 既知バグ（Phase 2c-fix で対応済み ✅）
+- [x] CI ビルド/テスト失敗 → swift-format 自動修正でクリア（commit `4ef8cf5`）
+- [x] YTM active tab のみ検索 → 全タブスキャンに変更（commit `e57ca77`）
+- [x] Settings ウィンドウ非表示 → activate 順序修正 + makeKeyAndOrderFront（commit `367ad83`）
+- [x] ピル背景色がグレー → VibrancyBackground に .darkAqua 強制（commit `570e427`）
+- [x] 展開カード高さ不足 → 180pt → 280pt（commit `9a382f7`）
+- [x] YTM アートワーク未取得 → iTunes Search API 実装（commit `5d60a59`）
+- [x] MRMediaRemote.sendCommand 誤送信 → Spotify/Apple Music は AppleScript 直送（commit `9f23bcb`）
+- [x] コンパクトピル タイトル縦位置ずれ → MarqueeText に maxHeight: 16 追加（commit `31686da`）
+
+---
+
+## Phase 2c-fix (2026-06-03)
+
+8件の既知バグをすべて修正。CI グリーン維持。
+
+### 修正内容
+- **CI**: swift-format lint 自動修正（import ソート・guard 改行）
+- **UI**: 展開カード高さ 280pt、ピル near-black 背景、タイトル縦中央
+- **YTM**: バックグラウンドタブ検出 + iTunes API アートワーク取得
+- **Settings**: activate → sendAction 順に変更、makeKeyAndOrderFront 追加
+- **再生コントロール**: Spotify/Apple Music は AppleScript 直送（MRMediaRemote 誤送信を排除）
+
+### 既知の制限（将来の改善候補）
+- YTM アートワーク: iTunes API の `&` を含むアーティスト名でクエリが分断される可能性
+- YTM 再生コントロール: MRMediaRemote fallback のまま（browser AppleScript 制御は未実装）
 
 ---
 
