@@ -28,6 +28,7 @@ final class NowPlayingManager {
     private nonisolated(unsafe) var dnObservers: [NSObjectProtocol] = []  // DistributedNotificationCenter
     // nonisolated(unsafe): accessed from deinit. cancel() on Task is Sendable — safe from any context.
     private nonisolated(unsafe) var ytmPollTask: Task<Void, Never>?
+    private nonisolated(unsafe) var amPositionTask: Task<Void, Never>?
     private let logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
 
     init() {
@@ -41,6 +42,7 @@ final class NowPlayingManager {
         ncObservers.forEach { NotificationCenter.default.removeObserver($0) }
         dnObservers.forEach { DistributedNotificationCenter.default().removeObserver($0) }
         ytmPollTask?.cancel()
+        amPositionTask?.cancel()
     }
 
     // MARK: - Playback Controls
@@ -158,6 +160,37 @@ final class NowPlayingManager {
         }.value
     }
 
+    // MARK: - Apple Music Position Polling
+
+    private func startAppleMusicPositionPolling() {
+        amPositionTask?.cancel()
+        amPositionTask = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.pollAppleMusicPosition()
+                try? await Task.sleep(for: .seconds(1.5))
+            }
+        }
+    }
+
+    private func pollAppleMusicPosition() async {
+        let script = """
+            tell application "Music"
+                if not running then return "-1"
+                if player state is stopped then return "-1"
+                return player position as string
+            end tell
+            """
+        guard let result = await runAppleScript(script),
+            let position = Double(result), position >= 0
+        else { return }
+        guard let state = currentState, state.source == .appleMusic else { return }
+        currentState = NowPlayingState(
+            title: state.title, artist: state.artist, album: state.album, artwork: state.artwork,
+            isPlaying: state.isPlaying, duration: state.duration,
+            elapsedTime: position, timestamp: Date(), source: state.source
+        )
+    }
+
     // MARK: - MRMediaRemote fallback
     // MRMediaRemote is registered on all versions but only produces results on macOS < 15.4.
     // Silently fails on macOS 15.4+.
@@ -190,5 +223,34 @@ final class NowPlayingManager {
         guard newState != currentState else { return }
         currentState = newState
         logger.debug("Now playing updated [\(source)]: \(newState?.title ?? "nil")")
+        guard let state = newState else {
+            amPositionTask?.cancel()
+            amPositionTask = nil
+            return
+        }
+        if state.source == .appleMusic {
+            startAppleMusicPositionPolling()
+        } else {
+            amPositionTask?.cancel()
+            amPositionTask = nil
+        }
+        Task { @MainActor [weak self] in
+            await self?.fetchAndApplyArtwork(for: state)
+        }
+    }
+
+    private func fetchAndApplyArtwork(for state: NowPlayingState) async {
+        let artwork: NSImage?
+        switch state.source {
+        case .spotify:
+            artwork = await ArtworkFetcher.shared.fetchSpotifyArtwork()
+        case .appleMusic:
+            artwork = await ArtworkFetcher.shared.fetchAppleMusicArtwork()
+        default:
+            return
+        }
+        guard let artwork else { return }
+        guard currentState == state else { return }
+        currentState = state.enriched(artwork: artwork)
     }
 }
