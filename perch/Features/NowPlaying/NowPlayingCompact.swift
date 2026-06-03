@@ -1,4 +1,3 @@
-import AppKit
 // perch/Features/NowPlaying/NowPlayingCompact.swift
 import SwiftUI
 
@@ -8,7 +7,7 @@ struct NowPlayingCompact: View {
     var body: some View {
         HStack(spacing: 6) {
             artworkThumbnail
-            titleAndArtist
+            scrollingTitle
             WaveformView(isPlaying: state.isPlaying, color: .white.opacity(0.8))
         }
         .padding(.horizontal, 8)
@@ -30,19 +29,30 @@ struct NowPlayingCompact: View {
         }
     }
 
-    private var titleAndArtist: some View {
+    private var scrollingTitle: some View {
         MarqueeText(text: state.title, font: .system(size: 11, weight: .medium))
             .foregroundStyle(.primary)
             .frame(maxWidth: 90)
     }
 }
 
+// MARK: - TextWidthKey PreferenceKey
+private struct TextWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+// MARK: - MarqueeText
 struct MarqueeText: View {
     let text: String
     let font: Font
 
     @State private var contentWidth: CGFloat = 0
+    @State private var containerWidth: CGFloat = 0
     @State private var offset: CGFloat = 0
+    @State private var scrollGeneration = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -53,27 +63,32 @@ struct MarqueeText: View {
                 .offset(x: offset)
                 .background(
                     GeometryReader { textGeo in
-                        Color.clear.onAppear {
-                            contentWidth = textGeo.size.width
-                            startScrolling(containerWidth: geo.size.width)
-                        }
+                        Color.clear.preference(key: TextWidthKey.self, value: textGeo.size.width)
                     }
                 )
+                .onAppear { containerWidth = geo.size.width }
         }
         .clipped()
+        .onPreferenceChange(TextWidthKey.self) { width in
+            contentWidth = width
+            startScrolling()
+        }
         .onChange(of: text) { _, _ in
+            scrollGeneration += 1
             offset = 0
             contentWidth = 0
         }
     }
 
-    private func startScrolling(containerWidth: CGFloat) {
+    private func startScrolling() {
         let overflow = contentWidth - containerWidth
         guard overflow > 8 else { return }
+        let gen = scrollGeneration
         let duration = Double(overflow) / 40.0
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation(.linear(duration: duration).repeatForever(autoreverses: true)) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard scrollGeneration == gen else { return }
+            withAnimation(.linear(duration: duration).repeatForever(autoreverses: false)) {
                 offset = -(overflow + 4)
             }
         }
