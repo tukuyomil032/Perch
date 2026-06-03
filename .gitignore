@@ -50,3 +50,6 @@ sparkle_private_key
 
 # Nix / direnv
 .direnv/
+
+
+docs/img/**
