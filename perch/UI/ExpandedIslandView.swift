@@ -45,12 +45,7 @@ struct ExpandedIslandView: View {
         switch appState.activeCard {
         case .nowPlaying:
             if let state = manager.currentState {
-                NowPlayingCard(
-                    state: state,
-                    onPrevious: { manager.previousTrack() },
-                    onPlayPause: { manager.togglePlayPause() },
-                    onNext: { manager.nextTrack() }
-                )
+                NowPlayingCard(state: state, manager: manager)
             } else {
                 emptyState(icon: "music.note", message: "音楽を再生してください")
             }

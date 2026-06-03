@@ -3,113 +3,77 @@ import SwiftUI
 
 struct NowPlayingCard: View {
     let state: NowPlayingState
-    var onPrevious: () -> Void
-    var onPlayPause: () -> Void
-    var onNext: () -> Void
+    let manager: NowPlayingManager
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            artworkView
-            VStack(alignment: .leading, spacing: 0) {
-                trackInfo
-                Spacer(minLength: 8)
-                controls
-                Spacer(minLength: 8)
-                progressSection
-            }
+        VStack(alignment: .leading, spacing: 12) {
+            topRow
+            progressSection
+            controlsSection
         }
         .padding(16)
     }
 
-    // MARK: - Artwork
+    // MARK: - Top Row
+
+    private var topRow: some View {
+        HStack(alignment: .center, spacing: 12) {
+            artworkView
+            trackInfo
+            Spacer()
+            WaveformView(isPlaying: state.isPlaying, color: .white.opacity(0.8))
+        }
+    }
 
     private var artworkView: some View {
         Group {
-            if let artwork = state.artwork {
-                Image(nsImage: artwork)
+            if let img = state.artwork {
+                Image(nsImage: img)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 80, height: 80)
+                    .frame(width: 100, height: 100)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .accessibilityLabel("Album art: \(state.album ?? state.title)")
             } else {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(.white.opacity(0.08))
-                    .frame(width: 80, height: 80)
+                    .fill(.white.opacity(0.12))
+                    .frame(width: 100, height: 100)
                     .overlay {
                         Image(systemName: "music.note")
-                            .font(.system(size: 28, weight: .light))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 36, weight: .light))
+                            .foregroundStyle(.white.opacity(0.4))
                     }
+                    .accessibilityLabel("No album art")
             }
         }
-        .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
     }
 
-    // MARK: - Track info
-
     private var trackInfo: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(state.title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .truncationMode(.tail)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
             Text(state.artist)
-                .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundStyle(.white.opacity(0.7))
                 .lineLimit(1)
             if let album = state.album {
                 Text(album)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(1)
             }
         }
     }
 
-    // MARK: - Playback controls
-
-    private var controls: some View {
-        HStack(spacing: 20) {
-            controlButton(systemName: "backward.fill") { onPrevious() }
-            controlButton(
-                systemName: state.isPlaying ? "pause.fill" : "play.fill",
-                size: 18
-            ) { onPlayPause() }
-            controlButton(systemName: "forward.fill") { onNext() }
-        }
-    }
-
-    private func controlButton(
-        systemName: String,
-        size: CGFloat = 14,
-        action: @escaping @MainActor () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: size, weight: .medium))
-                .foregroundStyle(.primary)
-                .frame(width: 28, height: 28)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Progress bar
+    // MARK: - Progress
 
     private var progressSection: some View {
         TimelineView(.animation(minimumInterval: 1.0, paused: !state.isPlaying)) { context in
             VStack(spacing: 4) {
                 progressBar(at: context.date)
-                HStack {
-                    Text(state.liveFormattedElapsed(at: context.date))
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.tertiary)
-                    Spacer()
-                    Text(state.formattedDuration)
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.tertiary)
-                }
+                timeLabels(at: context.date)
             }
         }
     }
@@ -121,9 +85,63 @@ struct NowPlayingCard: View {
             .overlay(alignment: .leading) {
                 GeometryReader { geo in
                     Capsule()
-                        .fill(.white.opacity(0.7))
+                        .fill(.white.opacity(0.8))
                         .frame(width: geo.size.width * state.liveProgress(at: date), height: 3)
                 }
             }
+    }
+
+    private func timeLabels(at date: Date) -> some View {
+        HStack {
+            Text(state.liveFormattedElapsed(at: date))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.6))
+            Spacer()
+            if let remaining = state.liveRemaining(at: date) {
+                Text(remaining)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.6))
+            } else {
+                Text(state.formattedDuration)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+        }
+    }
+
+    // MARK: - Controls
+
+    private var controlsSection: some View {
+        HStack(spacing: 0) {
+            Spacer()
+            controlButton(systemName: "backward.fill", action: manager.previousTrack)
+                .accessibilityLabel("Previous track")
+            Spacer()
+            controlButton(
+                systemName: state.isPlaying ? "pause.fill" : "play.fill",
+                action: manager.togglePlayPause,
+                size: 22
+            )
+            .accessibilityLabel(state.isPlaying ? "Pause" : "Play")
+            Spacer()
+            controlButton(systemName: "forward.fill", action: manager.nextTrack)
+                .accessibilityLabel("Next track")
+            Spacer()
+        }
+    }
+
+    private func controlButton(
+        systemName: String,
+        action: @escaping @MainActor () -> Void,
+        size: CGFloat = 16
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
