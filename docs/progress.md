@@ -53,6 +53,38 @@
 
 ---
 
+## Phase 2c: Now Playing 品質向上・UI大改修 (2026-06-03)
+
+### 完了タスク (T1〜T10)
+- [x] T1: IslandGeometry screen.visibleFrame 修正 / Settings statusWindow+2 昇格
+- [x] T2: YouTube Music — Chromium 9ブラウザ動的検出 (NSWorkspace.runningApplications)
+- [x] T3: NowPlayingState — MusicSource enum, liveRemaining, elapsed clamp, enriched(artwork:)
+- [x] T4: ArtworkFetcher actor 新規作成 (Spotify URL fetch / Apple Music binary descriptor)
+- [x] T5: NowPlayingManager — アートワーク取得 + Apple Music position ポーリング(1.5s)統合
+- [x] T6: WaveformView 6バー sin波 TimelineView 全面書き換え
+- [x] T7: NowPlayingCompact UI修正 (alignment .center / marquee 25px/s / source badge)
+- [x] T8: NowPlayingCard iOS Dynamic Island スタイル大改修
+- [x] T9: i18n (L10n.swift / en.lproj / ja.lproj / Settings NowPlayingTab + LanguageTab)
+- [x] T10: CodeRabbit 指摘解消 (empty state 言語統一)
+
+### 新規ファイル
+- `perch/Features/NowPlaying/ArtworkFetcher.swift`
+- `perch/Core/L10n.swift`
+- `perch/Resources/en.lproj/Localizable.strings`
+- `perch/Resources/ja.lproj/Localizable.strings`
+
+### 既知バグ（Phase 2c-fix で対応予定）
+- CI ビルド/テスト 4件失敗（PR #2）
+- YTM active tab のみ検索 → バックグラウンドタブ未検出
+- Settings ウィンドウ非表示（macOS 14+ SettingsLink 必須）
+- ピル背景色がグレー（real Dynamic Island は near-black）
+- 展開カード高さ不足（180pt → 280pt 必要）
+- YTM アートワーク未取得（iTunes/Deezer API で実装予定）
+- MRMediaRemote.sendCommand が誤った App に送信される（DMMTV 起動 / Apple Music 起動バグ）
+- コンパクトピル タイトル縦位置ずれ
+
+---
+
 ## Phase 3: AI Usage (v0.3)
 
 - [ ] T3-1: AIProvider protocol
