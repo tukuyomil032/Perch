@@ -27,7 +27,7 @@ enum IslandGeometry {
 
     private static func topOffset(mode: IslandMode) -> CGFloat {
         switch mode {
-        case .floatingPill: return 8
+        case .floatingPill: return 20
         case .physicalNotch: return 0
         }
     }
