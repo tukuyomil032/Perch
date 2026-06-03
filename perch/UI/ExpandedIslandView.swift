@@ -11,36 +11,66 @@ struct ExpandedIslandView: View {
                 )
 
             VStack(spacing: 0) {
-                HStack {
-                    Text("Perch")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button { appState.collapse() } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.tertiary)
-                            .imageScale(.medium)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-
+                header
                 Divider().opacity(0.3)
-
-                VStack(spacing: 8) {
-                    Image(systemName: "bird")
-                        .font(.system(size: 32))
-                        .foregroundStyle(.secondary)
-                    Text("Nothing here yet")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.tertiary)
-                }
-                .frame(height: 100)
-                .padding(16)
+                cardContent
             }
         }
         .frame(width: 420)
+    }
+
+    private var header: some View {
+        HStack {
+            Text("Perch")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                appState.collapse()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.tertiary)
+                    .imageScale(.medium)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
+    private var cardContent: some View {
+        let manager = appState.nowPlayingManager
+        switch appState.activeCard {
+        case .nowPlaying:
+            if let state = manager.currentState {
+                NowPlayingCard(
+                    state: state,
+                    onPrevious: { manager.previousTrack() },
+                    onPlayPause: { manager.togglePlayPause() },
+                    onNext: { manager.nextTrack() }
+                )
+            } else {
+                emptyState(icon: "music.note", message: "音楽を再生してください")
+            }
+        case .idle:
+            emptyState(icon: "bird", message: "Nothing here yet")
+        default:
+            emptyState(icon: "questionmark", message: "Coming soon")
+        }
+    }
+
+    private func emptyState(icon: String, message: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 32))
+                .foregroundStyle(.secondary)
+            Text(message)
+                .font(.system(size: 13))
+                .foregroundStyle(.tertiary)
+        }
+        .frame(height: 100)
+        .padding(16)
     }
 }
