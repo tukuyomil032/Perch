@@ -1,6 +1,15 @@
 // perch/Features/NowPlaying/NowPlayingState.swift
 import AppKit
 
+enum MusicSource: String, Sendable, Equatable {
+    case spotify = "Spotify"
+    case appleMusic = "Apple Music"
+    case youTubeMusic = "YouTube Music"
+    case mrMediaRemote = "MRMediaRemote"
+
+    var displayName: String { rawValue }
+}
+
 @MainActor
 struct NowPlayingState {
     let title: String
@@ -11,6 +20,7 @@ struct NowPlayingState {
     let duration: TimeInterval?
     let elapsedTime: TimeInterval?
     let timestamp: Date?
+    let source: MusicSource
 
     var progress: Double {
         guard let elapsed = elapsedTime, let total = duration, total > 0 else { return 0 }
@@ -25,7 +35,9 @@ struct NowPlayingState {
     func liveElapsed(at date: Date) -> TimeInterval? {
         guard let elapsed = elapsedTime else { return nil }
         guard isPlaying, let ts = timestamp else { return elapsed }
-        return elapsed + date.timeIntervalSince(ts)
+        let raw = elapsed + date.timeIntervalSince(ts)
+        if let total = duration { return min(max(0, raw), total) }
+        return max(0, raw)
     }
 
     func liveProgress(at date: Date) -> Double {
@@ -39,9 +51,42 @@ struct NowPlayingState {
         return String(format: "%d:%02d", s / 60, s % 60)
     }
 
+    func liveRemaining(at date: Date) -> String? {
+        guard let total = duration else { return nil }
+        let elapsed = liveElapsed(at: date) ?? (elapsedTime ?? 0)
+        let remaining = max(0, total - elapsed)
+        let s = Int(remaining)
+        return String(format: "-%d:%02d", s / 60, s % 60)
+    }
+
     var formattedDuration: String {
         guard let t = duration else { return "-:--" }
         return formatTime(t)
+    }
+
+    // Internal full init used for artwork enrichment and position updates
+    init(
+        title: String, artist: String, album: String?, artwork: NSImage?,
+        isPlaying: Bool, duration: TimeInterval?, elapsedTime: TimeInterval?,
+        timestamp: Date?, source: MusicSource
+    ) {
+        self.title = title
+        self.artist = artist
+        self.album = album
+        self.artwork = artwork
+        self.isPlaying = isPlaying
+        self.duration = duration
+        self.elapsedTime = elapsedTime
+        self.timestamp = timestamp
+        self.source = source
+    }
+
+    func enriched(artwork: NSImage?) -> NowPlayingState {
+        NowPlayingState(
+            title: title, artist: artist, album: album, artwork: artwork,
+            isPlaying: isPlaying, duration: duration, elapsedTime: elapsedTime,
+            timestamp: timestamp, source: source
+        )
     }
 
     private func formatTime(_ seconds: TimeInterval) -> String {
@@ -61,6 +106,7 @@ struct NowPlayingState {
         self.duration = info[MRInfoKey.duration] as? TimeInterval
         self.elapsedTime = info[MRInfoKey.elapsedTime] as? TimeInterval
         self.timestamp = info[MRInfoKey.timestamp] as? Date
+        self.source = .mrMediaRemote
         if let data = info[MRInfoKey.artworkData] as? Data {
             self.artwork = NSImage(data: data)
         } else {
@@ -72,9 +118,9 @@ struct NowPlayingState {
 extension NowPlayingState: Equatable {
     // nonisolated required: Equatable.== is a nonisolated protocol requirement.
     // NSImage is non-Sendable — accessing it from nonisolated context is rejected by Swift 6.
-    // title/artist/isPlaying are Sendable and cover all meaningful track-change signals.
+    // title/artist/isPlaying/source are Sendable and cover all meaningful track-change signals.
     nonisolated static func == (lhs: NowPlayingState, rhs: NowPlayingState) -> Bool {
-        lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying
+        lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying && lhs.source == rhs.source
     }
 }
 
@@ -100,6 +146,7 @@ extension NowPlayingState {
         self.elapsedTime = position  // already in seconds
         self.timestamp = Date()
         self.artwork = nil
+        self.source = .spotify
     }
 
     /// Apple Music: constructed from pre-extracted Sendable scalars.
@@ -119,6 +166,7 @@ extension NowPlayingState {
         self.elapsedTime = nil
         self.timestamp = nil
         self.artwork = nil
+        self.source = .appleMusic
     }
 
     /// YouTube Music: parse Chrome window title "Artist - Song - YouTube Music".
@@ -143,5 +191,6 @@ extension NowPlayingState {
         self.elapsedTime = nil
         self.timestamp = nil
         self.artwork = nil
+        self.source = .youTubeMusic
     }
 }
