@@ -56,6 +56,31 @@ actor ArtworkFetcher {
         }.value
     }
 
+    // MARK: - YouTube Music (iTunes Search API)
+
+    func fetchYouTubeMusicArtwork(title: String, artist: String) async -> NSImage? {
+        let query =
+            "\(artist) \(title)"
+            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        guard let url = URL(string: "https://itunes.apple.com/search?term=\(query)&entity=song&limit=5") else {
+            return nil
+        }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let results = json["results"] as? [[String: Any]],
+                let first = results.first,
+                let artworkURLString = first["artworkUrl100"] as? String
+            else { return nil }
+            let hiResURL = artworkURLString.replacingOccurrences(of: "100x100bb", with: "300x300bb")
+            guard let artworkURL = URL(string: hiResURL) else { return nil }
+            let (artData, _) = try await URLSession.shared.data(from: artworkURL)
+            return NSImage(data: artData)
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: - Private
 
     private func runAppleScript(_ source: String) async -> String? {

@@ -284,6 +284,8 @@ final class NowPlayingManager {
             artwork = await ArtworkFetcher.shared.fetchSpotifyArtwork()
         case .appleMusic:
             artwork = await ArtworkFetcher.shared.fetchAppleMusicArtwork()
+        case .youTubeMusic:
+            artwork = await ArtworkFetcher.shared.fetchYouTubeMusicArtwork(title: state.title, artist: state.artist)
         default:
             return
         }
