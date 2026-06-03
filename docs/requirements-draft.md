@@ -378,6 +378,26 @@ Expanded:
 | 音量表示 | B | HUDと連携 |
 | ビジュアライザー | C | 後回し |
 
+#### 検出方式（macOS 16 対応）
+
+macOS 15.4+ で MRMediaRemote がエンタイトルメント制限でブロックされるため、マルチソース検出を採用する。
+
+| ソース | アプリ | 方式 |
+|--------|--------|------|
+| DistributedNotificationCenter | Spotify | `com.spotify.client.PlaybackStateChanged` |
+| DistributedNotificationCenter | Apple Music | `com.apple.Music.playerInfo` |
+| AppleScript ポーリング（3秒） | YouTube Music | Chrome ウィンドウタイトル解析 |
+| MRMediaRemote（fallback） | 任意 | macOS < 15.4 のみ有効 |
+
+#### 必要エンタイトルメント
+
+Apple Events 一時例外（sandbox 無効のため実質不要だが明示的に記載）:
+- `com.apple.security.automation.apple-events`
+- `com.spotify.client`, `com.apple.Music`, `com.google.Chrome`
+
+アートワーク取得はフェーズ後半に AppleScript/Spotify API 経由で実装予定。
+YouTube Music の一時停止検出はタイトル変化なしのため後続フェーズで対応。
+
 ---
 
 ### 6.5 File Shelf

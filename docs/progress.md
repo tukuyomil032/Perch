@@ -41,11 +41,15 @@
 
 ## Phase 2: Now Playing (v0.2)
 
-- [ ] T2-1: NowPlayingManager（MRMediaRemote dynamic loading）
-- [ ] T2-2: NowPlayingState（データモデル）
-- [ ] T2-3: NowPlayingCard（展開 + compact表示）
-- [ ] T2-4: アニメーション演出（bounce, crossfade, 波形）
-- [ ] T2-5: 再生コントロール（play/pause/next/prev）
+- [x] T2-1: NowPlayingManager（DistributedNotificationCenter + AppleScript polling）
+- [x] T2-2: NowPlayingState（データモデル）
+- [x] T2-3: NowPlayingCard（展開 + compact表示）
+- [x] T2-4: アニメーション演出（bounce, crossfade, 波形）
+- [x] T2-5: 再生コントロール（play/pause/next/prev）
+- [x] Migration: MRMediaRemote → DistributedNotificationCenter（2026-06-03）
+  - macOS 16 blocks MRMediaRemote with Code=3 Operation not permitted
+  - Adopted multi-source detection: Spotify, Apple Music, YouTube Music (via Chrome)
+  - Fallback to MRMediaRemote for macOS < 15.4
 
 ---
 
