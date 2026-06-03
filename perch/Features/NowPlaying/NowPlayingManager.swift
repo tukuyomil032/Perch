@@ -56,7 +56,11 @@ final class NowPlayingManager {
             let durationMs = info["Duration"] as? Double
             let position = info["Playback Position"] as? Double
             MainActor.assumeIsolated { [weak self] in
-                guard let playerState, playerState != "Stopped", !name.isEmpty else { return }
+                if playerState == "Stopped" {
+                    self?.applyState(nil, source: "Spotify")
+                    return
+                }
+                guard let playerState, !name.isEmpty else { return }
                 let state = NowPlayingState(
                     spotifyPlayerState: playerState, title: name, artist: artist, album: album,
                     durationMs: durationMs, position: position
@@ -82,6 +86,10 @@ final class NowPlayingManager {
             let album = info["Album"] as? String
             let totalTime = info["Total Time"] as? Double
             MainActor.assumeIsolated { [weak self] in
+                if playerState == "Stopped" {
+                    self?.applyState(nil, source: "Apple Music")
+                    return
+                }
                 guard let playerState else { return }
                 let state = NowPlayingState(
                     appleMusicPlayerState: playerState, title: name, artist: artist, album: album,
@@ -128,7 +136,9 @@ final class NowPlayingManager {
         }.value
     }
 
-    // MARK: - MRMediaRemote fallback (macOS < 15.4)
+    // MARK: - MRMediaRemote fallback
+    // MRMediaRemote is registered on all versions but only produces results on macOS < 15.4.
+    // Silently fails on macOS 15.4+.
 
     private func attemptMRFetch() async {
         let info = await MRMediaRemote.shared.fetchNowPlayingInfo()

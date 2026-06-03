@@ -115,7 +115,7 @@ extension NowPlayingState {
         self.artist = artist
         self.album = album
         self.isPlaying = playerState == "Playing"
-        self.duration = totalTime
+        self.duration = totalTime.map { $0 / 1000.0 }  // Total Time is in ms (iTunes legacy)
         self.elapsedTime = nil
         self.timestamp = nil
         self.artwork = nil
@@ -124,7 +124,6 @@ extension NowPlayingState {
     /// YouTube Music: parse Chrome window title "Artist - Song - YouTube Music".
     /// isPlaying is always true — Chrome title doesn't change when paused (known limitation, future phase).
     init?(fromYouTubeMusicTitle windowTitle: String) {
-        let isPlaying = true
         let cleaned =
             windowTitle
             .replacingOccurrences(of: " - YouTube Music", with: "")
@@ -139,7 +138,7 @@ extension NowPlayingState {
             self.title = cleaned
         }
         self.album = nil
-        self.isPlaying = isPlaying
+        self.isPlaying = true
         self.duration = nil
         self.elapsedTime = nil
         self.timestamp = nil
