@@ -33,7 +33,7 @@ enum IslandGeometry {
     }
 
     private static func centeredFrame(size: CGSize, topOffset: CGFloat, screen: NSScreen) -> CGRect {
-        let sf = screen.frame
+        let sf = screen.visibleFrame
         return CGRect(
             x: sf.midX - size.width / 2,
             y: sf.maxY - size.height - topOffset,
