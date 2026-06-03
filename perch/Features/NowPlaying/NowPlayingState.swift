@@ -51,10 +51,12 @@ struct NowPlayingState {
 }
 
 extension NowPlayingState: Equatable {
-    // Equality is intentionally coarse: title + artist + isPlaying.
-    // NSImage does not conform to Equatable; album/timing excluded
+    // Equality includes artwork byte count so deferred full-res artwork
+    // updates (e.g. Spotify low-res → full-res) propagate even when
+    // title/artist/isPlaying haven't changed. album/timing still excluded
     // to avoid spurious re-renders on MR timestamp ticks.
     static func == (lhs: NowPlayingState, rhs: NowPlayingState) -> Bool {
         lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying
+            && lhs.artwork?.tiffRepresentation?.count == rhs.artwork?.tiffRepresentation?.count
     }
 }

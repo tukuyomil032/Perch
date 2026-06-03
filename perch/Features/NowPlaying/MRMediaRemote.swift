@@ -86,9 +86,9 @@ final class MRMediaRemote: @unchecked Sendable {
         return _sendCommand?(command.rawValue, nil) ?? false
     }
 
-    private var isRegistered = false
+    @MainActor private var isRegistered = false
 
-    func registerForNotifications() {
+    @MainActor func registerForNotifications() {
         guard !isRegistered else { return }
         _registerForNotifications?(.main)
         isRegistered = true
