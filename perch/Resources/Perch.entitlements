@@ -13,6 +13,14 @@
         <string>com.spotify.client</string>
         <string>com.apple.Music</string>
         <string>com.google.Chrome</string>
+        <string>com.google.Chrome.beta</string>
+        <string>com.google.Chrome.canary</string>
+        <string>company.thebrowser.Browser</string>
+        <string>com.brave.Browser</string>
+        <string>com.microsoft.edgemac</string>
+        <string>com.operasoftware.Opera</string>
+        <string>com.vivaldi.Vivaldi</string>
+        <string>com.pushplaylabs.sidekick</string>
     </array>
 </dict>
 </plist>

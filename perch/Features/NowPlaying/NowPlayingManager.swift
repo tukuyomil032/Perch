@@ -1,10 +1,22 @@
 // perch/Features/NowPlaying/NowPlayingManager.swift
+import AppKit
 import Foundation
 import Logging
 
 @Observable
 @MainActor
 final class NowPlayingManager {
+    private static let chromiumBrowsers: [(bundleId: String, appName: String)] = [
+        ("com.google.Chrome", "Google Chrome"),
+        ("com.google.Chrome.beta", "Google Chrome Beta"),
+        ("com.google.Chrome.canary", "Google Chrome Canary"),
+        ("company.thebrowser.Browser", "Arc"),
+        ("com.brave.Browser", "Brave Browser"),
+        ("com.microsoft.edgemac", "Microsoft Edge"),
+        ("com.operasoftware.Opera", "Opera"),
+        ("com.vivaldi.Vivaldi", "Vivaldi"),
+        ("com.pushplaylabs.sidekick", "Sidekick"),
+    ]
     private(set) var currentState: NowPlayingState?
 
     // nonisolated(unsafe): written on MainActor (setup), read in deinit (nonisolated context).
@@ -113,17 +125,27 @@ final class NowPlayingManager {
     }
 
     private func pollYouTubeMusic() async {
-        let script = """
-            tell application "Google Chrome"
-                if not running then return ""
-                if (count of windows) = 0 then return ""
-                set theTitle to title of active tab of front window
-                if theTitle contains "YouTube Music" then return theTitle
-                return ""
-            end tell
-            """
-        guard let title = await runAppleScript(script), !title.isEmpty else { return }
-        applyState(NowPlayingState(fromYouTubeMusicTitle: title), source: "YouTube Music")
+        let runningIds = Set(
+            NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier }
+        )
+        let activeBrowsers = Self.chromiumBrowsers.filter { runningIds.contains($0.bundleId) }
+        for browser in activeBrowsers {
+            let script = """
+                tell application "\(browser.appName)"
+                    if not running then return ""
+                    if (count of windows) = 0 then return ""
+                    repeat with w in windows
+                        set t to title of active tab of w
+                        if t contains "YouTube Music" then return t
+                    end repeat
+                    return ""
+                end tell
+                """
+            if let title = await runAppleScript(script), !title.isEmpty {
+                applyState(NowPlayingState(fromYouTubeMusicTitle: title), source: "YouTube Music")
+                return
+            }
+        }
     }
 
     private func runAppleScript(_ source: String) async -> String? {
