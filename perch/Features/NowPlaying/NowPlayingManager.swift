@@ -137,8 +137,9 @@ final class NowPlayingManager {
                     if not running then return ""
                     if (count of windows) = 0 then return ""
                     repeat with w in windows
-                        set t to title of active tab of w
-                        if t contains "YouTube Music" then return t
+                        repeat with t in tabs of w
+                            if title of t contains "YouTube Music" then return title of t
+                        end repeat
                     end repeat
                     return ""
                 end tell
