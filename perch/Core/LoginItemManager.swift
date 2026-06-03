@@ -1,6 +1,6 @@
 import Foundation
-import ServiceManagement
 import Logging
+import ServiceManagement
 
 enum LoginItemManager {
     private static let logger = Logger(label: "com.tukuyomi032.perch.LoginItemManager")

@@ -3,7 +3,8 @@ import AppKit
 extension NSScreen {
     var perchNotchSize: CGSize {
         guard let leftArea = auxiliaryTopLeftArea,
-              let rightArea = auxiliaryTopRightArea else {
+            let rightArea = auxiliaryTopRightArea
+        else {
             return .zero
         }
         let notchWidth = frame.width - leftArea.width - rightArea.width
@@ -13,7 +14,8 @@ extension NSScreen {
     }
 
     var isBuiltInDisplay: Bool {
-        guard let screenNumber = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else {
+        guard let screenNumber = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+        else {
             return false
         }
         return CGDisplayIsBuiltin(screenNumber) != 0

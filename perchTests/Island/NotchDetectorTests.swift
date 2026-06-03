@@ -1,26 +1,27 @@
-import Testing
-@testable import perch
-import Foundation
 import AppKit
+import Foundation
+import Testing
+
+@testable import perch
 
 struct NotchDetectorTests {
     @Test func isBuiltInDisplayPropertyExists() {
         // Compile-time verification that the property exists on NSScreen
         // Runtime execution deferred to avoid AppKit crashes in headless env
         let screenType = NSScreen.self
-        let _ = screenType // Type exists
+        let _ = screenType  // Type exists
     }
 
     @Test func notchSizePropertyExists() {
         // Compile-time verification that perchNotchSize property exists
         let screenType = NSScreen.self
-        let _ = screenType // Type exists
+        let _ = screenType  // Type exists
     }
 
     @Test func perchPreferredScreenPropertyExists() {
         // Compile-time verification that static perchPreferredScreen exists
         let screenType = NSScreen.self
-        let _ = screenType // Type exists
+        let _ = screenType  // Type exists
     }
 
     @Test func notchSizeReturnsValidCGSize() {
