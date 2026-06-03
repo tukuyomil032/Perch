@@ -1,56 +1,43 @@
 // perch/Features/NowPlaying/WaveformView.swift
 import SwiftUI
 
-/// 3本バーの再生中アニメーション。isPlaying=falseで全バーが同じ高さで静止する。
 struct WaveformView: View {
     let isPlaying: Bool
-    let color: Color
+    var color: Color = .white
 
-    @State private var heights: [CGFloat] = [0.4, 0.7, 0.5]
-
-    private let barCount = 3
-    private let barWidth: CGFloat = 2
-    private let maxHeight: CGFloat = 12
+    private let barCount = 6
+    private let barWidth: CGFloat = 2.5
+    private let maxHeight: CGFloat = 14
+    private let minHeight: CGFloat = 2
     private let spacing: CGFloat = 2
 
-    var body: some View {
-        HStack(spacing: spacing) {
-            ForEach(0..<barCount, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(color)
-                    .frame(width: barWidth, height: maxHeight * heights[i])
-            }
-        }
-        .frame(height: maxHeight)
-        .onAppear { updateHeights() }
-        .onChange(of: isPlaying) { _, _ in updateHeights() }
-    }
+    // Per-bar frequency and phase produce organic independent motion
+    private let frequencies: [Double] = [2.1, 1.7, 2.8, 1.3, 2.4, 1.9]
+    private let phases: [Double] = [0.0, 0.8, 1.6, 2.4, 3.2, 4.0]
 
-    private func updateHeights() {
-        if isPlaying {
-            for i in 0..<barCount {
-                heights[i] = [0.3, 0.8, 0.5, 0.9, 0.4][i % 5]
-                withAnimation(
-                    .easeInOut(duration: 0.4 + Double(i) * 0.1)
-                        .repeatForever(autoreverses: true)
-                        .delay(Double(i) * 0.12)
-                ) {
-                    heights[i] = [0.9, 0.4, 1.0, 0.3, 0.8][i % 5]
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 15.0, paused: !isPlaying)) { context in
+            HStack(spacing: spacing) {
+                ForEach(0..<barCount, id: \.self) { i in
+                    let h = barHeight(index: i, date: isPlaying ? context.date : nil)
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(color)
+                        .frame(width: barWidth, height: h)
+                        .animation(.easeInOut(duration: 0.15), value: isPlaying)
                 }
             }
-        } else {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                heights = [0.4, 0.4, 0.4]
-            }
         }
+        .frame(
+            width: CGFloat(barCount) * (barWidth + spacing) - spacing,
+            height: maxHeight
+        )
     }
-}
 
-#Preview {
-    HStack(spacing: 16) {
-        WaveformView(isPlaying: true, color: .white)
-        WaveformView(isPlaying: false, color: .secondary)
+    private func barHeight(index i: Int, date: Date?) -> CGFloat {
+        guard let date else { return minHeight }
+        let t = date.timeIntervalSince1970
+        let raw = sin(t * frequencies[i] + phases[i])
+        let normalized = CGFloat(raw * 0.5 + 0.5)
+        return minHeight + (maxHeight - minHeight) * (0.25 + 0.70 * normalized)
     }
-    .padding()
-    .background(.black)
 }
