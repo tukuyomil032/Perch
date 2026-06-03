@@ -77,3 +77,70 @@ extension NowPlayingState: Equatable {
         lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying
     }
 }
+
+// MARK: - DistributedNotification initializers
+
+extension NowPlayingState {
+    /// Spotify: constructed from pre-extracted Sendable scalars (caller extracts from userInfo
+    /// in a nonisolated context; only Sendable values cross the isolation boundary).
+    init?(
+        spotifyPlayerState playerState: String,
+        title: String,
+        artist: String,
+        album: String?,
+        durationMs: Double?,
+        position: Double?
+    ) {
+        guard playerState != "Stopped", !title.isEmpty else { return nil }
+        self.title = title
+        self.artist = artist
+        self.album = album
+        self.isPlaying = playerState == "Playing"
+        self.duration = durationMs.map { $0 / 1000.0 }  // ms → seconds
+        self.elapsedTime = position  // already in seconds
+        self.timestamp = Date()
+        self.artwork = nil
+    }
+
+    /// Apple Music: constructed from pre-extracted Sendable scalars.
+    init?(
+        appleMusicPlayerState playerState: String,
+        title: String,
+        artist: String,
+        album: String?,
+        totalTime: Double?
+    ) {
+        guard playerState != "Stopped", !title.isEmpty else { return nil }
+        self.title = title
+        self.artist = artist
+        self.album = album
+        self.isPlaying = playerState == "Playing"
+        self.duration = totalTime
+        self.elapsedTime = nil
+        self.timestamp = nil
+        self.artwork = nil
+    }
+
+    /// YouTube Music: parse Chrome window title "Artist - Song - YouTube Music"
+    init?(fromYouTubeMusicTitle windowTitle: String, isPlaying: Bool) {
+        let cleaned =
+            windowTitle
+            .replacingOccurrences(of: " - YouTube Music", with: "")
+            .trimmingCharacters(in: .whitespaces)
+        guard !cleaned.isEmpty, cleaned != "YouTube Music" else { return nil }
+        let parts = cleaned.components(separatedBy: " - ")
+        if parts.count >= 2 {
+            self.artist = parts[0]
+            self.title = parts[1...].joined(separator: " - ")
+        } else {
+            self.artist = ""
+            self.title = cleaned
+        }
+        self.album = nil
+        self.isPlaying = isPlaying
+        self.duration = nil
+        self.elapsedTime = nil
+        self.timestamp = nil
+        self.artwork = nil
+    }
+}
