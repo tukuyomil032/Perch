@@ -98,21 +98,23 @@ struct NowPlayingCard: View {
     // MARK: - Progress bar
 
     private var progressSection: some View {
-        VStack(spacing: 4) {
-            progressBar
-            HStack {
-                Text(state.formattedElapsed)
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.tertiary)
-                Spacer()
-                Text(state.formattedDuration)
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.tertiary)
+        TimelineView(.animation(minimumInterval: 1.0, paused: !state.isPlaying)) { context in
+            VStack(spacing: 4) {
+                progressBar(at: context.date)
+                HStack {
+                    Text(state.liveFormattedElapsed(at: context.date))
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                    Text(state.formattedDuration)
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
     }
 
-    private var progressBar: some View {
+    private func progressBar(at date: Date) -> some View {
         Capsule()
             .fill(.white.opacity(0.15))
             .frame(height: 3)
@@ -120,7 +122,7 @@ struct NowPlayingCard: View {
                 GeometryReader { geo in
                     Capsule()
                         .fill(.white.opacity(0.7))
-                        .frame(width: geo.size.width * state.progress, height: 3)
+                        .frame(width: geo.size.width * state.liveProgress(at: date), height: 3)
                 }
             }
     }

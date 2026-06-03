@@ -10,6 +10,7 @@ struct NowPlayingState {
     let isPlaying: Bool
     let duration: TimeInterval?
     let elapsedTime: TimeInterval?
+    let timestamp: Date?
 
     var progress: Double {
         guard let elapsed = elapsedTime, let total = duration, total > 0 else { return 0 }
@@ -19,6 +20,23 @@ struct NowPlayingState {
     var formattedElapsed: String {
         guard let t = elapsedTime else { return "-:--" }
         return formatTime(t)
+    }
+
+    func liveElapsed(at date: Date) -> TimeInterval? {
+        guard let elapsed = elapsedTime else { return nil }
+        guard isPlaying, let ts = timestamp else { return elapsed }
+        return elapsed + date.timeIntervalSince(ts)
+    }
+
+    func liveProgress(at date: Date) -> Double {
+        guard let elapsed = liveElapsed(at: date), let total = duration, total > 0 else { return 0 }
+        return min(elapsed / total, 1.0)
+    }
+
+    func liveFormattedElapsed(at date: Date) -> String {
+        guard let t = liveElapsed(at: date) else { return "-:--" }
+        let s = max(0, Int(t))
+        return String(format: "%d:%02d", s / 60, s % 60)
     }
 
     var formattedDuration: String {
@@ -42,6 +60,7 @@ struct NowPlayingState {
         self.isPlaying = (info[MRInfoKey.playbackRate] as? Double ?? 0) > 0
         self.duration = info[MRInfoKey.duration] as? TimeInterval
         self.elapsedTime = info[MRInfoKey.elapsedTime] as? TimeInterval
+        self.timestamp = info[MRInfoKey.timestamp] as? Date
         if let data = info[MRInfoKey.artworkData] as? Data {
             self.artwork = NSImage(data: data)
         } else {
