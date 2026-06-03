@@ -3,6 +3,7 @@ import SwiftUI
 struct CompactPillView: View {
     @Environment(AppState.self) private var appState
     @State private var isHovered = false
+    @State private var isBouncing = false
 
     var body: some View {
         ZStack {
@@ -11,9 +12,18 @@ struct CompactPillView: View {
         }
         .clipShape(Capsule())
         .frame(width: 150, height: 34)
-        .scaleEffect(isHovered ? 1.03 : 1.0)
+        .scaleEffect(isBouncing ? 1.05 : (isHovered ? 1.03 : 1.0))
         .animation(DesignSystem.springAnimation, value: isHovered)
         .onHover { isHovered = $0 }
+        .onChange(of: appState.nowPlayingManager.currentState?.title) { _, newTitle in
+            guard newTitle != nil else { return }
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) {
+                isBouncing = true
+            }
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.8).delay(0.15)) {
+                isBouncing = false
+            }
+        }
         .onTapGesture {
             let card: IslandCard = appState.nowPlayingManager.currentState != nil ? .nowPlaying : .idle
             appState.expand(to: card)
