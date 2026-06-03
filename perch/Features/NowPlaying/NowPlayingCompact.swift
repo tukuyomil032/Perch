@@ -44,7 +44,7 @@ struct NowPlayingCompact: View {
     private var scrollingTitle: some View {
         MarqueeText(text: trackLabel, font: .system(size: 11, weight: .medium))
             .foregroundStyle(.white)
-            .frame(maxWidth: 120)
+            .frame(maxWidth: 120, maxHeight: 16)
     }
 }
 
