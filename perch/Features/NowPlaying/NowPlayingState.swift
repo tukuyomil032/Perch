@@ -121,8 +121,10 @@ extension NowPlayingState {
         self.artwork = nil
     }
 
-    /// YouTube Music: parse Chrome window title "Artist - Song - YouTube Music"
-    init?(fromYouTubeMusicTitle windowTitle: String, isPlaying: Bool) {
+    /// YouTube Music: parse Chrome window title "Artist - Song - YouTube Music".
+    /// isPlaying is always true — Chrome title doesn't change when paused (known limitation, future phase).
+    init?(fromYouTubeMusicTitle windowTitle: String) {
+        let isPlaying = true
         let cleaned =
             windowTitle
             .replacingOccurrences(of: " - YouTube Music", with: "")

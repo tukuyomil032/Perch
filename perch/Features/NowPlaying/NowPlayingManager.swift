@@ -115,7 +115,7 @@ final class NowPlayingManager {
             end tell
             """
         guard let title = await runAppleScript(script), !title.isEmpty else { return }
-        applyState(NowPlayingState(fromYouTubeMusicTitle: title, isPlaying: true), source: "YouTube Music")
+        applyState(NowPlayingState(fromYouTubeMusicTitle: title), source: "YouTube Music")
     }
 
     private func runAppleScript(_ source: String) async -> String? {
