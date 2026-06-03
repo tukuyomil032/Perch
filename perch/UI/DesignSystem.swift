@@ -19,6 +19,7 @@ struct VibrancyBackground: NSViewRepresentable {
         view.material = .hudWindow
         view.blendingMode = .behindWindow
         view.state = .active
+        view.appearance = NSAppearance(named: .darkAqua)
         return view
     }
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
