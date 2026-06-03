@@ -1,0 +1,17 @@
+/* Now Playing */
+"nowplaying.playing" = "再生中";
+"nowplaying.paused" = "一時停止中";
+"nowplaying.no_artwork" = "アートワークなし";
+"nowplaying.no_album_art" = "アルバムアートなし";
+
+/* Settings */
+"settings.general" = "一般";
+"settings.island" = "アイランド";
+"settings.nowplaying" = "Now Playing";
+"settings.language" = "言語";
+"settings.show_source" = "ピルに音楽ソースを表示";
+"settings.language_picker" = "言語設定";
+"settings.launch_at_login" = "ログイン時に起動";
+"settings.show_all_spaces" = "全スペースに表示";
+"settings.animation_speed" = "アニメーション速度";
+"settings.auto_collapse" = "自動折りたたみ";

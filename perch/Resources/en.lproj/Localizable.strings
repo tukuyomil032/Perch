@@ -1,0 +1,17 @@
+/* Now Playing */
+"nowplaying.playing" = "Playing";
+"nowplaying.paused" = "Paused";
+"nowplaying.no_artwork" = "No artwork";
+"nowplaying.no_album_art" = "No album art";
+
+/* Settings */
+"settings.general" = "General";
+"settings.island" = "Island";
+"settings.nowplaying" = "Now Playing";
+"settings.language" = "Language";
+"settings.show_source" = "Show music source in pill";
+"settings.language_picker" = "Language";
+"settings.launch_at_login" = "Launch at login";
+"settings.show_all_spaces" = "Show on all Spaces";
+"settings.animation_speed" = "Animation speed";
+"settings.auto_collapse" = "Auto-collapse delay";
