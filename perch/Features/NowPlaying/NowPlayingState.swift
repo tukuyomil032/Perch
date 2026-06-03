@@ -75,7 +75,12 @@ extension NowPlayingState: Equatable {
     // artwork uses === (reference identity): two distinct NSImage objects from different
     // data payloads (e.g. Spotify low-res → full-res deferred update) are never ===.
     nonisolated static func == (lhs: NowPlayingState, rhs: NowPlayingState) -> Bool {
-        lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying
-            && lhs.artwork === rhs.artwork
+        // &&'s RHS is @autoclosure — NSImage? (@MainActor) cannot appear in a nonisolated
+        // autoclosure. Use guard to compare Sendable fields first, then return for NSImage.
+        guard lhs.title == rhs.title,
+            lhs.artist == rhs.artist,
+            lhs.isPlaying == rhs.isPlaying
+        else { return false }
+        return lhs.artwork === rhs.artwork
     }
 }
