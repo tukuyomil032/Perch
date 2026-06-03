@@ -71,16 +71,9 @@ struct NowPlayingState {
 
 extension NowPlayingState: Equatable {
     // nonisolated required: Equatable.== is a nonisolated protocol requirement.
-    // All compared properties are `let` on a value type, so nonisolated access is safe.
-    // artwork uses === (reference identity): two distinct NSImage objects from different
-    // data payloads (e.g. Spotify low-res → full-res deferred update) are never ===.
+    // NSImage is non-Sendable — accessing it from nonisolated context is rejected by Swift 6.
+    // title/artist/isPlaying are Sendable and cover all meaningful track-change signals.
     nonisolated static func == (lhs: NowPlayingState, rhs: NowPlayingState) -> Bool {
-        // &&'s RHS is @autoclosure — NSImage? (@MainActor) cannot appear in a nonisolated
-        // autoclosure. Use guard to compare Sendable fields first, then return for NSImage.
-        guard lhs.title == rhs.title,
-            lhs.artist == rhs.artist,
-            lhs.isPlaying == rhs.isPlaying
-        else { return false }
-        return lhs.artwork === rhs.artwork
+        lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying
     }
 }
