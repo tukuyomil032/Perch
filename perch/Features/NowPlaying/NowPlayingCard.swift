@@ -1,10 +1,11 @@
-import AppKit
 // perch/Features/NowPlaying/NowPlayingCard.swift
 import SwiftUI
 
 struct NowPlayingCard: View {
     let state: NowPlayingState
-    let manager: NowPlayingManager
+    var onPrevious: () -> Void
+    var onPlayPause: () -> Void
+    var onNext: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -52,6 +53,7 @@ struct NowPlayingCard: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
+                .truncationMode(.tail)
             Text(state.artist)
                 .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(.secondary)
@@ -69,18 +71,12 @@ struct NowPlayingCard: View {
 
     private var controls: some View {
         HStack(spacing: 20) {
-            controlButton(systemName: "backward.fill") {
-                manager.previousTrack()
-            }
+            controlButton(systemName: "backward.fill") { onPrevious() }
             controlButton(
                 systemName: state.isPlaying ? "pause.fill" : "play.fill",
                 size: 18
-            ) {
-                manager.togglePlayPause()
-            }
-            controlButton(systemName: "forward.fill") {
-                manager.nextTrack()
-            }
+            ) { onPlayPause() }
+            controlButton(systemName: "forward.fill") { onNext() }
         }
     }
 
@@ -103,17 +99,7 @@ struct NowPlayingCard: View {
 
     private var progressSection: some View {
         VStack(spacing: 4) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(.white.opacity(0.15))
-                        .frame(height: 3)
-                    Capsule()
-                        .fill(.white.opacity(0.7))
-                        .frame(width: geo.size.width * state.progress, height: 3)
-                }
-            }
-            .frame(height: 3)
+            progressBar
             HStack {
                 Text(state.formattedElapsed)
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
@@ -124,5 +110,18 @@ struct NowPlayingCard: View {
                     .foregroundStyle(.tertiary)
             }
         }
+    }
+
+    private var progressBar: some View {
+        Capsule()
+            .fill(.white.opacity(0.15))
+            .frame(height: 3)
+            .overlay(alignment: .leading) {
+                GeometryReader { geo in
+                    Capsule()
+                        .fill(.white.opacity(0.7))
+                        .frame(width: geo.size.width * state.progress, height: 3)
+                }
+            }
     }
 }
