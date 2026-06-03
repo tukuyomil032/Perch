@@ -1,14 +1,17 @@
 // perch/Features/NowPlaying/NowPlayingCompact.swift
+import Defaults
 import SwiftUI
 
 struct NowPlayingCompact: View {
     let state: NowPlayingState
+    @Default(.showNowPlayingSource) private var showSource
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(alignment: .center, spacing: 6) {
             artworkThumbnail
             scrollingTitle
             WaveformView(isPlaying: state.isPlaying, color: .white.opacity(0.8))
+                .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
         }
         .padding(.horizontal, 8)
     }
@@ -19,20 +22,29 @@ struct NowPlayingCompact: View {
             Image(nsImage: artwork)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 20, height: 20)
-                .clipShape(Capsule())
+                .frame(width: 22, height: 22)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
         } else {
             Image(systemName: "music.note")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 20, height: 20)
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(width: 22, height: 22)
+                .accessibilityLabel("No album art")
         }
     }
 
+    private var trackLabel: String {
+        var label = "\(state.title) — \(state.artist)"
+        if showSource {
+            label += " | \(state.source.displayName)"
+        }
+        return label
+    }
+
     private var scrollingTitle: some View {
-        MarqueeText(text: state.title, font: .system(size: 11, weight: .medium))
-            .foregroundStyle(.primary)
-            .frame(maxWidth: 90)
+        MarqueeText(text: trackLabel, font: .system(size: 11, weight: .medium))
+            .foregroundStyle(.white)
+            .frame(maxWidth: 120)
     }
 }
 
@@ -85,7 +97,7 @@ struct MarqueeText: View {
         let overflow = contentWidth - containerWidth
         guard overflow > 8, offset == 0 else { return }
         let gen = scrollGeneration
-        let duration = Double(overflow) / 40.0
+        let duration = Double(overflow) / 25.0  // 40 → 25 px/s (slower)
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.5))
             guard scrollGeneration == gen else { return }
