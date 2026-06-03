@@ -13,6 +13,7 @@ struct CompactPillView: View {
         .clipShape(Capsule())
         .frame(width: 150, height: 34)
         .scaleEffect(isBouncing ? 1.05 : (isHovered ? 1.03 : 1.0))
+        .animation(.spring(response: 0.2, dampingFraction: 0.5), value: isBouncing)
         .animation(DesignSystem.springAnimation, value: isHovered)
         .onHover { isHovered = $0 }
         .onChange(of: appState.nowPlayingManager.currentState?.title) { _, newTitle in
@@ -32,12 +33,16 @@ struct CompactPillView: View {
 
     @ViewBuilder
     private var pillContent: some View {
-        if let state = appState.nowPlayingManager.currentState {
-            NowPlayingCompact(state: state)
-                .transition(.opacity.combined(with: .scale(scale: 0.95)))
-        } else {
-            defaultContent
+        Group {
+            if let state = appState.nowPlayingManager.currentState {
+                NowPlayingCompact(state: state)
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            } else {
+                defaultContent
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
         }
+        .animation(DesignSystem.springAnimation, value: appState.nowPlayingManager.currentState != nil)
     }
 
     private var defaultContent: some View {
