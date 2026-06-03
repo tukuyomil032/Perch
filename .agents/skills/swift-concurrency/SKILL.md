@@ -247,3 +247,62 @@ await withTaskGroup(of: AIUsageSnapshot?.self) { group in
 - `UNUserNotificationCenter` は `@MainActor` コンテキストから呼ぶ
 - カスタムサウンドのファイルコピーは `Task.detached` でバックグラウンド実行
 - Provider refresh の結果を `@MainActor` の Store に戻す際は `await MainActor.run {}` を使わず、Store自体を `@MainActor` にすることで自然に遷移させる
+
+### Private Framework Dynamic Loading (MRMediaRemote Pattern)
+CFBundle + unsafeBitCast で private framework を動的ロードする場合のコンカレンシー処理:
+
+```swift
+// ✅ C callbackから[String:Any]?を渡す際のSendable回避パターン
+final class MRMediaRemote: @unchecked Sendable {
+    static let shared = MRMediaRemote()
+
+    // C callbackの型シグネチャはCFDictionary?で受け、NSDictionaryブリッジする
+    private typealias GetNowPlayingInfoFn =
+        @convention(c) (DispatchQueue, @escaping (CFDictionary?) -> Void) -> Void
+
+    // ✅ @MainActor を付ける — nonisolatedにすると [String:Any]?（non-Sendable）が
+    // nonisolated→MainActor の境界を越えられずSwift 6 CIでエラーになる。
+    // callbackは常に.mainで発火するので@MainActorは正しい。
+    @MainActor func fetchNowPlayingInfo() async -> [String: Any]? {
+        guard let fn = _getNowPlayingInfo else { return nil }
+        // nonisolated(unsafe)はC callbackが常に.mainで発火するため安全
+        // CheckedContinuationはSendableでない[String:Any]?を直接returnできないため必要
+        nonisolated(unsafe) var result: [String: Any]? = nil
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            fn(.main) { cfDict in
+                result = cfDict.map { $0 as NSDictionary as? [String: Any] } ?? nil
+                continuation.resume()
+            }
+        }
+        return result
+    }
+
+    // @unchecked Sendable クラスのミュータブルプロパティはMainActor注釈で安全性をコンパイラに伝える
+    @MainActor private var isRegistered = false
+    @MainActor func registerForNotifications() {
+        guard !isRegistered else { return }
+        _registerForNotifications?(.main)
+        isRegistered = true
+    }
+}
+```
+
+**落とし穴**: `@unchecked Sendable` はコンパイラの検査をバイパスするため、ミュータブルプロパティは手動で安全性を担保する必要がある。単一の呼び出し元しかない場合でも `@MainActor` 注釈を付けてコンパイラに伝えること。
+
+### NotificationCenter Observer Cleanup in @MainActor deinit
+`@Observable @MainActor` クラスで `NotificationCenter` のオブザーバーを deinit でクリーンアップする場合:
+
+```swift
+@Observable @MainActor
+final class NowPlayingManager {
+    // deinitはnonisolated。MainActor-isolatedなプロパティへのアクセス不可。
+    // nonisolated(unsafe)はinit後書き込みなし・deinitで一度だけ読み込まれるため安全
+    nonisolated(unsafe) var observers: [NSObjectProtocol] = []
+
+    deinit {
+        observers.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+}
+```
+
+**ルール**: `deinit` は nonisolated のため `@MainActor` プロパティへのアクセス不可。Observer配列は `nonisolated(unsafe)` にして init 後は読み取り専用とし、安全性のコメントを必ず添える。
