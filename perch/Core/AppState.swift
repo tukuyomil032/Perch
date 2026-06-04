@@ -8,6 +8,8 @@ final class AppState {
     var activeCard: IslandCard = .idle
     var latestError: String?
 
+    var openSettingsAction: (() -> Void)?
+
     let nowPlayingManager = NowPlayingManager()
 
     private let logger = Logger(label: "com.tukuyomi032.perch.AppState")

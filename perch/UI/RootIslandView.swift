@@ -3,6 +3,7 @@ import SwiftUI
 
 struct RootIslandView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.openSettings) private var openSettings
     @Namespace private var animation
     @Default(.animationSpeed) private var animationSpeed
 
@@ -40,5 +41,6 @@ struct RootIslandView: View {
             }
         }
         .animation(shapeAnimation, value: appState.isExpanded)
+        .onAppear { appState.openSettingsAction = { openSettings() } }
     }
 }

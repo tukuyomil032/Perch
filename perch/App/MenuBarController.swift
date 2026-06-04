@@ -3,8 +3,10 @@ import AppKit
 @MainActor
 final class MenuBarController {
     private let statusItem: NSStatusItem
+    private let appState: AppState
 
-    init() {
+    init(appState: AppState) {
+        self.appState = appState
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         configure()
     }
@@ -25,11 +27,13 @@ final class MenuBarController {
 
     @objc private func openSettings() {
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            let islandLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 1)
-            for win in NSApp.windows where win.level != islandLevel && win.isVisible && win.canBecomeKey {
-                win.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 2)
+        if let action = appState.openSettingsAction {
+            action()
+        } else {
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            for win in NSApp.windows where win.canBecomeKey && win.isVisible {
                 win.makeKeyAndOrderFront(nil)
             }
         }

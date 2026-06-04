@@ -13,7 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         logger.info("Perch launching")
         NSApp.setActivationPolicy(.accessory)
 
-        menuBarController = MenuBarController()
+        menuBarController = MenuBarController(appState: appState)
         windowController = IslandWindowController(appState: appState)
         mouseMonitor = MouseEventMonitor(
             appState: appState,
