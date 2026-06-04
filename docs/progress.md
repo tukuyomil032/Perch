@@ -1,7 +1,7 @@
 # Perch Development Progress
 
-**Current Phase**: Phase 2c-fix 完了 → Phase 3 へ
-**Last Updated**: 2026-06-03
+**Current Phase**: Phase 2d 完了 → Phase 3 へ
+**Last Updated**: 2026-06-04
 
 ---
 
@@ -99,6 +99,35 @@
 ### 既知の制限（将来の改善候補）
 - YTM アートワーク: iTunes API の `&` を含むアーティスト名でクエリが分断される可能性
 - YTM 再生コントロール: MRMediaRemote fallback のまま（browser AppleScript 制御は未実装）
+
+---
+
+## Phase 2d: NowPlaying Stability & UX Polish (2026-06-04)
+
+### 完了タスク
+
+- [x] T1: YTM title/artist 逆転修正 (`fromYouTubeMusicTitle` parts[0]=title に修正)
+- [x] T1: `thumbnailURL: URL?` を NowPlayingState に追加 + `init?(fromYouTubeMusicJS:)` 新規
+- [x] T1: Equatable に `thumbnailURL` を追加（サムネイル専用更新の取りこぼし防止）
+- [x] T2: ソース優先度システム — MRMediaRemote(1) < YTM(2) < Spotify/AM(3)
+- [x] T3: YTM JS injection (`pollYouTubeMusicJS`) — DOM から title/artist/thumbnail/playing を直接取得
+- [x] T3: ArtworkFetcher — thumbnailURL 直接取得 + iTunes API ベストマッチ改善
+- [x] T4: アートワーク carry-forward — 曲切替時に旧アートワークを維持してフラッシュ防止
+- [x] T5: コンパクトピル "title — artist" フォーマット（ソースバッジ削除）
+- [x] T6: マーキーテキスト async ループ化（5 秒ポーズ + race condition 修正）
+- [x] T7: 波形カラーテーマ — `NSImage+DominantColor` (CIAreaAverage + 彩度ブースト)
+- [x] T7: CIContext キャッシュ（static let）でパフォーマンス最適化
+- [x] T8: ソース設定トグル — Spotify / Apple Music / YouTube Music 個別有効化
+
+### 新規ファイル
+- `perch/Core/NSImage+DominantColor.swift`
+
+### 既知の制限（将来の改善候補）
+- YTM JS injection: YTM DOM 構造が変わると CSS セレクタが壊れる可能性（タブタイトル解析にフォールバック）
+- YTM 再生コントロール: MRMediaRemote fallback のまま（AppleScript ブラウザ制御は未実装）
+- YTM タブ閉じ時: currentState がクリアされない（次のポーリングまで残留）
+- ソース無効化時: アクティブな再生状態がすぐにクリアされない（次の更新まで残留）
+- `init?(fromYouTubeMusicJS:)`: ユニットテスト未実装
 
 ---
 
