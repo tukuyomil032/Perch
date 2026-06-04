@@ -334,10 +334,24 @@ final class NowPlayingManager {
         if newState == nil, let current = currentState {
             guard Self.sourcePriority(source) >= Self.sourcePriority(current.source.rawValue) else { return }
         }
-        guard newState != currentState else { return }
-        currentState = newState
-        logger.debug("Now playing updated [\(source)]: \(newState?.title ?? "nil")")
-        guard let state = newState else {
+        // Carry forward previous artwork during track transitions (same source).
+        // Prevents the music-note placeholder from flashing until new artwork is fetched.
+        var stateToApply = newState
+        if let new = newState, new.artwork == nil,
+            let old = currentState, old.artwork != nil,
+            new.source == old.source
+        {
+            stateToApply = NowPlayingState(
+                title: new.title, artist: new.artist, album: new.album, artwork: old.artwork,
+                thumbnailURL: new.thumbnailURL,
+                isPlaying: new.isPlaying, duration: new.duration,
+                elapsedTime: new.elapsedTime, timestamp: new.timestamp, source: new.source
+            )
+        }
+        guard stateToApply != currentState else { return }
+        currentState = stateToApply
+        logger.debug("Now playing updated [\(source)]: \(stateToApply?.title ?? "nil")")
+        guard let state = stateToApply else {
             amPositionTask?.cancel()
             amPositionTask = nil
             return
