@@ -1,5 +1,6 @@
 // perch/Features/NowPlaying/NowPlayingManager.swift
 import AppKit
+import Defaults
 import Foundation
 import Logging
 
@@ -329,6 +330,15 @@ final class NowPlayingManager {
     // MARK: - State Application
 
     private func applyState(_ newState: NowPlayingState?, source: String) {
+        // Respect per-source enable settings
+        if let incoming = newState {
+            switch incoming.source {
+            case .spotify where !Defaults[.enableSpotify]: return
+            case .appleMusic where !Defaults[.enableAppleMusic]: return
+            case .youTubeMusic where !Defaults[.enableYouTubeMusic]: return
+            default: break
+            }
+        }
         // Prevent lower-priority source from clearing higher-priority active state.
         // MRMediaRemote returning nil (blocked on macOS 16) must not override Spotify.
         if newState == nil, let current = currentState {

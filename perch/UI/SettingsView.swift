@@ -6,7 +6,6 @@ struct SettingsView: View {
     @Default(.animationSpeed) var animationSpeed
     @Default(.autoCollapseDelay) var autoCollapseDelay
     @Default(.showInAllSpaces) var showInAllSpaces
-    @Default(.showNowPlayingSource) var showNowPlayingSource
     @Default(.languageCode) var languageCode
 
     var body: some View {
@@ -15,7 +14,7 @@ struct SettingsView: View {
                 .tabItem { Label("General", systemImage: "gearshape") }
             IslandTab(animationSpeed: $animationSpeed, autoCollapseDelay: $autoCollapseDelay)
                 .tabItem { Label("Island", systemImage: "rectangle.topthird.inset.filled") }
-            NowPlayingTab(showNowPlayingSource: $showNowPlayingSource)
+            NowPlayingTab()
                 .tabItem { Label("Now Playing", systemImage: "music.note") }
             LanguageTab(languageCode: $languageCode)
                 .tabItem { Label("Language", systemImage: "globe") }
@@ -72,11 +71,17 @@ private struct IslandTab: View {
 }
 
 private struct NowPlayingTab: View {
-    @Binding var showNowPlayingSource: Bool
+    @Default(.enableSpotify) private var enableSpotify
+    @Default(.enableAppleMusic) private var enableAppleMusic
+    @Default(.enableYouTubeMusic) private var enableYouTubeMusic
 
     var body: some View {
         Form {
-            Toggle("Show music source in pill", isOn: $showNowPlayingSource)
+            Section("Sources") {
+                Toggle("Spotify", isOn: $enableSpotify)
+                Toggle("Apple Music", isOn: $enableAppleMusic)
+                Toggle("YouTube Music", isOn: $enableYouTubeMusic)
+            }
         }
         .formStyle(.grouped)
         .padding()
