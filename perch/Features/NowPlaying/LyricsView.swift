@@ -44,7 +44,8 @@ struct LyricsView: View {
             }
             .onAppear {
                 guard let idx = activeIndex else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(100))
                     proxy.scrollTo(lines[idx].id, anchor: UnitPoint(x: 0.5, y: 0.35))
                 }
             }
