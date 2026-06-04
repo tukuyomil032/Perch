@@ -1,6 +1,6 @@
 // perch/Core/NSImage+DominantColor.swift
 import AppKit
-import CoreImage
+@preconcurrency import CoreImage
 import SwiftUI
 
 extension NSImage {
