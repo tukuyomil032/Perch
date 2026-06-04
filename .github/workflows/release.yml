@@ -6,14 +6,16 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: macos-15
-    permissions:
-      contents: write
     env:
       SCHEME: perch
       APP_NAME: perch
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,58 +27,76 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Build arm64
+      - name: Build arm64 archive
         run: |
+          set -o pipefail
           xcodebuild archive \
             -scheme "$SCHEME" \
             -configuration Release \
-            -destination 'platform=macOS,arch=arm64' \
-            -archivePath "$RUNNER_TEMP/$APP_NAME-arm64.xcarchive" \
+            -archivePath build/$APP_NAME-arm64.xcarchive \
+            -destination 'generic/platform=macOS' \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             SKIP_INSTALL=NO 2>&1 | tail -5
 
-      - name: Build x86_64
+      - name: Build x86_64 archive
         run: |
+          set -o pipefail
           xcodebuild archive \
             -scheme "$SCHEME" \
             -configuration Release \
-            -destination 'platform=macOS,arch=x86_64' \
-            -archivePath "$RUNNER_TEMP/$APP_NAME-x86_64.xcarchive" \
+            -archivePath build/$APP_NAME-x86_64.xcarchive \
+            -destination 'generic/platform=macOS' \
+            ARCHS=x86_64 \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             SKIP_INSTALL=NO 2>&1 | tail -5
 
-      - name: Stage app bundles + create universal
+      - name: Build universal archive
         run: |
-          for ARCH in arm64 x86_64; do
-            SRC="$RUNNER_TEMP/$APP_NAME-$ARCH.xcarchive/Products/Applications/$APP_NAME.app"
-            DEST="$RUNNER_TEMP/stage-$ARCH/$APP_NAME.app"
-            mkdir -p "$(dirname "$DEST")"
-            cp -R "$SRC" "$DEST"
-          done
-
-          mkdir -p "$RUNNER_TEMP/stage-universal"
-          cp -R "$RUNNER_TEMP/stage-arm64/$APP_NAME.app" "$RUNNER_TEMP/stage-universal/$APP_NAME.app"
-          lipo -create \
-            "$RUNNER_TEMP/stage-arm64/$APP_NAME.app/Contents/MacOS/$APP_NAME" \
-            "$RUNNER_TEMP/stage-x86_64/$APP_NAME.app/Contents/MacOS/$APP_NAME" \
-            -output "$RUNNER_TEMP/stage-universal/$APP_NAME.app/Contents/MacOS/$APP_NAME"
-
-      - name: Ad-hoc sign
-        run: |
-          for ARCH in arm64 x86_64 universal; do
-            codesign --force --deep --sign - \
-              "$RUNNER_TEMP/stage-$ARCH/$APP_NAME.app"
-          done
+          set -o pipefail
+          xcodebuild archive \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -archivePath build/$APP_NAME-universal.xcarchive \
+            -destination 'generic/platform=macOS' \
+            "ARCHS=arm64 x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO 2>&1 | tail -5
 
       - name: Create DMGs
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p build/dmg
+
           for ARCH in arm64 x86_64 universal; do
+            APP="build/$APP_NAME-${ARCH}.xcarchive/Products/Applications/$APP_NAME.app"
+            STAGING="build/dmg-staging-${ARCH}"
+            rm -rf "$STAGING"
+            mkdir -p "$STAGING"
+            cp -R "$APP" "$STAGING/$APP_NAME.app"
+
+            codesign --force --deep --sign - --timestamp=none "$STAGING/$APP_NAME.app"
+            codesign --verify --deep --strict --verbose=4 "$STAGING/$APP_NAME.app"
+            if ! spctl --assess --type execute --verbose=4 "$STAGING/$APP_NAME.app"; then
+              echo "::warning::spctl rejected ad-hoc signed app for ${ARCH}; continuing."
+            fi
+
             hdiutil create \
               -volname "Perch" \
-              -srcfolder "$RUNNER_TEMP/stage-$ARCH" \
+              -srcfolder "$STAGING" \
               -ov -format UDZO \
-              "$RUNNER_TEMP/$APP_NAME-$VERSION-$ARCH.dmg"
+              "build/dmg/$APP_NAME-${VERSION}-${ARCH}.dmg"
+
+            echo "Created: $APP_NAME-${VERSION}-${ARCH}.dmg"
           done
 
       - name: Create GitHub Release
@@ -99,8 +119,8 @@ jobs:
 
             > ⚠️ Not notarized by Apple. If Gatekeeper blocks it: right-click > Open > Open.
           files: |
-            ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-arm64.dmg
-            ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-x86_64.dmg
-            ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-universal.dmg
+            build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-arm64.dmg
+            build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-x86_64.dmg
+            build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-universal.dmg
           draft: false
           prerelease: false
