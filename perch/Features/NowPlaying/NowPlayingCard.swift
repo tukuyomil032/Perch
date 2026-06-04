@@ -54,18 +54,19 @@ struct NowPlayingCard: View {
                 }
             }
             .frame(maxHeight: .infinity)
-            HStack(spacing: 8) {
+            HStack(spacing: 0) {
                 WaveformView(
                     isPlaying: state.isPlaying,
                     color: state.artwork?.dominantColor() ?? .white.opacity(0.8)
                 )
                 .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
+                .padding(.trailing, 6)
                 Text(state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                Spacer()
+                Spacer(minLength: 8)
                 if !lyrics.isEmpty {
                     Button {
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
@@ -73,8 +74,10 @@ struct NowPlayingCard: View {
                         }
                     } label: {
                         Image(systemName: "music.note.list")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Show lyrics")
