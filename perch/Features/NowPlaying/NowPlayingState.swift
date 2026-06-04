@@ -122,10 +122,11 @@ struct NowPlayingState {
 
 extension NowPlayingState: Equatable {
     // nonisolated required: Equatable.== is a nonisolated protocol requirement.
-    // NSImage is non-Sendable — accessing it from nonisolated context is rejected by Swift 6.
-    // title/artist/isPlaying/source are Sendable and cover all meaningful track-change signals.
+    // NSImage is non-Sendable — excluded from comparison. URL and other fields are Sendable.
+    // thumbnailURL is included so applyState does not silently drop a thumbnail-only update.
     nonisolated static func == (lhs: NowPlayingState, rhs: NowPlayingState) -> Bool {
-        lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying && lhs.source == rhs.source
+        lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying
+            && lhs.source == rhs.source && lhs.thumbnailURL == rhs.thumbnailURL
     }
 }
 
