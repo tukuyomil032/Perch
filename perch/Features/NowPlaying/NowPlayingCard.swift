@@ -206,43 +206,75 @@ struct NowPlayingCard: View {
     // MARK: - Progress
 
     private var progressSection: some View {
-        TimelineView(.animation(minimumInterval: 1.0, paused: !state.isPlaying)) { context in
-            VStack(spacing: 4) {
-                progressBar(at: context.date)
-                timeLabels(at: context.date)
+        VStack(spacing: 4) {
+            GeometryReader { geo in
+                TimelineView(
+                    .animation(minimumInterval: 0.1, paused: !state.isPlaying || isScrubbing)
+                ) { ctx in
+                    let p = isScrubbing ? scrubProgress : state.liveProgress(at: ctx.date)
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(.white.opacity(0.15))
+                            .frame(height: isScrubbing ? 5 : 3)
+                        Capsule()
+                            .fill(.white.opacity(isScrubbing ? 1.0 : 0.8))
+                            .frame(width: max(0, geo.size.width * p), height: isScrubbing ? 5 : 3)
+                    }
+                    .animation(.easeInOut(duration: 0.08), value: isScrubbing)
+                }
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            isScrubbing = true
+                            scrubProgress = max(0, min(1, value.location.x / geo.size.width))
+                        }
+                        .onEnded { value in
+                            let pos = max(0, min(1, value.location.x / geo.size.width))
+                            if let dur = state.duration {
+                                manager.seek(to: pos * dur)
+                            }
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(300))
+                                isScrubbing = false
+                            }
+                        }
+                )
             }
-        }
-    }
+            .frame(height: 14)
 
-    private func progressBar(at date: Date) -> some View {
-        Capsule()
-            .fill(.white.opacity(0.15))
-            .frame(height: 3)
-            .overlay(alignment: .leading) {
-                GeometryReader { geo in
-                    Capsule()
-                        .fill(.white.opacity(0.8))
-                        .frame(width: geo.size.width * state.liveProgress(at: date), height: 3)
+            TimelineView(.animation(minimumInterval: 1.0, paused: !state.isPlaying)) { ctx in
+                HStack {
+                    Text(isScrubbing ? scrubElapsedLabel : state.liveFormattedElapsed(at: ctx.date))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.6))
+                    Spacer()
+                    if let remaining = isScrubbing
+                        ? scrubRemainingLabel : state.liveRemaining(at: ctx.date)
+                    {
+                        Text(remaining)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.6))
+                    } else {
+                        Text(state.formattedDuration)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
                 }
             }
+        }
     }
 
-    private func timeLabels(at date: Date) -> some View {
-        HStack {
-            Text(state.liveFormattedElapsed(at: date))
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.6))
-            Spacer()
-            if let remaining = state.liveRemaining(at: date) {
-                Text(remaining)
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.6))
-            } else {
-                Text(state.formattedDuration)
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.6))
-            }
-        }
+    private var scrubElapsedLabel: String {
+        guard let dur = state.duration else { return "-:--" }
+        let s = max(0, Int(scrubProgress * dur))
+        return String(format: "%d:%02d", s / 60, s % 60)
+    }
+
+    private var scrubRemainingLabel: String? {
+        guard let dur = state.duration else { return nil }
+        let s = max(0, Int(dur - scrubProgress * dur))
+        return String(format: "-%d:%02d", s / 60, s % 60)
     }
 
     // MARK: - Controls
