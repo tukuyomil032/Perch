@@ -10,6 +10,8 @@ struct NowPlayingCard: View {
     @State private var displayedArtworkID: UUID? = nil
     @State private var lyrics: [LyricsLine] = []
     @State private var showLyricsFullView: Bool = false
+    @State private var isScrubbing: Bool = false
+    @State private var scrubProgress: Double = 0
 
     var body: some View {
         Group {

@@ -74,6 +74,23 @@ final class NowPlayingManager {
         }
     }
 
+    func seek(to seconds: TimeInterval) {
+        switch currentState?.source {
+        case .appleMusic:
+            Task { @MainActor [weak self] in
+                _ = await self?.runAppleScript(
+                    "tell application \"Music\" to set player position to \(seconds)")
+            }
+        case .spotify:
+            Task { @MainActor [weak self] in
+                _ = await self?.runAppleScript(
+                    "tell application \"Spotify\" to set player position to \(seconds)")
+            }
+        default:
+            break
+        }
+    }
+
     func previousTrack() {
         switch currentState?.source {
         case .spotify:
@@ -283,6 +300,11 @@ final class NowPlayingManager {
     }
 
     private func pollAppleMusicPosition() async {
+        // Capture title before the await — prevents stale position from a previous song
+        // being applied to a newly started song (race condition).
+        guard let state = currentState, state.source == .appleMusic else { return }
+        let capturedTitle = state.title
+
         let script = """
             tell application "Music"
                 if not running then return "-1"
@@ -293,13 +315,23 @@ final class NowPlayingManager {
         guard let result = await runAppleScript(script),
             let position = Double(result), position >= 0
         else { return }
-        guard let state = currentState, state.source == .appleMusic else { return }
+
+        // Verify the track hasn't changed while we were awaiting the AppleScript result.
+        guard let current = currentState,
+            current.source == .appleMusic,
+            current.title == capturedTitle
+        else { return }
+
+        // Skip if position matches or exceeds duration (end-of-track artifact from previous song).
+        if let dur = current.duration, position >= dur { return }
+
         currentState = NowPlayingState(
-            title: state.title, artist: state.artist, album: state.album, artwork: state.artwork,
-            artworkID: state.artworkID,
-            thumbnailURL: state.thumbnailURL,
-            isPlaying: state.isPlaying, duration: state.duration,
-            elapsedTime: position, timestamp: Date(), source: state.source
+            title: current.title, artist: current.artist, album: current.album,
+            artwork: current.artwork,
+            artworkID: current.artworkID,
+            thumbnailURL: current.thumbnailURL,
+            isPlaying: current.isPlaying, duration: current.duration,
+            elapsedTime: position, timestamp: Date(), source: current.source
         )
     }
 

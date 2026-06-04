@@ -183,8 +183,10 @@ extension NowPlayingState {
         self.album = album
         self.isPlaying = playerState == "Playing"
         self.duration = totalTime.map { $0 / 1000.0 }  // Total Time is in ms (iTunes legacy)
-        self.elapsedTime = nil
-        self.timestamp = nil
+        // Baseline of 0 prevents a stale poll from the previous song (at its end position)
+        // being applied to the new song before the first real poll arrives.
+        self.elapsedTime = 0
+        self.timestamp = Date()
         self.artwork = nil
         self.artworkID = nil
         self.thumbnailURL = nil
