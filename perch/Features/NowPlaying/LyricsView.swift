@@ -23,12 +23,13 @@ struct LyricsView: View {
                         Text(line.text)
                             .font(
                                 .system(
-                                    size: fontSize,
+                                    size: idx == activeIndex ? fontSize + 1 : fontSize,
                                     weight: idx == activeIndex ? .semibold : .regular)
                             )
                             .foregroundStyle(.white.opacity(lineOpacity(idx)))
+                            .scaleEffect(idx == activeIndex ? 1.06 : 1.0, anchor: .center)
                             .multilineTextAlignment(.center)
-                            .animation(.easeInOut(duration: 0.3), value: activeIndex)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.82), value: activeIndex)
                             .id(line.id)
                     }
                     Color.clear.frame(height: 6)
@@ -63,9 +64,11 @@ struct LyricsView: View {
     }
 
     private func lineOpacity(_ idx: Int) -> Double {
-        guard let active = activeIndex else { return 0.50 }
+        guard let active = activeIndex else { return 0.38 }
         if idx == active { return 1.0 }
-        if idx < active { return 0.60 }
-        return 0.50
+        let distance = abs(idx - active)
+        if distance == 1 { return 0.55 }
+        if distance == 2 { return 0.38 }
+        return max(0.18, 0.30 - Double(distance - 3) * 0.05)
     }
 }
