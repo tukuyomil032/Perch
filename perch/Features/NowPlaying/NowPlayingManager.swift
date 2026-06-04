@@ -224,6 +224,7 @@ final class NowPlayingManager {
         guard let state = currentState, state.source == .appleMusic else { return }
         currentState = NowPlayingState(
             title: state.title, artist: state.artist, album: state.album, artwork: state.artwork,
+            thumbnailURL: state.thumbnailURL,
             isPlaying: state.isPlaying, duration: state.duration,
             elapsedTime: position, timestamp: Date(), source: state.source
         )

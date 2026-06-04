@@ -16,6 +16,7 @@ struct NowPlayingState {
     let artist: String
     let album: String?
     let artwork: NSImage?
+    let thumbnailURL: URL?
     let isPlaying: Bool
     let duration: TimeInterval?
     let elapsedTime: TimeInterval?
@@ -67,6 +68,7 @@ struct NowPlayingState {
     // Internal full init used for artwork enrichment and position updates
     init(
         title: String, artist: String, album: String?, artwork: NSImage?,
+        thumbnailURL: URL? = nil,
         isPlaying: Bool, duration: TimeInterval?, elapsedTime: TimeInterval?,
         timestamp: Date?, source: MusicSource
     ) {
@@ -74,6 +76,7 @@ struct NowPlayingState {
         self.artist = artist
         self.album = album
         self.artwork = artwork
+        self.thumbnailURL = thumbnailURL
         self.isPlaying = isPlaying
         self.duration = duration
         self.elapsedTime = elapsedTime
@@ -84,6 +87,7 @@ struct NowPlayingState {
     func enriched(artwork: NSImage?) -> NowPlayingState {
         NowPlayingState(
             title: title, artist: artist, album: album, artwork: artwork,
+            thumbnailURL: thumbnailURL,
             isPlaying: isPlaying, duration: duration, elapsedTime: elapsedTime,
             timestamp: timestamp, source: source
         )
@@ -112,6 +116,7 @@ struct NowPlayingState {
         } else {
             self.artwork = nil
         }
+        self.thumbnailURL = nil
     }
 }
 
@@ -146,6 +151,7 @@ extension NowPlayingState {
         self.elapsedTime = position  // already in seconds
         self.timestamp = Date()
         self.artwork = nil
+        self.thumbnailURL = nil
         self.source = .spotify
     }
 
@@ -166,10 +172,11 @@ extension NowPlayingState {
         self.elapsedTime = nil
         self.timestamp = nil
         self.artwork = nil
+        self.thumbnailURL = nil
         self.source = .appleMusic
     }
 
-    /// YouTube Music: parse Chrome window title "Artist - Song - YouTube Music".
+    /// YouTube Music: parse Chrome window title "Song - Artist - YouTube Music".
     /// isPlaying is always true — Chrome title doesn't change when paused (known limitation, future phase).
     init?(fromYouTubeMusicTitle windowTitle: String) {
         let cleaned =
@@ -179,18 +186,39 @@ extension NowPlayingState {
         guard !cleaned.isEmpty, cleaned != "YouTube Music" else { return nil }
         let parts = cleaned.components(separatedBy: " - ")
         if parts.count >= 2 {
-            self.artist = parts[0]
-            self.title = parts[1...].joined(separator: " - ")
+            self.title = parts[0]
+            self.artist = parts[1...].joined(separator: " - ")
         } else {
-            self.artist = ""
             self.title = cleaned
+            self.artist = ""
         }
+        self.thumbnailURL = nil
         self.album = nil
         self.isPlaying = true
         self.duration = nil
         self.elapsedTime = nil
         self.timestamp = nil
         self.artwork = nil
+        self.source = .youTubeMusic
+    }
+
+    /// YouTube Music: constructed from JS injection result JSON.
+    /// JSON format: {"title":"...","artist":"...","thumbnail":"...","playing":true/false}
+    init?(fromYouTubeMusicJS json: String) {
+        guard !json.isEmpty, json != "null",
+            let data = json.data(using: .utf8),
+            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let title = obj["title"] as? String, !title.isEmpty
+        else { return nil }
+        self.title = title
+        self.artist = obj["artist"] as? String ?? ""
+        self.album = nil
+        self.isPlaying = obj["playing"] as? Bool ?? true
+        self.duration = nil
+        self.elapsedTime = nil
+        self.timestamp = nil
+        self.artwork = nil
+        self.thumbnailURL = (obj["thumbnail"] as? String).flatMap { URL(string: $0) }
         self.source = .youTubeMusic
     }
 }
