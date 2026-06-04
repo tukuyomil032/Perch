@@ -4,6 +4,9 @@ import SwiftUI
 struct NowPlayingCompact: View {
     let state: NowPlayingState
 
+    @State private var thumbScale: CGFloat = 1.0
+    @State private var thumbOpacity: Double = 1.0
+
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
             artworkThumbnail
@@ -19,18 +22,35 @@ struct NowPlayingCompact: View {
 
     @ViewBuilder
     private var artworkThumbnail: some View {
-        if let artwork = state.artwork {
-            Image(nsImage: artwork)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 22, height: 22)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-        } else {
-            Image(systemName: "music.note")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.6))
-                .frame(width: 22, height: 22)
-                .accessibilityLabel("No album art")
+        Group {
+            if let artwork = state.artwork {
+                Image(nsImage: artwork)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 22, height: 22)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            } else {
+                Image(systemName: "music.note")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .frame(width: 22, height: 22)
+                    .accessibilityLabel("No album art")
+            }
+        }
+        .scaleEffect(thumbScale)
+        .opacity(thumbOpacity)
+        .onChange(of: state.artworkID) { _, _ in
+            Task { @MainActor in
+                withAnimation(.easeIn(duration: 0.12)) {
+                    thumbScale = 0.75
+                    thumbOpacity = 0.0
+                }
+                try? await Task.sleep(for: .milliseconds(120))
+                withAnimation(.spring(response: 0.22, dampingFraction: 0.75)) {
+                    thumbScale = 1.0
+                    thumbOpacity = 1.0
+                }
+            }
         }
     }
 

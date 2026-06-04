@@ -5,6 +5,10 @@ struct NowPlayingCard: View {
     let state: NowPlayingState
     let manager: NowPlayingManager
 
+    @State private var artworkAngle: Double = 0
+    @State private var displayedArtwork: NSImage? = nil
+    @State private var displayedArtworkID: UUID? = nil
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             topRow
@@ -30,7 +34,7 @@ struct NowPlayingCard: View {
 
     private var artworkView: some View {
         Group {
-            if let img = state.artwork {
+            if let img = displayedArtwork {
                 Image(nsImage: img)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -47,6 +51,21 @@ struct NowPlayingCard: View {
                             .foregroundStyle(.white.opacity(0.4))
                     }
                     .accessibilityLabel("No album art")
+            }
+        }
+        .rotation3DEffect(.degrees(artworkAngle), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
+        .onAppear {
+            displayedArtwork = state.artwork
+            displayedArtworkID = state.artworkID
+        }
+        .onChange(of: state.artworkID) { _, newID in
+            guard newID != displayedArtworkID else { return }
+            Task { @MainActor in
+                withAnimation(.easeIn(duration: 0.18)) { artworkAngle = 90 }
+                try? await Task.sleep(for: .milliseconds(180))
+                displayedArtwork = state.artwork
+                displayedArtworkID = newID
+                withAnimation(.easeOut(duration: 0.18)) { artworkAngle = 0 }
             }
         }
     }
