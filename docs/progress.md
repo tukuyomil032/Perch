@@ -1,6 +1,6 @@
 # Perch Development Progress
 
-**Current Phase**: Phase 2d 完了 → Phase 3 へ
+**Current Phase**: Phase 2e 完了 → Phase 3 へ
 **Last Updated**: 2026-06-04
 
 ---
@@ -129,6 +129,24 @@
 - YTM タブ閉じ時: currentState がクリアされない（次のポーリングまで残留）
 - ソース無効化時: アクティブな再生状態がすぐにクリアされない（次の更新まで残留）
 - `init?(fromYouTubeMusicJS:)`: ユニットテスト未実装
+
+---
+
+## Phase 2e: NowPlaying UX Fix (2026-06-04)
+
+### 完了タスク
+
+- [x] T1: MarqueeText — スクロール完了後にセンターでフェードイン復帰（5秒ブランク→フェードイン0.4s+5秒静止に修正）
+- [x] T2: アートワーク自動更新 — `artworkID: UUID?` 追加、`enriched()` で新 UUID 生成、Equatable に組み込み
+- [x] T2: NowPlayingManager carry-forward / `pollAppleMusicPosition` で `artworkID` 引き継ぎ
+- [x] T3: Settings ログ — `canBecomeKey` フィルタ追加（NSStatusBarWindow の誤 `makeKeyAndOrderFront` を防止）
+- [x] T4: 展開・収納アニメーション改善 — `dampingFraction: 0.65→0.88`、`scale: 0.92→0.96`、NSAnimationContext `duration: 0.28→0.30` 同期
+
+### 修正コミット
+- `0faf2f9` — fix: marquee text fades in at center instead of appearing blank for 5 seconds
+- `b0dd699` — fix: artwork updates now trigger SwiftUI re-render via artworkID
+- `1b378cb` — fix: filter canBecomeKey in openSettings to skip NSStatusBarWindow
+- `687a484` — fix: smoother expand/collapse animation, remove left-right wobble
 
 ---
 
