@@ -21,7 +21,13 @@ struct WaveformView: View {
                 ForEach(0..<barCount, id: \.self) { i in
                     let h = barHeight(index: i, date: isPlaying ? context.date : nil)
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(color)
+                        .fill(
+                            LinearGradient(
+                                colors: [color.opacity(0.50), color],
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
                         .frame(width: barWidth, height: h)
                         .animation(.easeInOut(duration: 0.15), value: isPlaying)
                 }
