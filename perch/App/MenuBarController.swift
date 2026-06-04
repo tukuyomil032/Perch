@@ -32,7 +32,8 @@ final class MenuBarController {
         } else {
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
             for win in NSApp.windows where win.canBecomeKey && win.isVisible {
                 win.makeKeyAndOrderFront(nil)
             }
