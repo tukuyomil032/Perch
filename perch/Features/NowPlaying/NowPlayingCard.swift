@@ -8,29 +8,139 @@ struct NowPlayingCard: View {
     @State private var artworkAngle: Double = 0
     @State private var displayedArtwork: NSImage? = nil
     @State private var displayedArtworkID: UUID? = nil
+    @State private var lyrics: [LyricsLine] = []
+    @State private var showLyricsFullView: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            topRow
+        Group {
+            if showLyricsFullView {
+                lyricsFullView
+            } else {
+                twoColumnView
+            }
+        }
+        .task(id: state.title + state.artist) {
+            guard state.source != .mrMediaRemote else {
+                lyrics = []
+                return
+            }
+            lyrics =
+                await LyricsStore.shared.fetchLyrics(
+                    title: state.title,
+                    artist: state.artist,
+                    album: state.album
+                ) ?? []
+        }
+    }
+
+    // MARK: - Two Column View (Pattern 1: default)
+
+    private var twoColumnView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                artworkView
+                if !lyrics.isEmpty {
+                    TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
+                        LyricsView(
+                            lines: lyrics,
+                            elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
+                            fontSize: 12
+                        )
+                    }
+                    .frame(maxHeight: 100)
+                } else {
+                    trackInfo
+                }
+            }
+            HStack(spacing: 8) {
+                WaveformView(
+                    isPlaying: state.isPlaying,
+                    color: state.artwork?.dominantColor() ?? .white.opacity(0.8)
+                )
+                .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
+                Text(state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer()
+                if !lyrics.isEmpty {
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                            showLyricsFullView = true
+                        }
+                    } label: {
+                        Image(systemName: "music.note.list")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Show lyrics")
+                }
+            }
             progressSection
             controlsSection
         }
         .padding(16)
     }
 
-    // MARK: - Top Row
+    // MARK: - Lyrics Full View (Pattern 2)
 
-    private var topRow: some View {
-        HStack(alignment: .center, spacing: 12) {
-            artworkView
-            trackInfo
-            Spacer()
-            WaveformView(
-                isPlaying: state.isPlaying,
-                color: state.artwork?.dominantColor() ?? .white.opacity(0.8)
-            )
+    private var lyricsFullView: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                if let img = displayedArtwork {
+                    Image(nsImage: img)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 44, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(state.title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(state.artist)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .lineLimit(1)
+                }
+                Spacer()
+                controlButton(systemName: "backward.fill", action: manager.previousTrack, size: 12)
+                controlButton(
+                    systemName: state.isPlaying ? "pause.fill" : "play.fill",
+                    action: manager.togglePlayPause, size: 14
+                )
+                controlButton(systemName: "forward.fill", action: manager.nextTrack, size: 12)
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                        showLyricsFullView = false
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close lyrics")
+            }
+            Divider().background(.white.opacity(0.15))
+            TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
+                LyricsView(
+                    lines: lyrics,
+                    elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
+                    fontSize: 14
+                )
+            }
+            .frame(maxHeight: 160)
+            Divider().background(.white.opacity(0.15))
+            progressSection
         }
+        .padding(16)
     }
+
+    // MARK: - Artwork
 
     private var artworkView: some View {
         Group {
@@ -75,6 +185,8 @@ struct NowPlayingCard: View {
             }
         }
     }
+
+    // MARK: - Track Info (fallback when no lyrics)
 
     private var trackInfo: some View {
         VStack(alignment: .leading, spacing: 4) {
