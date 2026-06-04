@@ -35,9 +35,11 @@ final class IslandWindowController: NSWindowController {
             appState.isExpanded
             ? IslandGeometry.expandedFrame(mode: mode, screen: screen)
             : IslandGeometry.compactFrame(mode: mode, screen: screen)
-        // Synchronized with SwiftUI spring(response:0.30, dampingFraction:0.88)
+        // open: matches openAnimation response (0.42s)
+        // close: matches closeAnimation response (0.38s, no bounce)
+        let duration = appState.isExpanded ? 0.42 : 0.38
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.30
+            context.duration = duration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             context.allowsImplicitAnimation = true
             window?.animator().setFrame(frame, display: true)
