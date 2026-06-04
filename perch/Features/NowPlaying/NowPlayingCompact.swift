@@ -91,12 +91,21 @@ struct MarqueeText: View {
         let overflow = contentWidth - containerWidth
         guard overflow > 8, offset == 0 else { return }
         let gen = scrollGeneration
-        let duration = Double(overflow) / 25.0  // 40 → 25 px/s (slower)
+        let duration = Double(overflow) / 25.0
         Task { @MainActor in
+            // Initial pause before first scroll
             try? await Task.sleep(for: .seconds(1.5))
             guard scrollGeneration == gen else { return }
-            withAnimation(.linear(duration: duration).repeatForever(autoreverses: false)) {
-                offset = -(overflow + 4)
+            while scrollGeneration == gen {
+                withAnimation(.linear(duration: duration)) {
+                    offset = -(overflow + 4)
+                }
+                // Wait for scroll to complete + 5 second pause at start
+                try? await Task.sleep(for: .seconds(duration + 5.0))
+                guard scrollGeneration == gen else { return }
+                // Instant reset (no animation)
+                offset = 0
+                try? await Task.sleep(for: .seconds(0.1))
             }
         }
     }
