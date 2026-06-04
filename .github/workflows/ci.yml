@@ -4,7 +4,7 @@ name: CI
 on:
   push:
     branches:
-      - "phase-*"
+      - "phase-**"
       - main
   pull_request:
 
@@ -12,17 +12,23 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build
     runs-on: macos-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Show Xcode and Swift version
+        run: |
+          xcodebuild -version
+          swift --version
 
       - name: Install xcbeautify
         run: brew install xcbeautify
@@ -35,26 +41,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-derived-data-
 
-      - name: Resolve SPM dependencies
-        run: |
-          xcodebuild \
-            -scheme perch \
-            -resolvePackageDependencies \
-            2>&1 | xcbeautify
-
       - name: Build
         run: |
-          set -o pipefail
+          set -euo pipefail
           xcodebuild \
             -scheme perch \
             -configuration Debug \
             -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
             build \
             2>&1 | xcbeautify --renderer github-actions
 
   lint:
     name: Lint
     runs-on: macos-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -64,4 +65,4 @@ jobs:
         run: brew install swift-format
 
       - name: Lint
-        run: swift-format lint --recursive perch/
+        run: swift-format lint --recursive perch/ perchTests/

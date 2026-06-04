@@ -9,4 +9,9 @@ extension Defaults.Keys {
     static let showInAllSpaces = Key<Bool>("showInAllSpaces", default: true)
     static let autoCollapseDelay = Key<Double>("autoCollapseDelay", default: 3.0)
     static let displayScreen = Key<Int>("displayScreen", default: -1)
+    static let showNowPlayingSource = Key<Bool>("showNowPlayingSource", default: false)
+    static let enableSpotify = Key<Bool>("enableSpotify", default: true)
+    static let enableAppleMusic = Key<Bool>("enableAppleMusic", default: true)
+    static let enableYouTubeMusic = Key<Bool>("enableYouTubeMusic", default: true)
+    static let languageCode = Key<String>("languageCode", default: "en")
 }

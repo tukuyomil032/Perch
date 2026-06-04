@@ -19,8 +19,6 @@ xcuserdata/
 # Swift Package Manager
 .build/
 Packages/
-Package.resolved
-/*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
 
 # CocoaPods (not used but just in case)
 Pods/
@@ -52,3 +50,6 @@ sparkle_private_key
 
 # Nix / direnv
 .direnv/
+
+
+docs/img/**

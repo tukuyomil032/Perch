@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    env:
+      SCHEME: perch
+      APP_NAME: perch
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME:-v0.2.0}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build arm64 archive
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -archivePath build/$APP_NAME-arm64.xcarchive \
+            -destination 'generic/platform=macOS' \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO 2>&1 | tail -5
+
+      - name: Build x86_64 archive
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -archivePath build/$APP_NAME-x86_64.xcarchive \
+            -destination 'generic/platform=macOS' \
+            ARCHS=x86_64 \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO 2>&1 | tail -5
+
+      - name: Build universal archive
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -archivePath build/$APP_NAME-universal.xcarchive \
+            -destination 'generic/platform=macOS' \
+            "ARCHS=arm64 x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO 2>&1 | tail -5
+
+      - name: Create DMGs
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p build/dmg
+
+          for ARCH in arm64 x86_64 universal; do
+            APP="build/$APP_NAME-${ARCH}.xcarchive/Products/Applications/$APP_NAME.app"
+            STAGING="build/dmg-staging-${ARCH}"
+            rm -rf "$STAGING"
+            mkdir -p "$STAGING"
+            cp -R "$APP" "$STAGING/$APP_NAME.app"
+
+            codesign --force --deep --sign - --timestamp=none "$STAGING/$APP_NAME.app"
+            codesign --verify --deep --strict --verbose=4 "$STAGING/$APP_NAME.app"
+            if ! spctl --assess --type execute --verbose=4 "$STAGING/$APP_NAME.app"; then
+              echo "::warning::spctl rejected ad-hoc signed app for ${ARCH}; continuing."
+            fi
+
+            hdiutil create \
+              -volname "Perch" \
+              -srcfolder "$STAGING" \
+              -ov -format UDZO \
+              "build/dmg/$APP_NAME-${VERSION}-${ARCH}.dmg"
+
+            echo "Created: $APP_NAME-${VERSION}-${ARCH}.dmg"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Perch ${{ steps.version.outputs.version }}"
+          body: |
+            ## Perch ${{ steps.version.outputs.version }} (beta)
+
+            ### Install via Homebrew
+            ```bash
+            brew tap tukuyomil032/tap
+            brew install --cask perch
+            ```
+
+            ### Direct Download
+            - **universal.dmg** (recommended) — Apple Silicon + Intel
+            - **arm64.dmg** — Apple Silicon only
+            - **x86_64.dmg** — Intel only
+
+            > ⚠️ Not notarized by Apple. If Gatekeeper blocks it: right-click > Open > Open.
+          files: |
+            build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-arm64.dmg
+            build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-x86_64.dmg
+            build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-universal.dmg
+          draft: false
+          prerelease: false

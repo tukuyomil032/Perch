@@ -378,6 +378,52 @@ Expanded:
 | 音量表示 | B | HUDと連携 |
 | ビジュアライザー | C | 後回し |
 
+#### 検出方式（macOS 16 対応）
+
+macOS 15.4+ で MRMediaRemote がエンタイトルメント制限でブロックされるため、マルチソース検出を採用する。
+
+| ソース | アプリ | 方式 |
+|--------|--------|------|
+| DistributedNotificationCenter | Spotify | `com.spotify.client.PlaybackStateChanged` |
+| DistributedNotificationCenter | Apple Music | `com.apple.Music.playerInfo` |
+| AppleScript ポーリング（3秒） | YouTube Music | Chrome ウィンドウタイトル解析 |
+| MRMediaRemote（fallback） | 任意 | macOS < 15.4 のみ有効 |
+
+#### 必要エンタイトルメント
+
+Apple Events 一時例外（sandbox 無効のため実質不要だが明示的に記載）:
+- `com.apple.security.automation.apple-events`
+- `com.spotify.client`, `com.apple.Music`, `com.google.Chrome`
+
+アートワーク取得はフェーズ後半に AppleScript/Spotify API 経由で実装予定。
+YouTube Music の一時停止検出はタイトル変化なしのため後続フェーズで対応。
+
+#### 実装状況 (Phase 2 / 2c 完了)
+
+**検出ソース:**
+
+| ソース | 実装状態 | 備考 |
+|--------|---------|------|
+| Spotify (DistributedNotificationCenter) | ✅ 完了 | `com.spotify.client.PlaybackStateChanged` |
+| Apple Music (DistributedNotificationCenter) | ✅ 完了 | `com.apple.Music.playerInfo` |
+| YouTube Music (AppleScript polling 3s) | ✅ 完了 | Chromium 9ブラウザ対応 (NSWorkspace.runningApplications) |
+| MRMediaRemote (fallback) | ✅ 完了 | macOS < 15.4 のみ有効 |
+
+**アートワーク取得:**
+
+| ソース | 実装状態 | 方式 |
+|--------|---------|------|
+| Spotify | ✅ 完了 | AppleScript で artwork URL → URLSession DL |
+| Apple Music | ✅ 完了 | NSAppleScript binary descriptor |
+| YouTube Music | ❌ 未実装 | iTunes Search API / Deezer API で実装予定 |
+
+**既知制限 (Phase 2c-fix で対応予定):**
+- YTM: active tab のみ検索 → バックグラウンドタブ未検出
+- YTM: アートワーク未取得（音符アイコンのまま）
+- Settings ウィンドウ: macOS 14+ で `showSettingsWindow:` 非推奨 → `openSettings()` 環境アクションに移行必要
+- 再生コントロール: `MRMediaRemote.sendCommand` がシステム登録の "now playing" アプリに送信されるため誤送信バグあり（Spotify 操作で Apple Music が起動するなど）
+- macOS 15.4+ で MRMediaRemote が実質無効（DistributedNotification に全依存）
+
 ---
 
 ### 6.5 File Shelf

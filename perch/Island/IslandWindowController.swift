@@ -31,10 +31,11 @@ final class IslandWindowController: NSWindowController {
         guard let screen = NSScreen.perchPreferredScreen ?? NSScreen.main else { return }
         let notchSize = screen.perchNotchSize
         let mode: IslandMode = notchSize == .zero ? .floatingPill : .physicalNotch(notchSize: notchSize)
-        let frame = appState.isExpanded
+        let frame =
+            appState.isExpanded
             ? IslandGeometry.expandedFrame(mode: mode, screen: screen)
             : IslandGeometry.compactFrame(mode: mode, screen: screen)
-        window?.setFrame(frame, display: true, animate: true)
+        window?.setFrame(frame, display: true)
     }
 
     private func startObserving() {

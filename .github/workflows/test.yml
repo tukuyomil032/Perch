@@ -4,7 +4,7 @@ name: Test
 on:
   push:
     branches:
-      - "phase-*"
+      - "phase-**"
       - main
   pull_request:
 
@@ -12,17 +12,23 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Unit Tests
     runs-on: macos-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Show Xcode and Swift version
+        run: |
+          xcodebuild -version
+          swift --version
 
       - name: Install xcbeautify
         run: brew install xcbeautify
@@ -35,19 +41,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-derived-data-test-
 
-      - name: Resolve SPM dependencies
-        run: |
-          xcodebuild \
-            -scheme perch \
-            -resolvePackageDependencies \
-            2>&1 | xcbeautify
-
       - name: Run Tests
         run: |
-          set -o pipefail
+          set -euo pipefail
           xcodebuild \
             -scheme perch \
             -configuration Debug \
             -destination 'platform=macOS' \
+            -skip-testing:perchUITests \
+            CODE_SIGNING_ALLOWED=NO \
             test \
             2>&1 | xcbeautify --renderer github-actions

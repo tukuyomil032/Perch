@@ -61,6 +61,17 @@
   - KeyboardShortcuts統合
   - privacy-firstなローカル処理
 
+### DynamicNotch (jackson-storm)
+- リポジトリ: https://github.com/jackson-storm/DynamicNotch
+- 参考ポイント:
+  - Services/ 構造でサービスを分割: Focus / NowPlaying / Power / Lyrics / HUD
+  - HardwareHUDMonitor.swift — バッテリー/電源状態監視の参考実装
+  - Phase 2d Multi-widget 設計の参考
+
+### Atoll (Ebullioscopic)
+- リポジトリ: https://github.com/Ebullioscopic/Atoll
+- 参考ポイント: Dynamic Island 風 macOS アプリの別実装例
+
 ---
 
 ## macOSネイティブUI参考
@@ -88,6 +99,15 @@
 3. **控えめな存在感**: compact時は邪魔にならない。必要な時だけ主張する
 4. **統一されたデザインシステム**: 全カード共通のcornerRadius、padding、typography、animation timing
 5. **hallmark(Anti-AI-Slop)準拠**: 構造的多様性、4pt grid、8状態設計
+
+---
+
+## Future Phase 参照
+
+### rtaudio (ZephyrCodesStuff)
+- リポジトリ: https://github.com/ZephyrCodesStuff/rtaudio
+- 用途: Phase 2e 音声連動波形の候補（Swift wrapper for real-time audio I/O）
+- 代替案: AVAudioEngine + output tap（外部依存なし、ただし `com.apple.security.device.audio-input` エンタイトルメント必要）
 
 ---
 
