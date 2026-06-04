@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    env:
+      SCHEME: perch
+      APP_NAME: perch
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME:-v0.2.0}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build arm64
+        run: |
+          xcodebuild archive \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'platform=macOS,arch=arm64' \
+            -archivePath "$RUNNER_TEMP/$APP_NAME-arm64.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO 2>&1 | tail -5
+
+      - name: Build x86_64
+        run: |
+          xcodebuild archive \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'platform=macOS,arch=x86_64' \
+            -archivePath "$RUNNER_TEMP/$APP_NAME-x86_64.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO 2>&1 | tail -5
+
+      - name: Stage app bundles + create universal
+        run: |
+          for ARCH in arm64 x86_64; do
+            SRC="$RUNNER_TEMP/$APP_NAME-$ARCH.xcarchive/Products/Applications/$APP_NAME.app"
+            DEST="$RUNNER_TEMP/stage-$ARCH/$APP_NAME.app"
+            mkdir -p "$(dirname "$DEST")"
+            cp -R "$SRC" "$DEST"
+          done
+
+          mkdir -p "$RUNNER_TEMP/stage-universal"
+          cp -R "$RUNNER_TEMP/stage-arm64/$APP_NAME.app" "$RUNNER_TEMP/stage-universal/$APP_NAME.app"
+          lipo -create \
+            "$RUNNER_TEMP/stage-arm64/$APP_NAME.app/Contents/MacOS/$APP_NAME" \
+            "$RUNNER_TEMP/stage-x86_64/$APP_NAME.app/Contents/MacOS/$APP_NAME" \
+            -output "$RUNNER_TEMP/stage-universal/$APP_NAME.app/Contents/MacOS/$APP_NAME"
+
+      - name: Ad-hoc sign
+        run: |
+          for ARCH in arm64 x86_64 universal; do
+            codesign --force --deep --sign - \
+              "$RUNNER_TEMP/stage-$ARCH/$APP_NAME.app"
+          done
+
+      - name: Create DMGs
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          for ARCH in arm64 x86_64 universal; do
+            hdiutil create \
+              -volname "Perch" \
+              -srcfolder "$RUNNER_TEMP/stage-$ARCH" \
+              -ov -format UDZO \
+              "$RUNNER_TEMP/$APP_NAME-$VERSION-$ARCH.dmg"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Perch ${{ steps.version.outputs.version }}"
+          body: |
+            ## Perch ${{ steps.version.outputs.version }} (beta)
+
+            ### Install via Homebrew
+            ```bash
+            brew tap tukuyomil032/tap
+            brew install --cask perch
+            ```
+
+            ### Direct Download
+            - **universal.dmg** (recommended) — Apple Silicon + Intel
+            - **arm64.dmg** — Apple Silicon only
+            - **x86_64.dmg** — Intel only
+
+            > ⚠️ Not notarized by Apple. If Gatekeeper blocks it: right-click > Open > Open.
+          files: |
+            ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-arm64.dmg
+            ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-x86_64.dmg
+            ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-universal.dmg
+          draft: false
+          prerelease: false
