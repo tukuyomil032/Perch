@@ -174,6 +174,32 @@
 
 ---
 
+## Phase 2f-fix: NowPlaying シークバー・歌詞 UI 修正 (2026-06-04)
+
+### 完了タスク
+
+- [x] T0: Apple Music シークバー固まり修正 — `pollAppleMusicPosition` 競合状態 + baseline elapsed=0
+- [x] T1: `trackInfo` からアルバム名除去
+- [x] T2: 歌詞エリア拡大（スペーサー 24→6pt、`maxHeight` 制約除去）
+- [x] T3: 展開アニメーション横移動修正（`NSAnimationContext` 除去、即時 `setFrame`）
+- [x] T4: シークバードラッグ操作（`DragGesture` + `manager.seek`）
+- [x] T5: twoColumnView 波形・歌詞ボタン spacing 調整
+
+### 修正コミット
+- `db65c99` — fix: seek bar frozen due to stale Apple Music position poll
+- `46e78ad` — fix: remove album name from track info fallback view
+- `9e0df28` — fix: expand lyrics area to fill available card space
+- `fc1282c` — fix: eliminate horizontal wobble on expand by removing NSAnimationContext frame animation
+- `a21bc4b` — feat: seek bar scrubbing with drag gesture
+- `56bfa8d` — fix: adjust waveform and lyrics-button spacing in twoColumnView
+
+### 既知の制限（スコープ外）
+- Spotify 広告 UI: Track ID 形式が Spotify バージョンによって異なる可能性。実機テストなしで確認困難
+- 次トラックアートワークオーバーレイ: Phase 2g で対応
+- YTM 再生コントロール: Phase 2g TypeScript ブリッジで対応
+
+---
+
 ## Phase 3: AI Usage (v0.3)
 
 - [ ] T3-1: AIProvider protocol
