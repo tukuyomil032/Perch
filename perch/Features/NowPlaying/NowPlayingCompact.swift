@@ -61,6 +61,7 @@ struct MarqueeText: View {
     @State private var contentWidth: CGFloat = 0
     @State private var containerWidth: CGFloat = 0
     @State private var offset: CGFloat = 0
+    @State private var textOpacity: Double = 1.0
     @State private var scrollGeneration = 0
 
     var body: some View {
@@ -70,6 +71,7 @@ struct MarqueeText: View {
                 .lineLimit(1)
                 .fixedSize()
                 .offset(x: offset)
+                .opacity(textOpacity)
                 .background(
                     GeometryReader { textGeo in
                         Color.clear.preference(key: TextWidthKey.self, value: textGeo.size.width)
@@ -87,13 +89,13 @@ struct MarqueeText: View {
             scrollGeneration += 1
             offset = 0
             contentWidth = 0
+            textOpacity = 1.0
         }
     }
 
     private func startScrolling() {
         let overflow = contentWidth - containerWidth
         guard overflow > 8, offset == 0 else { return }
-        // Increment generation here to cancel any previous in-flight task before 1.5s elapses.
         scrollGeneration += 1
         let gen = scrollGeneration
         let duration = Double(overflow) / 25.0
@@ -102,15 +104,23 @@ struct MarqueeText: View {
             try? await Task.sleep(for: .seconds(1.5))
             guard scrollGeneration == gen else { return }
             while scrollGeneration == gen {
+                // 1. Flow left
                 withAnimation(.linear(duration: duration)) {
                     offset = -(overflow + 4)
                 }
-                // Wait for scroll to complete, then 5-second pause before next cycle
-                try? await Task.sleep(for: .seconds(duration + 5.0))
+                // 2. Wait for scroll to complete
+                try? await Task.sleep(for: .seconds(duration))
                 guard scrollGeneration == gen else { return }
-                // Instant reset (no animation)
+                // 3. Instantly hide + snap to center while off-screen
+                textOpacity = 0
                 offset = 0
-                try? await Task.sleep(for: .seconds(0.1))
+                // 4. Fade in at center
+                withAnimation(.easeIn(duration: 0.4)) {
+                    textOpacity = 1.0
+                }
+                // 5. Pause 5s (includes 0.4s fade-in)
+                try? await Task.sleep(for: .seconds(5.4))
+                guard scrollGeneration == gen else { return }
             }
         }
     }
