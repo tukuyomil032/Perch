@@ -1,5 +1,5 @@
 // perch/Features/NowPlaying/ArtworkFetcher.swift
-import AppKit
+@preconcurrency import AppKit
 import Foundation
 
 /// Fetches album artwork via AppleScript for Spotify and Apple Music.
