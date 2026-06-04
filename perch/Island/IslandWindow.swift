@@ -29,6 +29,7 @@ final class IslandWindow: NSWindow {
         collectionBehavior = behavior
         isMovableByWindowBackground = false
         isReleasedWhenClosed = false
+        tabbingMode = .disallowed
     }
 
     override var canBecomeKey: Bool { true }
