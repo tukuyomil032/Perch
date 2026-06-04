@@ -283,6 +283,7 @@ final class NowPlayingManager {
         guard let state = currentState, state.source == .appleMusic else { return }
         currentState = NowPlayingState(
             title: state.title, artist: state.artist, album: state.album, artwork: state.artwork,
+            artworkID: state.artworkID,
             thumbnailURL: state.thumbnailURL,
             isPlaying: state.isPlaying, duration: state.duration,
             elapsedTime: position, timestamp: Date(), source: state.source
@@ -353,6 +354,7 @@ final class NowPlayingManager {
         {
             stateToApply = NowPlayingState(
                 title: new.title, artist: new.artist, album: new.album, artwork: old.artwork,
+                artworkID: old.artworkID,
                 thumbnailURL: new.thumbnailURL,
                 isPlaying: new.isPlaying, duration: new.duration,
                 elapsedTime: new.elapsedTime, timestamp: new.timestamp, source: new.source
