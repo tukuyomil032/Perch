@@ -35,32 +35,69 @@ actor LyricsStore {
     static let shared = LyricsStore()
     private var cache: [String: [LyricsLine]] = [:]
     private let logger = Logger(label: "com.tukuyomi032.perch.LyricsStore")
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 8
+        config.timeoutIntervalForResource = 10
+        return URLSession(configuration: config)
+    }()
 
     func fetchLyrics(title: String, artist: String, album: String?) async -> [LyricsLine]? {
         let key = "\(title)|\(artist)"
         if let cached = cache[key] { return cached }
 
+        if let lines = await fetchGet(title: title, artist: artist) {
+            cache[key] = lines
+            return lines
+        }
+        if let lines = await fetchSearch(title: title, artist: artist) {
+            cache[key] = lines
+            return lines
+        }
+        return nil
+    }
+
+    private func fetchGet(title: String, artist: String) async -> [LyricsLine]? {
         var components = URLComponents(string: "https://lrclib.net/api/get")!
         components.queryItems = [
             URLQueryItem(name: "track_name", value: title),
             URLQueryItem(name: "artist_name", value: artist),
         ]
-        if let album {
-            components.queryItems?.append(URLQueryItem(name: "album_name", value: album))
-        }
         guard let url = components.url else { return nil }
-
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await session.data(from: url)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                 let synced = json["syncedLyrics"] as? String, !synced.isEmpty
             else { return nil }
             let lines = LRCParser.parse(synced)
-            cache[key] = lines
             return lines.isEmpty ? nil : lines
         } catch {
-            logger.debug("LyricsStore fetch failed: \(error)")
+            logger.debug("LyricsStore /api/get failed: \(error)")
+            return nil
+        }
+    }
+
+    private func fetchSearch(title: String, artist: String) async -> [LyricsLine]? {
+        var components = URLComponents(string: "https://lrclib.net/api/search")!
+        components.queryItems = [
+            URLQueryItem(name: "track_name", value: title),
+            URLQueryItem(name: "artist_name", value: artist),
+        ]
+        guard let url = components.url else { return nil }
+        do {
+            let (data, response) = try await session.data(from: url)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+            guard let results = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+            else { return nil }
+            for result in results {
+                guard let synced = result["syncedLyrics"] as? String, !synced.isEmpty else { continue }
+                let lines = LRCParser.parse(synced)
+                if !lines.isEmpty { return lines }
+            }
+            return nil
+        } catch {
+            logger.debug("LyricsStore /api/search failed: \(error)")
             return nil
         }
     }
