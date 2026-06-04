@@ -54,7 +54,11 @@ actor LyricsStore {
             cache[key] = lines
             return lines
         }
-        cache[key] = []  // sentinel: no lyrics — skip network on repeat plays
+        // Only cache as "no lyrics" when the failure was not due to task cancellation.
+        // A cancelled fetch should be retried on next play.
+        if !Task.isCancelled {
+            cache[key] = []
+        }
         return nil
     }
 
