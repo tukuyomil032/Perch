@@ -1,10 +1,8 @@
 // perch/Features/NowPlaying/NowPlayingCompact.swift
-import Defaults
 import SwiftUI
 
 struct NowPlayingCompact: View {
     let state: NowPlayingState
-    @Default(.showNowPlayingSource) private var showSource
 
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
@@ -34,11 +32,7 @@ struct NowPlayingCompact: View {
     }
 
     private var trackLabel: String {
-        var label = "\(state.title) — \(state.artist)"
-        if showSource {
-            label += " | \(state.source.displayName)"
-        }
-        return label
+        state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)"
     }
 
     private var scrollingTitle: some View {
