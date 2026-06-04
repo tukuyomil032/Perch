@@ -431,6 +431,15 @@ final class NowPlayingManager {
         Task { @MainActor [weak self] in
             await self?.fetchAndApplyArtwork(for: state)
         }
+        if state.source != .mrMediaRemote, !state.isAd {
+            Task {
+                _ = await LyricsStore.shared.fetchLyrics(
+                    title: state.title,
+                    artist: state.artist,
+                    album: state.album
+                )
+            }
+        }
     }
 
     private func fetchAndApplyArtwork(for state: NowPlayingState) async {
