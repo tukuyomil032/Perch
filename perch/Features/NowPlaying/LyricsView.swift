@@ -18,7 +18,7 @@ struct LyricsView: View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    Color.clear.frame(height: 24)
+                    Color.clear.frame(height: 6)
                     ForEach(Array(lines.enumerated()), id: \.element.id) { idx, line in
                         Text(line.text)
                             .font(
@@ -31,7 +31,7 @@ struct LyricsView: View {
                             .animation(.easeInOut(duration: 0.3), value: activeIndex)
                             .id(line.id)
                     }
-                    Color.clear.frame(height: 24)
+                    Color.clear.frame(height: 6)
                 }
                 .padding(.horizontal, 4)
             }
@@ -46,8 +46,8 @@ struct LyricsView: View {
             LinearGradient(
                 stops: [
                     .init(color: .clear, location: 0),
-                    .init(color: .black, location: 0.08),
-                    .init(color: .black, location: 0.88),
+                    .init(color: .black, location: 0.05),
+                    .init(color: .black, location: 0.92),
                     .init(color: .clear, location: 1),
                 ],
                 startPoint: .top,

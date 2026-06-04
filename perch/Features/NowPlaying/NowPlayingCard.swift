@@ -49,11 +49,11 @@ struct NowPlayingCard: View {
                             fontSize: 12
                         )
                     }
-                    .frame(maxHeight: 100)
                 } else {
                     trackInfo
                 }
             }
+            .frame(maxHeight: .infinity)
             HStack(spacing: 8) {
                 WaveformView(
                     isPlaying: state.isPlaying,
