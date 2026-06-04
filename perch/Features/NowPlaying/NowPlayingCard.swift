@@ -200,12 +200,6 @@ struct NowPlayingCard: View {
                 .font(.system(size: 12, weight: .regular))
                 .foregroundStyle(.white.opacity(0.7))
                 .lineLimit(1)
-            if let album = state.album {
-                Text(album)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.5))
-                    .lineLimit(1)
-            }
         }
     }
 
