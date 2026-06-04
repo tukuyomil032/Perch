@@ -150,6 +150,30 @@
 
 ---
 
+## Phase 2f: NowPlaying Polish (2026-06-04)
+
+### 完了タスク
+
+- [x] T0: Settings ウィンドウ — `openSettings` 環境値ブリッジ（macOS 14+ 対応）
+- [x] T1: YTM タイトル — `" | YouTube Music"` / `" – YouTube Music"` suffix 除去
+- [x] T2: アートワーク切り替えアニメーション（ピル: scale+fade / カード: Y軸 3D flip）
+- [x] T3: Spotify 広告検出 — `isAd: Bool` フラグ + megaphone プレースホルダー
+- [x] T4: 波形グラデーション — `LinearGradient` (bottom 50% → top 100%)
+- [x] T5: 展開・収納アニメーション — `matchedGeometryEffect` 除去 + asymmetric spring
+- [x] T6: 歌詞表示 — LRCLIB 行レベル sync + 2カラム(Pattern 1)/フルビュー(Pattern 2)切替
+- [x] T7: docs 更新 + pre-Phase-3 スペック作成
+
+### 新規ファイル
+- `perch/Features/NowPlaying/LyricsStore.swift` — actor, LRCLIB fetch, LRC parse
+- `perch/Features/NowPlaying/LyricsView.swift` — ScrollViewReader, opacity, mask
+
+### 既知の制限
+- 歌詞 word-level ハイライト: MusicKit TTML entitlement が必要なため本プロジェクトでは実装しない（行レベルで確定）
+- Spotify 広告アートワーク: DistributedNotificationCenter に広告サムネ URL なし（megaphone のみ）
+- YTM 再生コントロール: Phase 2g で TypeScript ブリッジとして実装予定
+
+---
+
 ## Phase 3: AI Usage (v0.3)
 
 - [ ] T3-1: AIProvider protocol
