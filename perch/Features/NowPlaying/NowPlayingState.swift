@@ -191,8 +191,10 @@ extension NowPlayingState {
         let cleaned =
             windowTitle
             .replacingOccurrences(of: " - YouTube Music", with: "")
+            .replacingOccurrences(of: " | YouTube Music", with: "")
+            .replacingOccurrences(of: " – YouTube Music", with: "")
             .trimmingCharacters(in: .whitespaces)
-        guard !cleaned.isEmpty, cleaned != "YouTube Music" else { return nil }
+        guard !cleaned.isEmpty, cleaned != "YouTube Music", !cleaned.hasPrefix("YouTube Music") else { return nil }
         let parts = cleaned.components(separatedBy: " - ")
         if parts.count >= 2 {
             self.title = parts[0]
