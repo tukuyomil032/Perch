@@ -64,11 +64,11 @@ struct LyricsView: View {
     }
 
     private func lineOpacity(_ idx: Int) -> Double {
-        guard let active = activeIndex else { return 0.38 }
+        guard let active = activeIndex else { return 0.40 }
         if idx == active { return 1.0 }
         let distance = abs(idx - active)
-        if distance == 1 { return 0.55 }
-        if distance == 2 { return 0.38 }
-        return max(0.18, 0.30 - Double(distance - 3) * 0.05)
+        if distance == 1 { return 0.65 }
+        if distance == 2 { return 0.45 }
+        return max(0.20, 0.32 - Double(distance - 3) * 0.05)
     }
 }
