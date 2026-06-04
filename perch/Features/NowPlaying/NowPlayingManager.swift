@@ -256,9 +256,26 @@ final class NowPlayingManager {
         ncObservers.append(contentsOf: mrObservers)
     }
 
+    // MARK: - Source Priority
+
+    private static func sourcePriority(_ sourceName: String) -> Int {
+        switch sourceName {
+        case "Spotify": return 3
+        case "Apple Music": return 3
+        case "YouTube Music": return 2
+        case "MRMediaRemote": return 1
+        default: return 0
+        }
+    }
+
     // MARK: - State Application
 
     private func applyState(_ newState: NowPlayingState?, source: String) {
+        // Prevent lower-priority source from clearing higher-priority active state.
+        // MRMediaRemote returning nil (blocked on macOS 16) must not override Spotify.
+        if newState == nil, let current = currentState {
+            guard Self.sourcePriority(source) >= Self.sourcePriority(current.source.rawValue) else { return }
+        }
         guard newState != currentState else { return }
         currentState = newState
         logger.debug("Now playing updated [\(source)]: \(newState?.title ?? "nil")")
