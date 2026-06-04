@@ -22,7 +22,7 @@ struct NowPlayingCard: View {
             }
         }
         .task(id: state.title + state.artist) {
-            guard state.source != .mrMediaRemote else {
+            guard state.source != .mrMediaRemote, !state.isAd else {
                 lyrics = []
                 return
             }

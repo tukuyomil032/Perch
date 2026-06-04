@@ -125,12 +125,19 @@ final class NowPlayingManager {
             let album = info["Album"] as? String
             let durationMs = info["Duration"] as? Double
             let position = info["Playback Position"] as? Double
+            let trackNumber = info["Track Number"] as? Int
+            let popularity = info["Popularity"] as? Int
             MainActor.assumeIsolated { [weak self] in
                 if playerState == "Stopped" {
                     self?.applyState(nil, source: "Spotify")
                     return
                 }
-                if trackId?.hasPrefix("spotify:ad:") == true {
+                // Primary: Track ID prefix. Fallback: Track Number=0 + Popularity=0
+                // (confirmed by Spotifree, citruspi/Spotify-Notifications via reverse-engineering
+                //  of com.spotify.client.PlaybackStateChanged payload)
+                let isAdByTrackId = trackId?.hasPrefix("spotify:ad:") == true
+                let isAdByFields = trackNumber == 0 && popularity == 0 && playerState == "Playing"
+                if isAdByTrackId || isAdByFields {
                     let adState = NowPlayingState(
                         title: "Spotify Ad", artist: "", album: nil, artwork: nil,
                         artworkID: nil, thumbnailURL: nil, isAd: true,
