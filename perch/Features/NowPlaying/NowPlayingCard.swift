@@ -21,7 +21,10 @@ struct NowPlayingCard: View {
             artworkView
             trackInfo
             Spacer()
-            WaveformView(isPlaying: state.isPlaying, color: .white.opacity(0.8))
+            WaveformView(
+                isPlaying: state.isPlaying,
+                color: state.artwork?.dominantColor() ?? .white.opacity(0.8)
+            )
         }
     }
 

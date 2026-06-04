@@ -8,8 +8,11 @@ struct NowPlayingCompact: View {
         HStack(alignment: .center, spacing: 6) {
             artworkThumbnail
             scrollingTitle
-            WaveformView(isPlaying: state.isPlaying, color: .white.opacity(0.8))
-                .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
+            WaveformView(
+                isPlaying: state.isPlaying,
+                color: state.artwork?.dominantColor() ?? .white.opacity(0.8)
+            )
+            .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
         }
         .padding(.horizontal, 8)
     }
