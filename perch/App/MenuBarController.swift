@@ -28,7 +28,7 @@ final class MenuBarController {
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             let islandLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 1)
-            for win in NSApp.windows where win.level != islandLevel && win.isVisible {
+            for win in NSApp.windows where win.level != islandLevel && win.isVisible && win.canBecomeKey {
                 win.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 2)
                 win.makeKeyAndOrderFront(nil)
             }
