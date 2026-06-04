@@ -6,15 +6,13 @@ struct RootIslandView: View {
     @Namespace private var animation
     @Default(.animationSpeed) private var animationSpeed
 
-    // iOS Dynamic Island: faster response, bouncier damping
     private var shapeAnimation: Animation {
-        .spring(response: 0.28 / animationSpeed, dampingFraction: 0.65)
+        .spring(response: 0.30 / animationSpeed, dampingFraction: 0.88)
     }
 
-    // Content appears slightly after shape on expand, simultaneous on collapse
     private var contentAnimation: Animation {
-        .spring(response: 0.30 / animationSpeed, dampingFraction: 0.70)
-            .delay(appState.isExpanded ? 0.06 : 0.0)
+        .spring(response: 0.30 / animationSpeed, dampingFraction: 0.88)
+            .delay(appState.isExpanded ? 0.05 : 0.0)
     }
 
     var body: some View {
@@ -24,8 +22,8 @@ struct RootIslandView: View {
                     .matchedGeometryEffect(id: "island", in: animation)
                     .transition(
                         .asymmetric(
-                            insertion: .scale(scale: 0.92).combined(with: .opacity),
-                            removal: .scale(scale: 0.92).combined(with: .opacity)
+                            insertion: .scale(scale: 0.96).combined(with: .opacity),
+                            removal: .scale(scale: 0.96).combined(with: .opacity)
                         )
                     )
                     .animation(contentAnimation, value: appState.isExpanded)
@@ -34,8 +32,8 @@ struct RootIslandView: View {
                     .matchedGeometryEffect(id: "island", in: animation)
                     .transition(
                         .asymmetric(
-                            insertion: .scale(scale: 0.92).combined(with: .opacity),
-                            removal: .scale(scale: 0.92).combined(with: .opacity)
+                            insertion: .scale(scale: 0.96).combined(with: .opacity),
+                            removal: .scale(scale: 0.96).combined(with: .opacity)
                         )
                     )
                     .animation(contentAnimation, value: appState.isExpanded)
