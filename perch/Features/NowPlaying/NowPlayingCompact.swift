@@ -90,6 +90,8 @@ struct MarqueeText: View {
     private func startScrolling() {
         let overflow = contentWidth - containerWidth
         guard overflow > 8, offset == 0 else { return }
+        // Increment generation here to cancel any previous in-flight task before 1.5s elapses.
+        scrollGeneration += 1
         let gen = scrollGeneration
         let duration = Double(overflow) / 25.0
         Task { @MainActor in
@@ -100,7 +102,7 @@ struct MarqueeText: View {
                 withAnimation(.linear(duration: duration)) {
                     offset = -(overflow + 4)
                 }
-                // Wait for scroll to complete + 5 second pause at start
+                // Wait for scroll to complete, then 5-second pause before next cycle
                 try? await Task.sleep(for: .seconds(duration + 5.0))
                 guard scrollGeneration == gen else { return }
                 // Instant reset (no animation)
