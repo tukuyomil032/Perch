@@ -4,6 +4,8 @@ import CoreImage
 import SwiftUI
 
 extension NSImage {
+    private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+
     /// Extracts the dominant color using CIAreaAverage.
     /// Skips near-black/near-white images and boosts saturation for vibrant wave colors.
     func dominantColor() -> Color {
@@ -22,8 +24,7 @@ extension NSImage {
         else { return .white.opacity(0.8) }
 
         var pixel = [UInt8](repeating: 0, count: 4)
-        let ctx = CIContext()
-        ctx.render(
+        Self.ciContext.render(
             output,
             toBitmap: &pixel,
             rowBytes: 4,
