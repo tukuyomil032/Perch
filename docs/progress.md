@@ -118,6 +118,7 @@
 - [x] T7: 波形カラーテーマ — `NSImage+DominantColor` (CIAreaAverage + 彩度ブースト)
 - [x] T7: CIContext キャッシュ（static let）でパフォーマンス最適化
 - [x] T8: ソース設定トグル — Spotify / Apple Music / YouTube Music 個別有効化
+- [x] T9: IslandWindow `tabbingMode = .disallowed` — 起動時の "Cannot index window tabs" 警告除去
 
 ### 新規ファイル
 - `perch/Core/NSImage+DominantColor.swift`
