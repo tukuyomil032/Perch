@@ -56,25 +56,40 @@ actor ArtworkFetcher {
         }.value
     }
 
-    // MARK: - YouTube Music (iTunes Search API)
+    // MARK: - YouTube Music
 
-    func fetchYouTubeMusicArtwork(title: String, artist: String) async -> NSImage? {
+    /// Fetches artwork via direct thumbnail URL (from JS injection) or falls back to iTunes Search API.
+    func fetchYouTubeMusicArtwork(thumbnailURL: URL? = nil, title: String, artist: String) async -> NSImage? {
+        // Direct thumbnail URL — accurate and fast
+        if let url = thumbnailURL,
+            let data = try? await URLSession.shared.data(from: url).0,
+            let image = NSImage(data: data)
+        {
+            return image
+        }
+
+        // iTunes Search API fallback
         let query =
-            "\(artist) \(title)"
+            "\(title) \(artist)"
             .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        guard let url = URL(string: "https://itunes.apple.com/search?term=\(query)&entity=song&limit=5") else {
+        guard let searchURL = URL(string: "https://itunes.apple.com/search?term=\(query)&entity=song&limit=5") else {
             return nil
         }
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let (data, _) = try await URLSession.shared.data(from: searchURL)
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let results = json["results"] as? [[String: Any]],
-                let first = results.first,
-                let artworkURLString = first["artworkUrl100"] as? String
+                let results = json["results"] as? [[String: Any]]
             else { return nil }
-            let hiResURL = artworkURLString.replacingOccurrences(of: "100x100bb", with: "300x300bb")
-            guard let artworkURL = URL(string: hiResURL) else { return nil }
-            let (artData, _) = try await URLSession.shared.data(from: artworkURL)
+            // Pick best match: prefer result whose trackName contains the searched title
+            let normalizedTitle = title.lowercased()
+            let match =
+                results.first(where: {
+                    ($0["trackName"] as? String)?.lowercased().contains(normalizedTitle) == true
+                }) ?? results.first
+            guard let artworkStr = match?["artworkUrl100"] as? String else { return nil }
+            let hiRes = artworkStr.replacingOccurrences(of: "100x100bb", with: "300x300bb")
+            guard let artURL = URL(string: hiRes) else { return nil }
+            let (artData, _) = try await URLSession.shared.data(from: artURL)
             return NSImage(data: artData)
         } catch {
             return nil
