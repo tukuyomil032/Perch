@@ -17,7 +17,7 @@ struct LyricsView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 10) {
+                LazyVStack(alignment: .center, spacing: 10) {
                     Color.clear.frame(height: 6)
                     ForEach(Array(lines.enumerated()), id: \.element.id) { idx, line in
                         Text(line.text)
@@ -27,7 +27,7 @@ struct LyricsView: View {
                                     weight: idx == activeIndex ? .semibold : .regular)
                             )
                             .foregroundStyle(.white.opacity(lineOpacity(idx)))
-                            .multilineTextAlignment(.leading)
+                            .multilineTextAlignment(.center)
                             .animation(.easeInOut(duration: 0.3), value: activeIndex)
                             .id(line.id)
                     }
