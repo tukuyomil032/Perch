@@ -41,6 +41,12 @@ struct LyricsView: View {
                     proxy.scrollTo(lines[newIdx].id, anchor: UnitPoint(x: 0.5, y: 0.35))
                 }
             }
+            .onAppear {
+                guard let idx = activeIndex else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    proxy.scrollTo(lines[idx].id, anchor: UnitPoint(x: 0.5, y: 0.35))
+                }
+            }
         }
         .mask(
             LinearGradient(
