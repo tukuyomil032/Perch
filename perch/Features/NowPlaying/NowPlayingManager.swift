@@ -102,6 +102,7 @@ final class NowPlayingManager {
         ) { [weak self] notification in
             guard let info = notification.userInfo else { return }
             let playerState = info["Player State"] as? String
+            let trackId = info["Track ID"] as? String
             let name = info["Name"] as? String ?? info["Track Name"] as? String ?? ""
             let artist = info["Artist"] as? String ?? ""
             let album = info["Album"] as? String
@@ -110,6 +111,18 @@ final class NowPlayingManager {
             MainActor.assumeIsolated { [weak self] in
                 if playerState == "Stopped" {
                     self?.applyState(nil, source: "Spotify")
+                    return
+                }
+                if trackId?.hasPrefix("spotify:ad:") == true {
+                    let adState = NowPlayingState(
+                        title: "Spotify Ad", artist: "", album: nil, artwork: nil,
+                        artworkID: nil, thumbnailURL: nil, isAd: true,
+                        isPlaying: playerState == "Playing",
+                        duration: durationMs.map { $0 / 1000.0 },
+                        elapsedTime: position,
+                        timestamp: Date(), source: .spotify
+                    )
+                    self?.applyState(adState, source: "Spotify")
                     return
                 }
                 guard let playerState, !name.isEmpty else { return }
@@ -347,8 +360,9 @@ final class NowPlayingManager {
         }
         // Carry forward previous artwork during track transitions (same source).
         // Prevents the music-note placeholder from flashing until new artwork is fetched.
+        // Skip carry-forward during ads so the megaphone placeholder shows immediately.
         var stateToApply = newState
-        if let new = newState, new.artwork == nil,
+        if let new = newState, new.artwork == nil, !new.isAd,
             let old = currentState, old.artwork != nil,
             new.source == old.source
         {

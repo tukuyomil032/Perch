@@ -30,11 +30,11 @@ struct NowPlayingCompact: View {
                     .frame(width: 22, height: 22)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             } else {
-                Image(systemName: "music.note")
+                Image(systemName: state.isAd ? "megaphone.fill" : "music.note")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.6))
                     .frame(width: 22, height: 22)
-                    .accessibilityLabel("No album art")
+                    .accessibilityLabel(state.isAd ? "Spotify Ad" : "No album art")
             }
         }
         .scaleEffect(thumbScale)
@@ -55,7 +55,8 @@ struct NowPlayingCompact: View {
     }
 
     private var trackLabel: String {
-        state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)"
+        if state.isAd { return "Spotify Ad" }
+        return state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)"
     }
 
     private var scrollingTitle: some View {

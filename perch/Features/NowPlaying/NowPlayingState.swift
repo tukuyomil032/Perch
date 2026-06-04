@@ -18,6 +18,7 @@ struct NowPlayingState {
     let artwork: NSImage?
     let artworkID: UUID?
     let thumbnailURL: URL?
+    let isAd: Bool
     let isPlaying: Bool
     let duration: TimeInterval?
     let elapsedTime: TimeInterval?
@@ -71,6 +72,7 @@ struct NowPlayingState {
         title: String, artist: String, album: String?, artwork: NSImage?,
         artworkID: UUID? = nil,
         thumbnailURL: URL? = nil,
+        isAd: Bool = false,
         isPlaying: Bool, duration: TimeInterval?, elapsedTime: TimeInterval?,
         timestamp: Date?, source: MusicSource
     ) {
@@ -80,6 +82,7 @@ struct NowPlayingState {
         self.artwork = artwork
         self.artworkID = artworkID
         self.thumbnailURL = thumbnailURL
+        self.isAd = isAd
         self.isPlaying = isPlaying
         self.duration = duration
         self.elapsedTime = elapsedTime
@@ -92,6 +95,7 @@ struct NowPlayingState {
             title: title, artist: artist, album: album, artwork: artwork,
             artworkID: artwork != nil ? UUID() : nil,
             thumbnailURL: thumbnailURL,
+            isAd: isAd,
             isPlaying: isPlaying, duration: duration, elapsedTime: elapsedTime,
             timestamp: timestamp, source: source
         )
@@ -122,6 +126,7 @@ struct NowPlayingState {
         }
         self.artworkID = nil
         self.thumbnailURL = nil
+        self.isAd = false
     }
 }
 
@@ -132,7 +137,7 @@ extension NowPlayingState: Equatable {
     nonisolated static func == (lhs: NowPlayingState, rhs: NowPlayingState) -> Bool {
         lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying
             && lhs.source == rhs.source && lhs.thumbnailURL == rhs.thumbnailURL
-            && lhs.artworkID == rhs.artworkID
+            && lhs.artworkID == rhs.artworkID && lhs.isAd == rhs.isAd
     }
 }
 
@@ -160,6 +165,7 @@ extension NowPlayingState {
         self.artwork = nil
         self.artworkID = nil
         self.thumbnailURL = nil
+        self.isAd = false
         self.source = .spotify
     }
 
@@ -182,6 +188,7 @@ extension NowPlayingState {
         self.artwork = nil
         self.artworkID = nil
         self.thumbnailURL = nil
+        self.isAd = false
         self.source = .appleMusic
     }
 
@@ -211,6 +218,7 @@ extension NowPlayingState {
         self.timestamp = nil
         self.artwork = nil
         self.artworkID = nil
+        self.isAd = false
         self.source = .youTubeMusic
     }
 
@@ -231,6 +239,7 @@ extension NowPlayingState {
         self.timestamp = nil
         self.artwork = nil
         self.artworkID = nil
+        self.isAd = false
         self.thumbnailURL = (obj["thumbnail"] as? String).flatMap { URL(string: $0) }
         self.source = .youTubeMusic
     }

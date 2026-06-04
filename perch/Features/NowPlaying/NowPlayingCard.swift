@@ -46,17 +46,23 @@ struct NowPlayingCard: View {
                     .fill(.white.opacity(0.12))
                     .frame(width: 100, height: 100)
                     .overlay {
-                        Image(systemName: "music.note")
+                        Image(systemName: state.isAd ? "megaphone.fill" : "music.note")
                             .font(.system(size: 36, weight: .light))
                             .foregroundStyle(.white.opacity(0.4))
                     }
-                    .accessibilityLabel("No album art")
+                    .accessibilityLabel(state.isAd ? "Spotify Ad" : "No album art")
             }
         }
         .rotation3DEffect(.degrees(artworkAngle), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
         .onAppear {
             displayedArtwork = state.artwork
             displayedArtworkID = state.artworkID
+        }
+        .onChange(of: state.isAd) { _, isAd in
+            if isAd {
+                displayedArtwork = nil
+                displayedArtworkID = nil
+            }
         }
         .onChange(of: state.artworkID) { _, newID in
             guard newID != displayedArtworkID else { return }
