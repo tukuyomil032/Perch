@@ -136,7 +136,8 @@ final class NowPlayingManager {
                 // (confirmed by Spotifree, citruspi/Spotify-Notifications via reverse-engineering
                 //  of com.spotify.client.PlaybackStateChanged payload)
                 let isAdByTrackId = trackId?.hasPrefix("spotify:ad:") == true
-                let isAdByFields = trackNumber == 0 && popularity == 0 && playerState == "Playing"
+                let isAdByFields =
+                    trackNumber == 0 && (popularity == nil || popularity == 0) && playerState == "Playing"
                 if isAdByTrackId || isAdByFields {
                     let adState = NowPlayingState(
                         title: "Spotify Ad", artist: "", album: nil, artwork: nil,
