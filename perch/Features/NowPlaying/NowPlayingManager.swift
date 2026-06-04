@@ -30,6 +30,7 @@ final class NowPlayingManager {
     // nonisolated(unsafe): accessed from deinit. cancel() on Task is Sendable — safe from any context.
     private nonisolated(unsafe) var ytmPollTask: Task<Void, Never>?
     private nonisolated(unsafe) var amPositionTask: Task<Void, Never>?
+    private nonisolated(unsafe) var lyricsPrefetchTask: Task<Void, Never>?
     private let logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
 
     init() {
@@ -44,6 +45,7 @@ final class NowPlayingManager {
         dnObservers.forEach { DistributedNotificationCenter.default().removeObserver($0) }
         ytmPollTask?.cancel()
         amPositionTask?.cancel()
+        lyricsPrefetchTask?.cancel()
     }
 
     // MARK: - Playback Controls
@@ -432,7 +434,8 @@ final class NowPlayingManager {
             await self?.fetchAndApplyArtwork(for: state)
         }
         if state.source != .mrMediaRemote, !state.isAd {
-            Task {
+            lyricsPrefetchTask?.cancel()
+            lyricsPrefetchTask = Task {
                 _ = await LyricsStore.shared.fetchLyrics(
                     title: state.title,
                     artist: state.artist,
