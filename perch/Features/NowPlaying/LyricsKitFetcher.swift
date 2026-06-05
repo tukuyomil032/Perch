@@ -20,7 +20,7 @@ actor LyricsKitFetcher {
             LyricsProviders.Service.kugou.create(),
         ]
         for provider in providers {
-            if let lines = await fetchFromProvider(provider, request: request) {
+            if let lines = await fetchFromProvider(provider, request: request, expectedTitle: title) {
                 return lines
             }
         }
@@ -29,10 +29,21 @@ actor LyricsKitFetcher {
 
     private func fetchFromProvider(
         _ provider: any LyricsProvider,
-        request: LyricsSearchRequest
+        request: LyricsSearchRequest,
+        expectedTitle: String
     ) async -> [LyricsLine]? {
         do {
             for try await kitLyrics in provider.lyrics(for: request) {
+                if let returnedTitle = kitLyrics.idTags[.title], !returnedTitle.isEmpty {
+                    let norm1 = returnedTitle.lowercased()
+                    let norm2 = expectedTitle.lowercased()
+                    guard norm1.contains(norm2) || norm2.contains(norm1) else {
+                        logger.debug(
+                            "LyricsKitFetcher: skipping mismatched title '\(returnedTitle)' (expected '\(expectedTitle)')"
+                        )
+                        continue
+                    }
+                }
                 let lines = kitLyrics.lines
                     .filter { $0.enabled && !$0.content.isEmpty }
                     .map { LyricsLine(timestamp: $0.position, text: $0.content) }

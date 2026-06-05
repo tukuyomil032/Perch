@@ -36,7 +36,7 @@ struct LyricsView: View {
                     }
                     Color.clear.frame(height: 6)
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 16)
             }
             .onChange(of: activeIndex) { _, newIdx in
                 guard let newIdx else { return }
