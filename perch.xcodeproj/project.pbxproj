@@ -11,6 +11,7 @@
 		BA0A72422FCEBA4F00F08C06 /* InMemoryLogging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */; };
 		BA0A72442FCEBA4F00F08C06 /* Logging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72432FCEBA4F00F08C06 /* Logging */; };
 		BA0A72472FCEBA7600F08C06 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */; };
+		BA0A724A2FCEBABC00F08C06 /* LyricsKit in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72492FCEBABC00F08C06 /* LyricsKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +63,7 @@
 				BA0A723D2FCEBA1A00F08C06 /* Defaults in Frameworks */,
 				BA0A72422FCEBA4F00F08C06 /* InMemoryLogging in Frameworks */,
 				BA0A72472FCEBA7600F08C06 /* KeyboardShortcuts in Frameworks */,
+				BA0A724A2FCEBABC00F08C06 /* LyricsKit in Frameworks */,
 				BA0A72442FCEBA4F00F08C06 /* Logging in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -127,6 +129,7 @@
 				BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */,
 				BA0A72432FCEBA4F00F08C06 /* Logging */,
 				BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */,
+				BA0A72492FCEBABC00F08C06 /* LyricsKit */,
 			);
 			productName = perch;
 			productReference = BA0A707E2FCD694B00F08C06 /* perch.app */;
@@ -215,6 +218,7 @@
 				BA0A723B2FCEBA1A00F08C06 /* XCRemoteSwiftPackageReference "Defaults" */,
 				BA0A72402FCEBA4F00F08C06 /* XCRemoteSwiftPackageReference "swift-log" */,
 				BA0A72452FCEBA7600F08C06 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				BA0A72482FCEBABC00F08C06 /* XCRemoteSwiftPackageReference "LyricsKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA0A707F2FCD694B00F08C06 /* Products */;
@@ -618,6 +622,14 @@
 				minimumVersion = 2.4.0;
 			};
 		};
+		BA0A72482FCEBABC00F08C06 /* XCRemoteSwiftPackageReference "LyricsKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MxIris-LyricsX-Project/LyricsKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.9.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -640,6 +652,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BA0A72452FCEBA7600F08C06 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
 			productName = KeyboardShortcuts;
+		};
+		BA0A72492FCEBABC00F08C06 /* LyricsKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA0A72482FCEBABC00F08C06 /* XCRemoteSwiftPackageReference "LyricsKit" */;
+			productName = LyricsKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

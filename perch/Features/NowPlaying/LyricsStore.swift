@@ -54,6 +54,10 @@ actor LyricsStore {
             cache[key] = lines
             return lines
         }
+        if let lines = await LyricsKitFetcher.shared.fetch(title: title, artist: artist) {
+            cache[key] = lines
+            return lines
+        }
         return nil
     }
 
