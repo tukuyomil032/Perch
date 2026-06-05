@@ -138,7 +138,7 @@ struct NowPlayingCard: View {
                     fontSize: 14
                 )
             }
-            .frame(maxHeight: 160)
+            .frame(maxHeight: 200)
             Divider().background(.white.opacity(0.15))
             progressSection
         }

@@ -23,14 +23,15 @@ struct LyricsView: View {
                         Text(line.text)
                             .font(
                                 .system(
-                                    size: idx == activeIndex ? fontSize + 1 : fontSize,
-                                    weight: idx == activeIndex ? .semibold : .regular)
+                                    size: fontSize,
+                                    weight: idx == activeIndex ? .bold : .regular)
                             )
                             .foregroundStyle(.white.opacity(lineOpacity(idx)))
-                            .scaleEffect(idx == activeIndex ? 1.06 : 1.0, anchor: .center)
+                            .scaleEffect(idx == activeIndex ? 1.10 : 1.0, anchor: .center)
                             .multilineTextAlignment(.center)
+                            .lineLimit(2)
                             .frame(maxWidth: .infinity)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.82), value: activeIndex)
+                            .animation(.spring(response: 0.40, dampingFraction: 0.82), value: activeIndex)
                             .id(line.id)
                     }
                     Color.clear.frame(height: 6)
