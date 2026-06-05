@@ -27,16 +27,16 @@ jobs:
           BASE_VERSION="${VERSION%%-*}"
           if [[ "$VERSION" =~ -[a-zA-Z] ]]; then
             IS_BETA=true
-            FORMULA_NAME="perch-beta"
+            BUNDLE_NAME="perch-beta"
           else
             IS_BETA=false
-            FORMULA_NAME="perch"
+            BUNDLE_NAME="perch"
           fi
-          echo "version=$VERSION"         >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"           >> "$GITHUB_OUTPUT"
           echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG"                 >> "$GITHUB_OUTPUT"
-          echo "is_beta=$IS_BETA"         >> "$GITHUB_OUTPUT"
-          echo "formula_name=$FORMULA_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"                   >> "$GITHUB_OUTPUT"
+          echo "is_beta=$IS_BETA"           >> "$GITHUB_OUTPUT"
+          echo "bundle_name=$BUNDLE_NAME"   >> "$GITHUB_OUTPUT"
 
       - name: Build arm64 archive
         run: |
@@ -52,6 +52,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
+            PRODUCT_NAME="${{ steps.version.outputs.bundle_name }}" \
             SKIP_INSTALL=NO 2>&1 | tail -5
 
       - name: Build x86_64 archive
@@ -68,6 +69,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
+            PRODUCT_NAME="${{ steps.version.outputs.bundle_name }}" \
             SKIP_INSTALL=NO 2>&1 | tail -5
 
       - name: Build universal archive
@@ -84,23 +86,25 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
+            PRODUCT_NAME="${{ steps.version.outputs.bundle_name }}" \
             SKIP_INSTALL=NO 2>&1 | tail -5
 
       - name: Create DMGs
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+          BUNDLE_NAME="${{ steps.version.outputs.bundle_name }}"
           mkdir -p build/dmg
 
           for ARCH in arm64 x86_64 universal; do
-            APP="build/$APP_NAME-${ARCH}.xcarchive/Products/Applications/$APP_NAME.app"
+            APP="build/$APP_NAME-${ARCH}.xcarchive/Products/Applications/${BUNDLE_NAME}.app"
             STAGING="build/dmg-staging-${ARCH}"
             rm -rf "$STAGING"
             mkdir -p "$STAGING"
-            cp -R "$APP" "$STAGING/$APP_NAME.app"
+            cp -R "$APP" "$STAGING/${BUNDLE_NAME}.app"
 
-            codesign --force --deep --sign - --timestamp=none "$STAGING/$APP_NAME.app"
-            codesign --verify --deep --strict --verbose=4 "$STAGING/$APP_NAME.app"
-            if ! spctl --assess --type execute --verbose=4 "$STAGING/$APP_NAME.app"; then
+            codesign --force --deep --sign - --timestamp=none "$STAGING/${BUNDLE_NAME}.app"
+            codesign --verify --deep --strict --verbose=4 "$STAGING/${BUNDLE_NAME}.app"
+            if ! spctl --assess --type execute --verbose=4 "$STAGING/${BUNDLE_NAME}.app"; then
               echo "::warning::spctl rejected ad-hoc signed app for ${ARCH}; continuing."
             fi
 
@@ -113,19 +117,12 @@ jobs:
             echo "Created: $APP_NAME-${VERSION}-${ARCH}.dmg"
           done
 
-      - name: Compute SHA256
-        id: sha256
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          SHA=$(shasum -a 256 "build/dmg/$APP_NAME-${VERSION}-universal.dmg" | awk '{print $1}')
-          echo "universal=$SHA" >> "$GITHUB_OUTPUT"
-
       - name: Compose release body
         id: body
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           IS_BETA="${{ steps.version.outputs.is_beta }}"
-          FORMULA_NAME="${{ steps.version.outputs.formula_name }}"
+          BUNDLE_NAME="${{ steps.version.outputs.bundle_name }}"
 
           if [ "$IS_BETA" = "true" ]; then
             LABEL=" (beta)"
@@ -140,7 +137,7 @@ jobs:
             echo "### Install via Homebrew"
             echo '```bash'
             echo "brew tap tukuyomil032/tap"
-            echo "brew install --cask ${FORMULA_NAME}"
+            echo "brew install --cask ${BUNDLE_NAME}"
             echo '```'
             echo ""
             echo "### Direct Download"
@@ -163,38 +160,3 @@ jobs:
             build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-universal.dmg
           draft: false
           prerelease: ${{ steps.version.outputs.is_beta == 'true' }}
-
-      - name: Update Homebrew tap
-        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
-        env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          BASE_VERSION="${{ steps.version.outputs.base_version }}"
-          TAG="${{ steps.version.outputs.tag }}"
-          FORMULA_NAME="${{ steps.version.outputs.formula_name }}"
-          SHA="${{ steps.sha256.outputs.universal }}"
-
-          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/tukuyomil032/homebrew-tap.git" tap-repo
-          cd tap-repo
-          mkdir -p Casks
-
-          cat > "Casks/${FORMULA_NAME}.rb" << FORMULA
-          cask "${FORMULA_NAME}" do
-            version "${VERSION}"
-            sha256 "${SHA}"
-
-            url "https://github.com/tukuyomil032/perch/releases/download/${TAG}/perch-${VERSION}-universal.dmg"
-            name "Perch"
-            desc "macOS Dynamic Island-style live hub"
-            homepage "https://github.com/tukuyomil032/perch"
-
-            app "perch.app"
-          end
-          FORMULA
-
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          git add "Casks/${FORMULA_NAME}.rb"
-          git commit -m "chore: update ${FORMULA_NAME} to ${VERSION}"
-          git push
