@@ -24,6 +24,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache DerivedData (Release)
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-derived-data-release-${{ hashFiles('perch.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            ${{ runner.os }}-derived-data-release-
+
       - name: Resolve version
         id: version
         run: |
@@ -47,24 +55,6 @@ jobs:
           echo "is_beta=$IS_BETA"           >> "$GITHUB_OUTPUT"
           echo "bundle_name=$BUNDLE_NAME"   >> "$GITHUB_OUTPUT"
 
-      - name: Build arm64 archive
-        run: |
-          set -o pipefail
-          xcodebuild archive \
-            -scheme "$SCHEME" \
-            -configuration Release \
-            -archivePath build/$APP_NAME-arm64.xcarchive \
-            -destination 'generic/platform=macOS' \
-            -skipPackagePluginValidation \
-            -skipMacroValidation \
-            ARCHS=arm64 \
-            ONLY_ACTIVE_ARCH=NO \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
-            SKIP_INSTALL=NO 2>&1 | tail -100
-
       - name: Build universal archive
         run: |
           set -o pipefail
@@ -82,6 +72,16 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
             SKIP_INSTALL=NO 2>&1 | tail -100
+
+      - name: Create arm64 archive from universal (lipo thin)
+        run: |
+          set -euo pipefail
+          cp -Rp "build/$APP_NAME-universal.xcarchive" "build/$APP_NAME-arm64.xcarchive"
+          find "build/$APP_NAME-arm64.xcarchive/Products" -type f | while read f; do
+              lipo "$f" -thin arm64 -output "$f"
+            fi
+          done
+          echo "Created arm64 archive from universal via lipo"
 
       - name: Create x86_64 archive from universal (lipo thin)
         run: |
@@ -115,12 +115,6 @@ jobs:
             rm -rf "$STAGING"
             mkdir -p "$STAGING"
             cp -R "$APP" "$STAGING/${BUNDLE_NAME}.app"
-
-            codesign --force --deep --sign - --timestamp=none "$STAGING/${BUNDLE_NAME}.app"
-            codesign --verify --deep --strict --verbose=4 "$STAGING/${BUNDLE_NAME}.app"
-            if ! spctl --assess --type execute --verbose=4 "$STAGING/${BUNDLE_NAME}.app"; then
-              echo "::warning::spctl rejected ad-hoc signed app for ${ARCH}; continuing."
-            fi
 
             hdiutil create \
               -volname "Perch" \
