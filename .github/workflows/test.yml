@@ -50,6 +50,7 @@ jobs:
             -destination 'platform=macOS' \
             -skip-testing:perchUITests \
             -skipPackagePluginValidation \
+            -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \
             test \
             2>&1 | xcbeautify

@@ -49,8 +49,10 @@ jobs:
             -configuration Debug \
             -destination 'platform=macOS' \
             -skipPackagePluginValidation \
+            -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            build \
+            2>&1 | xcbeautify
 
   lint:
     name: Lint
