@@ -48,6 +48,10 @@ actor LyricsKitFetcher {
                     .filter { $0.enabled && !$0.content.isEmpty }
                     .map { LyricsLine(timestamp: $0.position, text: $0.content) }
                 if !lines.isEmpty {
+                    if titleIsJapanese(expectedTitle) && !lyricsContainJapanese(lines) {
+                        logger.debug("LyricsKitFetcher: skipping non-Japanese lyrics for '\(expectedTitle)'")
+                        continue
+                    }
                     logger.debug("LyricsKitFetcher: found \(lines.count) lines via \(type(of: provider))")
                     return lines
                 }
@@ -56,5 +60,19 @@ actor LyricsKitFetcher {
             logger.debug("LyricsKitFetcher: \(type(of: provider)) failed: \(error)")
         }
         return nil
+    }
+
+    private func titleIsJapanese(_ title: String) -> Bool {
+        title.unicodeScalars.contains {
+            ($0.value >= 0x3040 && $0.value <= 0x309F) || ($0.value >= 0x30A0 && $0.value <= 0x30FF)
+        }
+    }
+
+    private func lyricsContainJapanese(_ lines: [LyricsLine]) -> Bool {
+        lines.contains { line in
+            line.text.unicodeScalars.contains {
+                ($0.value >= 0x3040 && $0.value <= 0x309F) || ($0.value >= 0x30A0 && $0.value <= 0x30FF)
+            }
+        }
     }
 }
