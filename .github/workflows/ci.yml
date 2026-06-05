@@ -49,8 +49,7 @@ jobs:
             -configuration Debug \
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO \
-            build \
-            2>&1 | xcbeautify
+            build
 
   lint:
     name: Lint
