@@ -63,7 +63,6 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
-            PRODUCT_NAME="${{ steps.version.outputs.bundle_name }}" \
             SKIP_INSTALL=NO 2>&1 | tail -100
 
       - name: Build x86_64 archive
@@ -82,7 +81,6 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
-            PRODUCT_NAME="${{ steps.version.outputs.bundle_name }}" \
             SKIP_INSTALL=NO 2>&1 | tail -100
 
       - name: Build universal archive
@@ -101,8 +99,17 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
-            PRODUCT_NAME="${{ steps.version.outputs.bundle_name }}" \
             SKIP_INSTALL=NO 2>&1 | tail -100
+
+      - name: Rename app bundle for beta
+        if: steps.version.outputs.is_beta == 'true'
+        run: |
+          for ARCH in arm64 x86_64 universal; do
+            SRC="build/$APP_NAME-${ARCH}.xcarchive/Products/Applications/perch.app"
+            DST="build/$APP_NAME-${ARCH}.xcarchive/Products/Applications/perch-beta.app"
+            mv "$SRC" "$DST"
+            echo "Renamed: perch.app → perch-beta.app (${ARCH})"
+          done
 
       - name: Create DMGs
         run: |
