@@ -21,13 +21,9 @@ struct LyricsView: View {
                     Color.clear.frame(height: 6)
                     ForEach(Array(lines.enumerated()), id: \.element.id) { idx, line in
                         Text(line.text)
-                            .font(
-                                .system(
-                                    size: fontSize,
-                                    weight: idx == activeIndex ? .bold : .regular)
-                            )
+                            .font(.system(size: fontSize, weight: .regular))
                             .foregroundStyle(.white.opacity(lineOpacity(idx)))
-                            .scaleEffect(idx == activeIndex ? 1.10 : 1.0, anchor: .center)
+                            .scaleEffect(idx == activeIndex ? 1.13 : 1.0, anchor: .center)
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                             .frame(maxWidth: .infinity)
