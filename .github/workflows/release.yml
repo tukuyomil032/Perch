@@ -62,7 +62,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
             PRODUCT_NAME="${{ steps.version.outputs.bundle_name }}" \
-            SKIP_INSTALL=NO 2>&1 | tail -5
+            SKIP_INSTALL=NO 2>&1 | tail -100
 
       - name: Build x86_64 archive
         run: |
@@ -79,7 +79,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
             PRODUCT_NAME="${{ steps.version.outputs.bundle_name }}" \
-            SKIP_INSTALL=NO 2>&1 | tail -5
+            SKIP_INSTALL=NO 2>&1 | tail -100
 
       - name: Build universal archive
         run: |
@@ -96,7 +96,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
             PRODUCT_NAME="${{ steps.version.outputs.bundle_name }}" \
-            SKIP_INSTALL=NO 2>&1 | tail -5
+            SKIP_INSTALL=NO 2>&1 | tail -100
 
       - name: Create DMGs
         run: |
