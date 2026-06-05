@@ -41,6 +41,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-derived-data-test-
 
+      - name: Trust Swift macros
+        run: defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
+
       - name: Run Tests
         run: |
           set -euo pipefail
