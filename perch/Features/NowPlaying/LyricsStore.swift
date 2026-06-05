@@ -44,17 +44,20 @@ actor LyricsStore {
 
     func fetchLyrics(title: String, artist: String, album: String?) async -> [LyricsLine]? {
         let key = "\(title)|\(artist)"
-        if let cached = cache[key] { return cached.isEmpty ? nil : cached }
+        if let cached = cache[key] { return cached }
 
         if let lines = await fetchGet(title: title, artist: artist) {
             cache[key] = lines
             return lines
         }
-        if let lines = await fetchSearch(title: title, artist: artist, album: album) {
+        if let lines = await fetchSearch(title: title, artist: artist) {
             cache[key] = lines
             return lines
         }
-        cache[key] = []  // sentinel: no lyrics — skip network on repeat plays
+        if let lines = await LyricsKitFetcher.shared.fetch(title: title, artist: artist) {
+            cache[key] = lines
+            return lines
+        }
         return nil
     }
 
@@ -79,14 +82,12 @@ actor LyricsStore {
         }
     }
 
-    private func fetchSearch(title: String, artist: String, album: String?) async -> [LyricsLine]? {
+    private func fetchSearch(title: String, artist: String) async -> [LyricsLine]? {
         var components = URLComponents(string: "https://lrclib.net/api/search")!
-        var queryItems = [
+        components.queryItems = [
             URLQueryItem(name: "track_name", value: title),
             URLQueryItem(name: "artist_name", value: artist),
         ]
-        if let album { queryItems.append(URLQueryItem(name: "album_name", value: album)) }
-        components.queryItems = queryItems
         guard let url = components.url else { return nil }
         do {
             let (data, response) = try await session.data(from: url)

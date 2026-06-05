@@ -127,19 +127,15 @@ final class NowPlayingManager {
             let album = info["Album"] as? String
             let durationMs = info["Duration"] as? Double
             let position = info["Playback Position"] as? Double
-            let trackNumber = info["Track Number"] as? Int
-            let popularity = info["Popularity"] as? Int
             MainActor.assumeIsolated { [weak self] in
                 if playerState == "Stopped" {
                     self?.applyState(nil, source: "Spotify")
                     return
                 }
-                // Primary: Track ID prefix. Fallback: Track Number=0 + Popularity=0
-                // (confirmed by Spotifree, citruspi/Spotify-Notifications via reverse-engineering
-                //  of com.spotify.client.PlaybackStateChanged payload)
+                // Primary: Track ID prefix. Fallback: empty Name field (ads always omit Name).
+                // trackNumber/Popularity are unreliable — newer Spotify may omit them.
                 let isAdByTrackId = trackId?.hasPrefix("spotify:ad:") == true
-                let isAdByFields =
-                    trackNumber == 0 && (popularity == nil || popularity == 0) && playerState == "Playing"
+                let isAdByFields = name.isEmpty && playerState == "Playing"
                 if isAdByTrackId || isAdByFields {
                     let adState = NowPlayingState(
                         title: "Spotify Ad", artist: "", album: nil, artwork: nil,
@@ -152,7 +148,7 @@ final class NowPlayingManager {
                     self?.applyState(adState, source: "Spotify")
                     return
                 }
-                guard let playerState, !name.isEmpty else { return }
+                guard let playerState else { return }
                 let state = NowPlayingState(
                     spotifyPlayerState: playerState, title: name, artist: artist, album: album,
                     durationMs: durationMs, position: position

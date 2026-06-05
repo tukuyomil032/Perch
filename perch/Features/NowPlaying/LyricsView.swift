@@ -21,20 +21,18 @@ struct LyricsView: View {
                     Color.clear.frame(height: 6)
                     ForEach(Array(lines.enumerated()), id: \.element.id) { idx, line in
                         Text(line.text)
-                            .font(
-                                .system(
-                                    size: idx == activeIndex ? fontSize + 1 : fontSize,
-                                    weight: idx == activeIndex ? .semibold : .regular)
-                            )
+                            .font(.system(size: fontSize, weight: .regular))
                             .foregroundStyle(.white.opacity(lineOpacity(idx)))
-                            .scaleEffect(idx == activeIndex ? 1.06 : 1.0, anchor: .center)
+                            .scaleEffect(idx == activeIndex ? 1.13 : 1.0, anchor: .center)
                             .multilineTextAlignment(.center)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.82), value: activeIndex)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity)
+                            .animation(.spring(response: 0.40, dampingFraction: 0.82), value: activeIndex)
                             .id(line.id)
                     }
                     Color.clear.frame(height: 6)
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 16)
             }
             .onChange(of: activeIndex) { _, newIdx in
                 guard let newIdx else { return }
