@@ -47,9 +47,6 @@ jobs:
           echo "is_beta=$IS_BETA"           >> "$GITHUB_OUTPUT"
           echo "bundle_name=$BUNDLE_NAME"   >> "$GITHUB_OUTPUT"
 
-      - name: Trust Swift macros
-        run: defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
-
       - name: Build arm64 archive
         run: |
           set -o pipefail
@@ -58,6 +55,7 @@ jobs:
             -configuration Release \
             -archivePath build/$APP_NAME-arm64.xcarchive \
             -destination 'generic/platform=macOS' \
+            -skipPackagePluginValidation \
             ARCHS=arm64 \
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGN_IDENTITY="-" \
@@ -75,6 +73,7 @@ jobs:
             -configuration Release \
             -archivePath build/$APP_NAME-x86_64.xcarchive \
             -destination 'generic/platform=macOS' \
+            -skipPackagePluginValidation \
             ARCHS=x86_64 \
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGN_IDENTITY="-" \
@@ -92,6 +91,7 @@ jobs:
             -configuration Release \
             -archivePath build/$APP_NAME-universal.xcarchive \
             -destination 'generic/platform=macOS' \
+            -skipPackagePluginValidation \
             "ARCHS=arm64 x86_64" \
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGN_IDENTITY="-" \

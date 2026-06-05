@@ -41,9 +41,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-derived-data-
 
-      - name: Trust Swift macros
-        run: defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
-
       - name: Build
         run: |
           set -euo pipefail
@@ -51,6 +48,7 @@ jobs:
             -scheme perch \
             -configuration Debug \
             -destination 'platform=macOS' \
+            -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO \
             build \
             2>&1 | xcbeautify
