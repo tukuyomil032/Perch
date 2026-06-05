@@ -22,10 +22,21 @@ jobs:
       - name: Resolve version
         id: version
         run: |
-          TAG="${GITHUB_REF_NAME:-v0.2.0}"
+          TAG="${GITHUB_REF_NAME:-v0.3.0}"
           VERSION="${TAG#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          BASE_VERSION="${VERSION%%-*}"
+          if [[ "$VERSION" =~ -[a-zA-Z] ]]; then
+            IS_BETA=true
+            FORMULA_NAME="perch-beta"
+          else
+            IS_BETA=false
+            FORMULA_NAME="perch"
+          fi
+          echo "version=$VERSION"         >> "$GITHUB_OUTPUT"
+          echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"                 >> "$GITHUB_OUTPUT"
+          echo "is_beta=$IS_BETA"         >> "$GITHUB_OUTPUT"
+          echo "formula_name=$FORMULA_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Build arm64 archive
         run: |
@@ -40,6 +51,7 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
             SKIP_INSTALL=NO 2>&1 | tail -5
 
       - name: Build x86_64 archive
@@ -55,6 +67,7 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
             SKIP_INSTALL=NO 2>&1 | tail -5
 
       - name: Build universal archive
@@ -70,6 +83,7 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
             SKIP_INSTALL=NO 2>&1 | tail -5
 
       - name: Create DMGs
@@ -99,28 +113,88 @@ jobs:
             echo "Created: $APP_NAME-${VERSION}-${ARCH}.dmg"
           done
 
+      - name: Compute SHA256
+        id: sha256
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA=$(shasum -a 256 "build/dmg/$APP_NAME-${VERSION}-universal.dmg" | awk '{print $1}')
+          echo "universal=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Compose release body
+        id: body
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          IS_BETA="${{ steps.version.outputs.is_beta }}"
+          FORMULA_NAME="${{ steps.version.outputs.formula_name }}"
+
+          if [ "$IS_BETA" = "true" ]; then
+            LABEL=" (beta)"
+          else
+            LABEL=""
+          fi
+
+          {
+            echo "body<<__BODY__"
+            echo "## Perch ${VERSION}${LABEL}"
+            echo ""
+            echo "### Install via Homebrew"
+            echo '```bash'
+            echo "brew tap tukuyomil032/tap"
+            echo "brew install --cask ${FORMULA_NAME}"
+            echo '```'
+            echo ""
+            echo "### Direct Download"
+            echo "- **universal.dmg** (recommended) — Apple Silicon + Intel"
+            echo "- **arm64.dmg** — Apple Silicon only"
+            echo "- **x86_64.dmg** — Intel only"
+            echo ""
+            echo "> ⚠️ Not notarized by Apple. If Gatekeeper blocks it: right-click > Open > Open."
+            echo "__BODY__"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: "Perch ${{ steps.version.outputs.version }}"
-          body: |
-            ## Perch ${{ steps.version.outputs.version }} (beta)
-
-            ### Install via Homebrew
-            ```bash
-            brew tap tukuyomil032/tap
-            brew install --cask perch
-            ```
-
-            ### Direct Download
-            - **universal.dmg** (recommended) — Apple Silicon + Intel
-            - **arm64.dmg** — Apple Silicon only
-            - **x86_64.dmg** — Intel only
-
-            > ⚠️ Not notarized by Apple. If Gatekeeper blocks it: right-click > Open > Open.
+          body: ${{ steps.body.outputs.body }}
           files: |
             build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-arm64.dmg
             build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-x86_64.dmg
             build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-universal.dmg
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.version.outputs.is_beta == 'true' }}
+
+      - name: Update Homebrew tap
+        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BASE_VERSION="${{ steps.version.outputs.base_version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          FORMULA_NAME="${{ steps.version.outputs.formula_name }}"
+          SHA="${{ steps.sha256.outputs.universal }}"
+
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/tukuyomil032/homebrew-tap.git" tap-repo
+          cd tap-repo
+          mkdir -p Casks
+
+          cat > "Casks/${FORMULA_NAME}.rb" << FORMULA
+          cask "${FORMULA_NAME}" do
+            version "${VERSION}"
+            sha256 "${SHA}"
+
+            url "https://github.com/tukuyomil032/perch/releases/download/${TAG}/perch-${VERSION}-universal.dmg"
+            name "Perch"
+            desc "macOS Dynamic Island-style live hub"
+            homepage "https://github.com/tukuyomil032/perch"
+
+            app "perch.app"
+          end
+          FORMULA
+
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add "Casks/${FORMULA_NAME}.rb"
+          git commit -m "chore: update ${FORMULA_NAME} to ${VERSION}"
+          git push
