@@ -50,8 +50,7 @@ jobs:
             -destination 'platform=macOS' \
             -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO \
-            build \
-            2>&1 | xcbeautify
+            build
 
   lint:
     name: Lint
