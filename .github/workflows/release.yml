@@ -75,9 +75,9 @@ jobs:
 
       - name: Create arm64 archive from universal (lipo thin)
         run: |
+          set -euo pipefail
           cp -Rp "build/$APP_NAME-universal.xcarchive" "build/$APP_NAME-arm64.xcarchive"
           find "build/$APP_NAME-arm64.xcarchive/Products" -type f | while read f; do
-            if file "$f" | grep -q "Mach-O universal binary"; then
               lipo "$f" -thin arm64 -output "$f"
             fi
           done
