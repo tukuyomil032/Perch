@@ -166,6 +166,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           name: "Perch ${{ steps.version.outputs.version }}"
           body: ${{ steps.body.outputs.body }}
           files: |
