@@ -104,6 +104,40 @@ jobs:
             echo "Renamed: perch.app → perch-beta.app (${ARCH})"
           done
 
+      - name: Ad-hoc sign app bundles
+        run: |
+          set -euo pipefail
+          BUNDLE_NAME="${{ steps.version.outputs.bundle_name }}"
+          ENTITLEMENTS="$GITHUB_WORKSPACE/perch/Resources/Perch.entitlements"
+
+          for ARCH in arm64 x86_64 universal; do
+            APP="build/$APP_NAME-${ARCH}.xcarchive/Products/Applications/${BUNDLE_NAME}.app"
+            echo "=== Ad-hoc signing ${ARCH}: ${APP} ==="
+
+            if [ -d "${APP}/Contents/Frameworks" ]; then
+              while read -r fw; do
+                echo "  framework: $(basename "$fw")"
+                codesign --force --sign - --timestamp=none "$fw"
+              done < <(find "${APP}/Contents/Frameworks" -name "*.framework" -maxdepth 1)
+
+              while read -r dylib; do
+                echo "  dylib: $(basename "$dylib")"
+                codesign --force --sign - --timestamp=none "$dylib"
+              done < <(find "${APP}/Contents/Frameworks" -name "*.dylib" -maxdepth 1)
+            fi
+
+            codesign \
+              --force \
+              --sign - \
+              --timestamp=none \
+              --options runtime \
+              --entitlements "$ENTITLEMENTS" \
+              "${APP}"
+
+            codesign --verify --verbose=1 "${APP}"
+            echo "=== ${ARCH} signed and verified ==="
+          done
+
       - name: Create DMGs
         run: |
           VERSION="${{ steps.version.outputs.version }}"
