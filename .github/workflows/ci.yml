@@ -37,7 +37,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Library/Developer/Xcode/DerivedData
-          key: ${{ runner.os }}-derived-data-${{ hashFiles('perch.xcodeproj/project.pbxproj') }}
+          key: ${{ runner.os }}-derived-data-${{ hashFiles('perch.xcodeproj/project.pbxproj', 'perch.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-derived-data-
 
@@ -50,6 +50,7 @@ jobs:
             -destination 'platform=macOS' \
             -skipPackagePluginValidation \
             -skipMacroValidation \
+            -jobs "$(sysctl -n hw.logicalcpu)" \
             CODE_SIGNING_ALLOWED=NO \
             build \
             2>&1 | xcbeautify
