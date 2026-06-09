@@ -268,6 +268,7 @@ extension NowPlayingState {
             duration: duration,
             elapsedTime: elapsed,
             timestamp: elapsed != nil ? Date() : nil,
+            // Safe: NowPlayingManager only calls fromMediaRemote when isYTMTabOpen
             source: .youTubeMusic
         )
     }
