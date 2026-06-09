@@ -1,8 +1,6 @@
 import AppKit
 import Foundation
-import OSLog
-
-private let logger = Logger(subsystem: "com.tukuyomi032.perch", category: "YTMAppBridge")
+import Logging
 
 @Observable
 @MainActor
@@ -11,6 +9,8 @@ final class YouTubeMusicAppBridge {
 
     private(set) var isConnected = false
     private(set) var currentState: NowPlayingState?
+
+    private let logger = Logger(label: "com.tukuyomi032.perch.YTMAppBridge")
 
     // nonisolated(unsafe): written on MainActor (setup), readable from nonisolated contexts.
     // Same pattern as NowPlayingManager.ncObservers.
@@ -26,6 +26,7 @@ final class YouTubeMusicAppBridge {
     // nonisolated(unsafe): accessed from deinit / Task cancellation contexts.
     private nonisolated(unsafe) var wsTask: URLSessionWebSocketTask?
     private var token: String?
+    private nonisolated(unsafe) var isRefreshingToken = false
     private nonisolated(unsafe) var monitorTask: Task<Void, Never>?
     private nonisolated(unsafe) var terminateTask: Task<Void, Never>?
     private nonisolated(unsafe) var reconnectTask: Task<Void, Never>?
@@ -79,7 +80,7 @@ final class YouTubeMusicAppBridge {
 
     // MARK: - App Detection
 
-    func isAppRunning() -> Bool {
+    private func isAppRunning() -> Bool {
         NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == appBundleID }
     }
 
@@ -212,6 +213,9 @@ final class YouTubeMusicAppBridge {
         do {
             let (_, response) = try await URLSession.shared.data(for: req)
             if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+                guard !isRefreshingToken else { return }
+                isRefreshingToken = true
+                defer { isRefreshingToken = false }
                 KeychainHelper.delete(forKey: keychainKey)
                 self.token = nil
                 try? await authenticate()
