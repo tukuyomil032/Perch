@@ -245,4 +245,32 @@ extension NowPlayingState {
         self.thumbnailURL = (obj["thumbnail"] as? String).flatMap { URL(string: $0) }
         self.source = .youTubeMusic
     }
+
+    /// th-ch/youtube-music WebSocket イベントの data ペイロードから初期化
+    init?(fromYTMAppEvent payload: [String: Any]) {
+        guard let title = payload["title"] as? String, !title.isEmpty else { return nil }
+        let artist = payload["artist"] as? String ?? ""
+        let isPaused = payload["isPaused"] as? Bool ?? false
+        let duration = payload["duration"] as? TimeInterval
+        let elapsed = payload["elapsedSeconds"] as? TimeInterval
+        let thumbnailString =
+            (payload["thumbnail"] as? String)
+            ?? (payload["thumbnailUrl"] as? String)
+        let thumbnailURL = thumbnailString.flatMap { URL(string: $0) }
+
+        self.init(
+            title: title,
+            artist: artist,
+            album: payload["album"] as? String,
+            artwork: nil,
+            artworkID: thumbnailURL != nil ? UUID() : nil,
+            thumbnailURL: thumbnailURL,
+            isAd: false,
+            isPlaying: !isPaused,
+            duration: duration,
+            elapsedTime: elapsed,
+            timestamp: elapsed != nil ? Date() : nil,
+            source: .youTubeMusic
+        )
+    }
 }
