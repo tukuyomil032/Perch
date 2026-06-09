@@ -13,6 +13,7 @@
 		BA0A72472FCEBA7600F08C06 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */; };
 		BA0A724A2FCEBABC00F08C06 /* LyricsKit in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72492FCEBABC00F08C06 /* LyricsKit */; };
 		0E9B581DEA7444588A383555 /* MediaRemoteAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 5EC016E2A8BA4516AB09390A /* MediaRemoteAdapter */; };
+		CF26B21B955740D69EB91851 /* MediaRemoteAdapter in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 5EC016E2A8BA4516AB09390A /* MediaRemoteAdapter */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -117,6 +118,7 @@
 				BA0A707A2FCD694B00F08C06 /* Sources */,
 				BA0A707B2FCD694B00F08C06 /* Frameworks */,
 				BA0A707C2FCD694B00F08C06 /* Resources */,
+				7A28C612CDC0455CB128A58F /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -600,6 +602,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7A28C612CDC0455CB128A58F /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CF26B21B955740D69EB91851 /* MediaRemoteAdapter in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin XCRemoteSwiftPackageReference section */
 		BA0A723B2FCEBA1A00F08C06 /* XCRemoteSwiftPackageReference "Defaults" */ = {
