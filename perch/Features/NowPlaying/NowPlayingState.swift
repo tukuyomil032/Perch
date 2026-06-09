@@ -1,5 +1,6 @@
 // perch/Features/NowPlaying/NowPlayingState.swift
 import AppKit
+import MediaRemoteAdapter
 
 enum MusicSource: String, Sendable, Equatable {
     case spotify = "Spotify"
@@ -246,27 +247,24 @@ extension NowPlayingState {
         self.source = .youTubeMusic
     }
 
-    /// th-ch/youtube-music WebSocket イベントの data ペイロードから初期化
-    init?(fromYTMAppEvent payload: [String: Any]) {
-        guard let title = payload["title"] as? String, !title.isEmpty else { return nil }
-        let artist = payload["artist"] as? String ?? ""
-        let isPaused = payload["isPaused"] as? Bool ?? false
-        let duration = payload["duration"] as? TimeInterval
-        let elapsed = payload["elapsedSeconds"] as? TimeInterval
-        let thumbnailString =
-            (payload["thumbnail"] as? String)
-            ?? (payload["thumbnailUrl"] as? String)
-        let thumbnailURL = thumbnailString.flatMap { URL(string: $0) }
+    /// ejbills/mediaremote-adapter: TrackInfo から初期化
+    init?(fromMediaRemote trackInfo: TrackInfo) {
+        let payload = trackInfo.payload
+        guard let title = payload.title, !title.isEmpty else { return nil }
+        let artist = payload.artist ?? ""
+        let isPlaying = payload.isPlaying ?? false
+        let duration = payload.durationMicros.map { $0 / 1_000_000 }
+        let elapsed = payload.currentElapsedTime
 
         self.init(
             title: title,
             artist: artist,
-            album: payload["album"] as? String,
-            artwork: nil,
-            artworkID: thumbnailURL != nil ? UUID() : nil,
-            thumbnailURL: thumbnailURL,
+            album: payload.album,
+            artwork: payload.artwork,
+            artworkID: payload.artwork != nil ? UUID() : nil,
+            thumbnailURL: nil,
             isAd: false,
-            isPlaying: !isPaused,
+            isPlaying: isPlaying,
             duration: duration,
             elapsedTime: elapsed,
             timestamp: elapsed != nil ? Date() : nil,
