@@ -248,20 +248,24 @@ extension NowPlayingState {
     }
 
     /// ejbills/mediaremote-adapter: TrackInfo から初期化
-    init?(fromMediaRemote trackInfo: TrackInfo) {
+    init?(
+        fromMediaRemote trackInfo: TrackInfo,
+        overrideArtworkID: UUID? = nil,
+        fallbackElapsedTime: TimeInterval? = nil
+    ) {
         let payload = trackInfo.payload
         guard let title = payload.title, !title.isEmpty else { return nil }
         let artist = payload.artist ?? ""
         let isPlaying = payload.isPlaying ?? false
         let duration = payload.durationMicros.map { $0 / 1_000_000 }
-        let elapsed = payload.currentElapsedTime
+        let elapsed = payload.currentElapsedTime ?? fallbackElapsedTime
 
         self.init(
             title: title,
             artist: artist,
             album: payload.album,
             artwork: payload.artwork,
-            artworkID: payload.artwork != nil ? UUID() : nil,
+            artworkID: overrideArtworkID ?? (payload.artwork != nil ? UUID() : nil),
             thumbnailURL: nil,
             isAd: false,
             isPlaying: isPlaying,
