@@ -40,6 +40,12 @@ final class NowPlayingManager {
         setupAppleMusicObserver()
         startYouTubeMusicPolling()
         Task { @MainActor in await attemptMRFetch() }
+        // Only accept MediaRemote events from Chromium browsers (YTM source)
+        let chromiumBundleIds = Set(Self.chromiumBrowsers.map(\.bundleId))
+        MediaRemoteBridge.shared.bundleIdentifierFilter = { bundleId in
+            guard let bundleId else { return false }
+            return chromiumBundleIds.contains(bundleId)
+        }
         MediaRemoteBridge.shared.start()
         mediaRemoteStateTask = Task { [weak self] in
             guard let self else { return }
