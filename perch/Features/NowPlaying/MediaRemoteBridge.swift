@@ -15,8 +15,7 @@ final class MediaRemoteBridge {
     private nonisolated(unsafe) var stateContinuation: AsyncStream<NowPlayingState?>.Continuation?
     private(set) var stateUpdates: AsyncStream<NowPlayingState?>
 
-    // nonisolated(unsafe): MediaController is not Sendable; callbacks are set from @MainActor,
-    // but the controller itself must be accessible without actor isolation.
+    // nonisolated(unsafe): MediaController is not Sendable; control calls are safe via its internal commandQueue
     private nonisolated(unsafe) let controller = MediaController()
 
     private init() {
@@ -31,7 +30,7 @@ final class MediaRemoteBridge {
         guard !isListening else { return }
 
         controller.onTrackInfoReceived = { [weak self] trackInfo in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated { [weak self] in
                 guard let self else { return }
                 if let trackInfo,
                     let state = NowPlayingState(fromMediaRemote: trackInfo)
@@ -46,7 +45,7 @@ final class MediaRemoteBridge {
         }
 
         controller.onListenerTerminated = { [weak self] in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated { [weak self] in
                 guard let self else { return }
                 logger.warning("MediaRemote listener terminated unexpectedly")
                 self.isListening = false
@@ -66,6 +65,8 @@ final class MediaRemoteBridge {
         isListening = false
         currentState = nil
         stateContinuation?.yield(nil)
+        stateContinuation?.finish()
+        stateContinuation = nil
         logger.info("MediaRemoteBridge stopped")
     }
 
