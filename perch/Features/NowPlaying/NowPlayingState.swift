@@ -1,5 +1,6 @@
 // perch/Features/NowPlaying/NowPlayingState.swift
 import AppKit
+import MediaRemoteAdapter
 
 enum MusicSource: String, Sendable, Equatable {
     case spotify = "Spotify"
@@ -244,5 +245,35 @@ extension NowPlayingState {
         self.isAd = false
         self.thumbnailURL = (obj["thumbnail"] as? String).flatMap { URL(string: $0) }
         self.source = .youTubeMusic
+    }
+
+    /// ejbills/mediaremote-adapter: TrackInfo から初期化
+    init?(
+        fromMediaRemote trackInfo: TrackInfo,
+        overrideArtworkID: UUID? = nil,
+        fallbackElapsedTime: TimeInterval? = nil
+    ) {
+        let payload = trackInfo.payload
+        guard let title = payload.title, !title.isEmpty else { return nil }
+        let artist = payload.artist ?? ""
+        let isPlaying = payload.isPlaying ?? false
+        let duration = payload.durationMicros.map { $0 / 1_000_000 }
+        let elapsed = payload.currentElapsedTime ?? fallbackElapsedTime
+
+        self.init(
+            title: title,
+            artist: artist,
+            album: payload.album,
+            artwork: payload.artwork,
+            artworkID: overrideArtworkID ?? (payload.artwork != nil ? UUID() : nil),
+            thumbnailURL: nil,
+            isAd: false,
+            isPlaying: isPlaying,
+            duration: duration,
+            elapsedTime: elapsed,
+            timestamp: elapsed != nil ? Date() : nil,
+            // Safe: NowPlayingManager only calls fromMediaRemote when isYTMTabOpen
+            source: .youTubeMusic
+        )
     }
 }

@@ -31,6 +31,8 @@ final class NowPlayingManager {
     private nonisolated(unsafe) var ytmPollTask: Task<Void, Never>?
     private nonisolated(unsafe) var amPositionTask: Task<Void, Never>?
     private nonisolated(unsafe) var lyricsPrefetchTask: Task<Void, Never>?
+    private nonisolated(unsafe) var mediaRemoteStateTask: Task<Void, Never>?
+    private var isYTMPolling: Bool = false
     private let logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
 
     init() {
@@ -38,6 +40,22 @@ final class NowPlayingManager {
         setupAppleMusicObserver()
         startYouTubeMusicPolling()
         Task { @MainActor in await attemptMRFetch() }
+        // Only accept MediaRemote events from Chromium browsers (YTM source)
+        let chromiumBundleIds = Set(Self.chromiumBrowsers.map(\.bundleId))
+        MediaRemoteBridge.shared.bundleIdentifierFilter = { bundleId in
+            guard let bundleId else { return false }
+            return chromiumBundleIds.contains(bundleId)
+        }
+        MediaRemoteBridge.shared.start()
+        mediaRemoteStateTask = Task { [weak self] in
+            guard let self else { return }
+            for await state in MediaRemoteBridge.shared.stateUpdates {
+                await MainActor.run {
+                    guard self.isYTMPolling else { return }
+                    self.applyState(state, source: "YouTube Music")
+                }
+            }
+        }
     }
 
     deinit {
@@ -46,6 +64,8 @@ final class NowPlayingManager {
         ytmPollTask?.cancel()
         amPositionTask?.cancel()
         lyricsPrefetchTask?.cancel()
+        mediaRemoteStateTask?.cancel()
+        Task { @MainActor in MediaRemoteBridge.shared.stop() }
     }
 
     // MARK: - Playback Controls
@@ -57,6 +77,8 @@ final class NowPlayingManager {
             }
         case .appleMusic:
             Task { @MainActor [weak self] in _ = await self?.runAppleScript("tell application \"Music\" to playpause") }
+        case .youTubeMusic where isYTMPolling:
+            MediaRemoteBridge.shared.togglePlayPause()
         default:
             MRMediaRemote.shared.sendCommand(.togglePlayPause)
         }
@@ -71,6 +93,8 @@ final class NowPlayingManager {
         case .appleMusic:
             Task { @MainActor [weak self] in _ = await self?.runAppleScript("tell application \"Music\" to next track")
             }
+        case .youTubeMusic where isYTMPolling:
+            MediaRemoteBridge.shared.nextTrack()
         default:
             MRMediaRemote.shared.sendCommand(.nextTrack)
         }
@@ -88,6 +112,8 @@ final class NowPlayingManager {
                 _ = await self?.runAppleScript(
                     "tell application \"Spotify\" to set player position to \(seconds)")
             }
+        case .youTubeMusic where isYTMPolling:
+            MediaRemoteBridge.shared.seek(to: seconds)
         default:
             break
         }
@@ -103,6 +129,8 @@ final class NowPlayingManager {
             Task { @MainActor [weak self] in
                 _ = await self?.runAppleScript("tell application \"Music\" to previous track")
             }
+        case .youTubeMusic where isYTMPolling:
+            MediaRemoteBridge.shared.previousTrack()
         default:
             MRMediaRemote.shared.sendCommand(.previousTrack)
         }
@@ -201,86 +229,13 @@ final class NowPlayingManager {
     }
 
     private func pollYouTubeMusic() async {
+        isYTMPolling = false
         let runningIds = Set(
             NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier }
         )
         let activeBrowsers = Self.chromiumBrowsers.filter { runningIds.contains($0.bundleId) }
-        for browser in activeBrowsers {
-            // JS injection: get structured data (title, artist, thumbnail, playing state)
-            if let state = await pollYouTubeMusicJS(browser: browser) {
-                applyState(state, source: "YouTube Music")
-                return
-            }
-            // Fallback: tab title parsing
-            let titleScript = """
-                tell application "\(browser.appName)"
-                    if not running then return ""
-                    if (count of windows) = 0 then return ""
-                    repeat with w in windows
-                        repeat with t in tabs of w
-                            if title of t contains "YouTube Music" then return title of t
-                        end repeat
-                    end repeat
-                    return ""
-                end tell
-                """
-            if let title = await runAppleScript(titleScript), !title.isEmpty,
-                let state = NowPlayingState(fromYouTubeMusicTitle: title)
-            {
-                applyState(state, source: "YouTube Music")
-                return
-            }
-        }
-    }
-
-    private func pollYouTubeMusicJS(browser: (bundleId: String, appName: String)) async -> NowPlayingState? {
-        // Verified selectors (from DOM inspection of multiple open-source YTM projects):
-        //   title:     yt-formatted-string.title.style-scope.ytmusic-player-bar
-        //   artist:    .byline.ytmusic-player-bar > yt-formatted-string
-        //   thumbnail: #song-image img
-        //   playing:   video.paused (locale-independent)
-        let jsPayload =
-            "(function(){try{"
-            + "var t=document.querySelector('yt-formatted-string.title.style-scope.ytmusic-player-bar');"
-            + "if(!t||!t.textContent.trim())return 'null';"
-            + "var a=document.querySelector('.byline.ytmusic-player-bar>yt-formatted-string')"
-            + "||document.querySelector('.byline.ytmusic-player-bar');"
-            + "var img=document.querySelector('#song-image img')"
-            + "||document.querySelector('.ytmusic-player-bar img');"
-            + "var v=document.querySelector('video');"
-            + "var playing=v?!v.paused:true;"
-            + "return JSON.stringify({"
-            + "title:t.textContent.trim(),"
-            + "artist:a?a.textContent.trim():'',"
-            + "thumbnail:img?img.src:'',"
-            + "playing:playing"
-            + "});"
-            + "}catch(e){return 'null';}})()"
-
-        // Escape double-quotes for AppleScript string embedding
-        let escapedJS = jsPayload.replacingOccurrences(of: "\"", with: "\\\"")
-
-        let script = """
-            tell application "\(browser.appName)"
-                if not running then return ""
-                if (count of windows) = 0 then return ""
-                repeat with w in windows
-                    repeat with t in tabs of w
-                        if URL of t contains "music.youtube.com" then
-                            try
-                                set res to execute t javascript "\(escapedJS)"
-                                if res is not "" and res is not "null" then return res
-                            end try
-                        end if
-                    end repeat
-                end repeat
-                return ""
-            end tell
-            """
-        guard let json = await runAppleScript(script),
-            !json.isEmpty, json != "null"
-        else { return nil }
-        return NowPlayingState(fromYouTubeMusicJS: json)
+        isYTMPolling = !activeBrowsers.isEmpty
+        // State updates are handled exclusively by MediaRemoteBridge
     }
 
     private func runAppleScript(_ source: String) async -> String? {
@@ -449,6 +404,8 @@ final class NowPlayingManager {
         case .appleMusic:
             artwork = await ArtworkFetcher.shared.fetchAppleMusicArtwork()
         case .youTubeMusic:
+            // MediaRemote delivers artwork directly — trust it, skip iTunes Search
+            guard state.artwork == nil else { return }
             artwork = await ArtworkFetcher.shared.fetchYouTubeMusicArtwork(
                 thumbnailURL: state.thumbnailURL,
                 title: state.title,
