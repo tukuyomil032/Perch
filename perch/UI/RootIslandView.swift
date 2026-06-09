@@ -23,14 +23,25 @@ struct RootIslandView: View {
     var body: some View {
         ZStack {
             if appState.isExpanded {
-                ExpandedIslandView()
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.94, anchor: .top).combined(with: .opacity),
-                            removal: .scale(scale: 0.94, anchor: .top).combined(with: .opacity)
+                if appState.isPhysicalNotch {
+                    NotchExpandedView()
+                        .transition(
+                            .asymmetric(
+                                insertion: .scale(scale: 0.97, anchor: .top).combined(with: .opacity),
+                                removal: .scale(scale: 0.97, anchor: .top).combined(with: .opacity)
+                            )
                         )
-                    )
-                    .animation(contentAnimation, value: appState.isExpanded)
+                        .animation(contentAnimation, value: appState.isExpanded)
+                } else {
+                    ExpandedIslandView()
+                        .transition(
+                            .asymmetric(
+                                insertion: .scale(scale: 0.94, anchor: .top).combined(with: .opacity),
+                                removal: .scale(scale: 0.94, anchor: .top).combined(with: .opacity)
+                            )
+                        )
+                        .animation(contentAnimation, value: appState.isExpanded)
+                }
             } else {
                 CompactPillView()
                     .transition(
