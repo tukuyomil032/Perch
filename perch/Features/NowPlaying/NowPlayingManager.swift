@@ -44,8 +44,8 @@ final class NowPlayingManager {
         mediaRemoteStateTask = Task { [weak self] in
             guard let self else { return }
             for await state in MediaRemoteBridge.shared.stateUpdates {
-                await MainActor.run { [weak self] in
-                    guard let self, self.isYTMPolling else { return }
+                await MainActor.run {
+                    guard self.isYTMPolling else { return }
                     self.applyState(state, source: "YouTube Music")
                 }
             }
@@ -71,7 +71,7 @@ final class NowPlayingManager {
             }
         case .appleMusic:
             Task { @MainActor [weak self] in _ = await self?.runAppleScript("tell application \"Music\" to playpause") }
-        case .youTubeMusic:
+        case .youTubeMusic where isYTMPolling:
             MediaRemoteBridge.shared.togglePlayPause()
         default:
             MRMediaRemote.shared.sendCommand(.togglePlayPause)
@@ -87,7 +87,7 @@ final class NowPlayingManager {
         case .appleMusic:
             Task { @MainActor [weak self] in _ = await self?.runAppleScript("tell application \"Music\" to next track")
             }
-        case .youTubeMusic:
+        case .youTubeMusic where isYTMPolling:
             MediaRemoteBridge.shared.nextTrack()
         default:
             MRMediaRemote.shared.sendCommand(.nextTrack)
@@ -106,7 +106,7 @@ final class NowPlayingManager {
                 _ = await self?.runAppleScript(
                     "tell application \"Spotify\" to set player position to \(seconds)")
             }
-        case .youTubeMusic:
+        case .youTubeMusic where isYTMPolling:
             MediaRemoteBridge.shared.seek(to: seconds)
         default:
             break
@@ -123,7 +123,7 @@ final class NowPlayingManager {
             Task { @MainActor [weak self] in
                 _ = await self?.runAppleScript("tell application \"Music\" to previous track")
             }
-        case .youTubeMusic:
+        case .youTubeMusic where isYTMPolling:
             MediaRemoteBridge.shared.previousTrack()
         default:
             MRMediaRemote.shared.sendCommand(.previousTrack)
@@ -223,6 +223,7 @@ final class NowPlayingManager {
     }
 
     private func pollYouTubeMusic() async {
+        isYTMPolling = false
         let runningIds = Set(
             NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier }
         )
