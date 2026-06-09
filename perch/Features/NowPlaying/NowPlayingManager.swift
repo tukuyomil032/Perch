@@ -31,7 +31,8 @@ final class NowPlayingManager {
     private nonisolated(unsafe) var ytmPollTask: Task<Void, Never>?
     private nonisolated(unsafe) var amPositionTask: Task<Void, Never>?
     private nonisolated(unsafe) var lyricsPrefetchTask: Task<Void, Never>?
-    private nonisolated(unsafe) var ytmAppStateTask: Task<Void, Never>?
+    private nonisolated(unsafe) var mediaRemoteStateTask: Task<Void, Never>?
+    private var isYTMPolling: Bool = false
     private let logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
 
     init() {
@@ -39,11 +40,14 @@ final class NowPlayingManager {
         setupAppleMusicObserver()
         startYouTubeMusicPolling()
         Task { @MainActor in await attemptMRFetch() }
-        YouTubeMusicAppBridge.shared.start()
-        ytmAppStateTask = Task { [weak self] in
+        MediaRemoteBridge.shared.start()
+        mediaRemoteStateTask = Task { [weak self] in
             guard let self else { return }
-            for await state in YouTubeMusicAppBridge.shared.stateUpdates {
-                await MainActor.run { self.applyState(state, source: "YouTube Music App") }
+            for await state in MediaRemoteBridge.shared.stateUpdates {
+                await MainActor.run { [weak self] in
+                    guard let self, self.isYTMPolling else { return }
+                    self.applyState(state, source: "YouTube Music")
+                }
             }
         }
     }
@@ -54,8 +58,8 @@ final class NowPlayingManager {
         ytmPollTask?.cancel()
         amPositionTask?.cancel()
         lyricsPrefetchTask?.cancel()
-        ytmAppStateTask?.cancel()
-        Task { @MainActor in YouTubeMusicAppBridge.shared.stop() }
+        mediaRemoteStateTask?.cancel()
+        Task { @MainActor in MediaRemoteBridge.shared.stop() }
     }
 
     // MARK: - Playback Controls
@@ -67,8 +71,8 @@ final class NowPlayingManager {
             }
         case .appleMusic:
             Task { @MainActor [weak self] in _ = await self?.runAppleScript("tell application \"Music\" to playpause") }
-        case .youTubeMusic where YouTubeMusicAppBridge.shared.isConnected:
-            Task { await YouTubeMusicAppBridge.shared.togglePlayPause() }
+        case .youTubeMusic:
+            MediaRemoteBridge.shared.togglePlayPause()
         default:
             MRMediaRemote.shared.sendCommand(.togglePlayPause)
         }
@@ -83,8 +87,8 @@ final class NowPlayingManager {
         case .appleMusic:
             Task { @MainActor [weak self] in _ = await self?.runAppleScript("tell application \"Music\" to next track")
             }
-        case .youTubeMusic where YouTubeMusicAppBridge.shared.isConnected:
-            Task { await YouTubeMusicAppBridge.shared.nextTrack() }
+        case .youTubeMusic:
+            MediaRemoteBridge.shared.nextTrack()
         default:
             MRMediaRemote.shared.sendCommand(.nextTrack)
         }
@@ -102,8 +106,8 @@ final class NowPlayingManager {
                 _ = await self?.runAppleScript(
                     "tell application \"Spotify\" to set player position to \(seconds)")
             }
-        case .youTubeMusic where YouTubeMusicAppBridge.shared.isConnected:
-            Task { await YouTubeMusicAppBridge.shared.seek(to: seconds) }
+        case .youTubeMusic:
+            MediaRemoteBridge.shared.seek(to: seconds)
         default:
             break
         }
@@ -119,8 +123,8 @@ final class NowPlayingManager {
             Task { @MainActor [weak self] in
                 _ = await self?.runAppleScript("tell application \"Music\" to previous track")
             }
-        case .youTubeMusic where YouTubeMusicAppBridge.shared.isConnected:
-            Task { await YouTubeMusicAppBridge.shared.previousTrack() }
+        case .youTubeMusic:
+            MediaRemoteBridge.shared.previousTrack()
         default:
             MRMediaRemote.shared.sendCommand(.previousTrack)
         }
@@ -223,6 +227,7 @@ final class NowPlayingManager {
             NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier }
         )
         let activeBrowsers = Self.chromiumBrowsers.filter { runningIds.contains($0.bundleId) }
+        isYTMPolling = !activeBrowsers.isEmpty
         for browser in activeBrowsers {
             // JS injection: get structured data (title, artist, thumbnail, playing state)
             if let state = await pollYouTubeMusicJS(browser: browser) {
@@ -391,7 +396,6 @@ final class NowPlayingManager {
         switch sourceName {
         case "Spotify": return 3
         case "Apple Music": return 3
-        case "YouTube Music App": return 3
         case "YouTube Music": return 2
         case "MRMediaRemote": return 1
         default: return 0
