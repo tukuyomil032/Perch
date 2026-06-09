@@ -38,6 +38,13 @@ final class NowPlayingManager {
         setupAppleMusicObserver()
         startYouTubeMusicPolling()
         Task { @MainActor in await attemptMRFetch() }
+        YouTubeMusicAppBridge.shared.start()
+        Task { [weak self] in
+            guard let self else { return }
+            for await state in YouTubeMusicAppBridge.shared.stateUpdates {
+                await MainActor.run { self.applyState(state, source: "YouTube Music App") }
+            }
+        }
     }
 
     deinit {
@@ -57,6 +64,8 @@ final class NowPlayingManager {
             }
         case .appleMusic:
             Task { @MainActor [weak self] in _ = await self?.runAppleScript("tell application \"Music\" to playpause") }
+        case .youTubeMusic where YouTubeMusicAppBridge.shared.isConnected:
+            Task { await YouTubeMusicAppBridge.shared.togglePlayPause() }
         default:
             MRMediaRemote.shared.sendCommand(.togglePlayPause)
         }
@@ -71,6 +80,8 @@ final class NowPlayingManager {
         case .appleMusic:
             Task { @MainActor [weak self] in _ = await self?.runAppleScript("tell application \"Music\" to next track")
             }
+        case .youTubeMusic where YouTubeMusicAppBridge.shared.isConnected:
+            Task { await YouTubeMusicAppBridge.shared.nextTrack() }
         default:
             MRMediaRemote.shared.sendCommand(.nextTrack)
         }
@@ -88,6 +99,8 @@ final class NowPlayingManager {
                 _ = await self?.runAppleScript(
                     "tell application \"Spotify\" to set player position to \(seconds)")
             }
+        case .youTubeMusic where YouTubeMusicAppBridge.shared.isConnected:
+            Task { await YouTubeMusicAppBridge.shared.seek(to: seconds) }
         default:
             break
         }
@@ -103,6 +116,8 @@ final class NowPlayingManager {
             Task { @MainActor [weak self] in
                 _ = await self?.runAppleScript("tell application \"Music\" to previous track")
             }
+        case .youTubeMusic where YouTubeMusicAppBridge.shared.isConnected:
+            Task { await YouTubeMusicAppBridge.shared.previousTrack() }
         default:
             MRMediaRemote.shared.sendCommand(.previousTrack)
         }
@@ -373,6 +388,7 @@ final class NowPlayingManager {
         switch sourceName {
         case "Spotify": return 3
         case "Apple Music": return 3
+        case "YouTube Music App": return 3
         case "YouTube Music": return 2
         case "MRMediaRemote": return 1
         default: return 0
