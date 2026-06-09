@@ -174,7 +174,22 @@ final class YouTubeMusicAppBridge {
         switch event {
         case "PLAYER_INFO", "VIDEO_CHANGED", "PLAYER_STATE_CHANGED", "POSITION_CHANGED":
             let payload = json["data"] as? [String: Any] ?? json
-            if let state = NowPlayingState(fromYTMAppEvent: payload) {
+            if var state = NowPlayingState(fromYTMAppEvent: payload) {
+                // For position ticks, reuse existing artworkID to avoid UUID churn
+                // that would trigger redundant artwork fetches on every tick.
+                if event == "POSITION_CHANGED",
+                    let existing = currentState,
+                    existing.thumbnailURL == state.thumbnailURL
+                {
+                    state = NowPlayingState(
+                        title: state.title, artist: state.artist, album: state.album,
+                        artwork: existing.artwork, artworkID: existing.artworkID,
+                        thumbnailURL: state.thumbnailURL, isAd: state.isAd,
+                        isPlaying: state.isPlaying, duration: state.duration,
+                        elapsedTime: state.elapsedTime, timestamp: state.timestamp,
+                        source: state.source
+                    )
+                }
                 currentState = state
                 stateContinuation?.yield(state)
             }

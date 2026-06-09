@@ -55,6 +55,7 @@ final class NowPlayingManager {
         amPositionTask?.cancel()
         lyricsPrefetchTask?.cancel()
         ytmAppStateTask?.cancel()
+        Task { @MainActor in YouTubeMusicAppBridge.shared.stop() }
     }
 
     // MARK: - Playback Controls
