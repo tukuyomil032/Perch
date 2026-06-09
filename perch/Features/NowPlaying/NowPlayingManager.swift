@@ -31,6 +31,7 @@ final class NowPlayingManager {
     private nonisolated(unsafe) var ytmPollTask: Task<Void, Never>?
     private nonisolated(unsafe) var amPositionTask: Task<Void, Never>?
     private nonisolated(unsafe) var lyricsPrefetchTask: Task<Void, Never>?
+    private nonisolated(unsafe) var ytmAppStateTask: Task<Void, Never>?
     private let logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
 
     init() {
@@ -39,7 +40,7 @@ final class NowPlayingManager {
         startYouTubeMusicPolling()
         Task { @MainActor in await attemptMRFetch() }
         YouTubeMusicAppBridge.shared.start()
-        Task { [weak self] in
+        ytmAppStateTask = Task { [weak self] in
             guard let self else { return }
             for await state in YouTubeMusicAppBridge.shared.stateUpdates {
                 await MainActor.run { self.applyState(state, source: "YouTube Music App") }
@@ -53,6 +54,7 @@ final class NowPlayingManager {
         ytmPollTask?.cancel()
         amPositionTask?.cancel()
         lyricsPrefetchTask?.cancel()
+        ytmAppStateTask?.cancel()
     }
 
     // MARK: - Playback Controls
