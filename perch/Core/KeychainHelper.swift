@@ -5,7 +5,7 @@ enum KeychainHelper {
     private static let service = "com.tukuyomi032.perch"
 
     static func save(_ value: String, forKey key: String) throws {
-        guard let data = value.data(using: .utf8) else { return }
+        guard let data = value.data(using: .utf8) else { throw KeychainError.encodingFailed }
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
@@ -43,5 +43,6 @@ enum KeychainHelper {
 
     enum KeychainError: Error {
         case saveFailed(OSStatus)
+        case encodingFailed
     }
 }
