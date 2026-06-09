@@ -12,6 +12,10 @@ final class MediaRemoteBridge {
     private(set) var isListening = false
     private(set) var currentState: NowPlayingState?
 
+    // Same-track stabilization: prevents UUID churn causing artwork flicker
+    private var lastTrackIdentifier: String? = nil
+    private var lastArtworkID: UUID? = nil
+
     private nonisolated(unsafe) var stateContinuation: AsyncStream<NowPlayingState?>.Continuation?
     private(set) var stateUpdates: AsyncStream<NowPlayingState?>
 
@@ -32,15 +36,46 @@ final class MediaRemoteBridge {
         controller.onTrackInfoReceived = { [weak self] trackInfo in
             MainActor.assumeIsolated { [weak self] in
                 guard let self else { return }
-                if let trackInfo,
-                    let state = NowPlayingState(fromMediaRemote: trackInfo)
-                {
-                    self.currentState = state
-                    self.stateContinuation?.yield(state)
-                } else {
+                guard let trackInfo else {
+                    self.lastTrackIdentifier = nil
+                    self.lastArtworkID = nil
                     self.currentState = nil
                     self.stateContinuation?.yield(nil)
+                    return
                 }
+
+                let payload = trackInfo.payload
+                let newIdentifier = payload.uniqueIdentifier
+                let sameTrack =
+                    self.lastTrackIdentifier != nil
+                    && newIdentifier == self.lastTrackIdentifier
+
+                // Reuse artworkID for same-track updates — prevents album art ↔ MV thumbnail animation
+                let artworkID: UUID?
+                if payload.artwork != nil {
+                    artworkID = sameTrack ? (self.lastArtworkID ?? UUID()) : UUID()
+                } else {
+                    artworkID = nil
+                }
+                self.lastArtworkID = artworkID
+                self.lastTrackIdentifier = newIdentifier
+
+                // Carry forward elapsed time when partial update omits it (seek bar stability)
+                let fallbackElapsed = sameTrack ? self.currentState?.elapsedTime : nil
+
+                guard
+                    let state = NowPlayingState(
+                        fromMediaRemote: trackInfo,
+                        overrideArtworkID: artworkID,
+                        fallbackElapsedTime: fallbackElapsed
+                    )
+                else {
+                    self.currentState = nil
+                    self.stateContinuation?.yield(nil)
+                    return
+                }
+                self.currentState = state
+                self.stateContinuation?.yield(state)
             }
         }
 
@@ -63,6 +98,8 @@ final class MediaRemoteBridge {
         guard isListening else { return }
         controller.stopListening()
         isListening = false
+        lastTrackIdentifier = nil
+        lastArtworkID = nil
         currentState = nil
         stateContinuation?.yield(nil)
         stateContinuation?.finish()
