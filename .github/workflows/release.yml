@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release tag (e.g. v0.3.0-beta-1)'
+        description: 'Release tag (e.g. v0.3.0 or v0.3.0-beta.1)'
         required: true
         type: string
 
@@ -42,18 +42,9 @@ jobs:
           fi
           VERSION="${TAG#v}"
           BASE_VERSION="${VERSION%%-*}"
-          if [[ "$VERSION" =~ -[a-zA-Z] ]]; then
-            IS_BETA=true
-            BUNDLE_NAME="perch-beta"
-          else
-            IS_BETA=false
-            BUNDLE_NAME="perch"
-          fi
           echo "version=$VERSION"           >> "$GITHUB_OUTPUT"
           echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG"                   >> "$GITHUB_OUTPUT"
-          echo "is_beta=$IS_BETA"           >> "$GITHUB_OUTPUT"
-          echo "bundle_name=$BUNDLE_NAME"   >> "$GITHUB_OUTPUT"
 
       - name: Build universal archive
         run: |
@@ -61,7 +52,7 @@ jobs:
           xcodebuild archive \
             -scheme "$SCHEME" \
             -configuration Release \
-            -archivePath build/$APP_NAME-universal.xcarchive \
+            -archivePath build/$APP_NAME.xcarchive \
             -destination 'generic/platform=macOS' \
             -skipPackagePluginValidation \
             -skipMacroValidation \
@@ -74,109 +65,44 @@ jobs:
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
             SKIP_INSTALL=NO 2>&1 | tail -100
 
-      - name: Create arm64 archive from universal (lipo thin)
+      - name: Ad-hoc sign app bundle
         run: |
-          set -euo pipefail
-          cp -Rp "build/$APP_NAME-universal.xcarchive" "build/$APP_NAME-arm64.xcarchive"
-          find "build/$APP_NAME-arm64.xcarchive/Products" -type f | while read f; do
-            if file "$f" | grep -q "Mach-O universal binary"; then
-              lipo "$f" -thin arm64 -output "$f"
-            fi
-          done
-          echo "Created arm64 archive from universal via lipo"
+          APP="build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app"
+          codesign --force --deep --sign - --timestamp=none "${APP}"
+          echo "Signed: ${APP}"
 
-      - name: Create x86_64 archive from universal (lipo thin)
-        run: |
-          cp -Rp "build/$APP_NAME-universal.xcarchive" "build/$APP_NAME-x86_64.xcarchive"
-          find "build/$APP_NAME-x86_64.xcarchive/Products" -type f | while read f; do
-            if file "$f" | grep -q "Mach-O universal binary"; then
-              lipo "$f" -thin x86_64 -output "$f"
-            fi
-          done
-          echo "Created x86_64 archive from universal via lipo"
-
-      - name: Rename app bundle for beta
-        if: steps.version.outputs.is_beta == 'true'
-        run: |
-          for ARCH in arm64 x86_64 universal; do
-            SRC="build/$APP_NAME-${ARCH}.xcarchive/Products/Applications/perch.app"
-            DST="build/$APP_NAME-${ARCH}.xcarchive/Products/Applications/perch-beta.app"
-            mv "$SRC" "$DST"
-            echo "Renamed: perch.app → perch-beta.app (${ARCH})"
-          done
-
-      - name: Ad-hoc sign app bundles
-        run: |
-          BUNDLE_NAME="${{ steps.version.outputs.bundle_name }}"
-
-          for ARCH in arm64 x86_64 universal; do
-            APP="build/$APP_NAME-${ARCH}.xcarchive/Products/Applications/${BUNDLE_NAME}.app"
-            echo "Signing ${ARCH}: ${APP}"
-
-            if [ -d "${APP}/Contents/Frameworks" ]; then
-              find "${APP}/Contents/Frameworks" -name "*.framework" -maxdepth 1 | while read -r fw; do
-                codesign --force --sign - "$fw"
-              done
-              find "${APP}/Contents/Frameworks" -name "*.dylib" -maxdepth 1 | while read -r dylib; do
-                codesign --force --sign - "$dylib"
-              done
-            fi
-
-            codesign --force --sign - "${APP}"
-            echo "Done: ${ARCH}"
-          done
-
-      - name: Create DMGs
+      - name: Create DMG
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          BUNDLE_NAME="${{ steps.version.outputs.bundle_name }}"
           mkdir -p build/dmg
-
-          for ARCH in arm64 x86_64 universal; do
-            APP="build/$APP_NAME-${ARCH}.xcarchive/Products/Applications/${BUNDLE_NAME}.app"
-            STAGING="build/dmg-staging-${ARCH}"
-            rm -rf "$STAGING"
-            mkdir -p "$STAGING"
-            cp -R "$APP" "$STAGING/${BUNDLE_NAME}.app"
-
-            hdiutil create \
-              -volname "Perch" \
-              -srcfolder "$STAGING" \
-              -ov -format UDZO \
-              "build/dmg/$APP_NAME-${VERSION}-${ARCH}.dmg"
-
-            echo "Created: $APP_NAME-${VERSION}-${ARCH}.dmg"
-          done
+          STAGING="build/dmg-staging"
+          mkdir -p "$STAGING"
+          cp -R "build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" "$STAGING/$APP_NAME.app"
+          hdiutil create \
+            -volname "Perch" \
+            -srcfolder "$STAGING" \
+            -ov -format UDZO \
+            "build/dmg/$APP_NAME-${VERSION}.dmg"
+          echo "Created: $APP_NAME-${VERSION}.dmg"
 
       - name: Compose release body
         id: body
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          IS_BETA="${{ steps.version.outputs.is_beta }}"
-          BUNDLE_NAME="${{ steps.version.outputs.bundle_name }}"
-
-          if [ "$IS_BETA" = "true" ]; then
-            LABEL=" (beta)"
-          else
-            LABEL=""
-          fi
-
           {
             echo "body<<__BODY__"
-            echo "## Perch ${VERSION}${LABEL}"
+            echo "## Perch ${VERSION}"
             echo ""
             echo "### Install via Homebrew"
             echo '```bash'
             echo "brew tap tukuyomil032/tap"
-            echo "brew install --cask ${BUNDLE_NAME}"
+            echo "brew install --cask perch"
             echo '```'
             echo ""
             echo "### Direct Download"
-            echo "- **universal.dmg** (recommended) — Apple Silicon + Intel"
-            echo "- **arm64.dmg** — Apple Silicon only"
-            echo "- **x86_64.dmg** — Intel only"
+            echo "- **perch-${VERSION}.dmg** — Universal (Apple Silicon + Intel)"
             echo ""
-            echo "> ⚠️ Not notarized by Apple. If Gatekeeper blocks it: right-click > Open > Open."
+            echo "> Not notarized by Apple. If Gatekeeper blocks it: right-click > Open > Open."
             echo "__BODY__"
           } >> "$GITHUB_OUTPUT"
 
@@ -187,8 +113,6 @@ jobs:
           name: "Perch ${{ steps.version.outputs.version }}"
           body: ${{ steps.body.outputs.body }}
           files: |
-            build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-arm64.dmg
-            build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-x86_64.dmg
-            build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}-universal.dmg
+            build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.dmg
           draft: false
-          prerelease: ${{ steps.version.outputs.is_beta == 'true' }}
+          prerelease: ${{ contains(steps.version.outputs.tag, 'beta') }}
