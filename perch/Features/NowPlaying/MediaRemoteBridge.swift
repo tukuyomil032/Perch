@@ -10,6 +10,9 @@ final class MediaRemoteBridge {
     static let shared = MediaRemoteBridge()
 
     private(set) var isListening = false
+    /// Set by NowPlayingManager to restrict events to specific apps (e.g. Chromium browsers).
+    /// Return true to accept the event, false to ignore it. Nil means accept all.
+    var bundleIdentifierFilter: ((String?) -> Bool)? = nil
     private(set) var currentState: NowPlayingState?
 
     // Same-track stabilization: prevents UUID churn causing artwork flicker
@@ -36,6 +39,12 @@ final class MediaRemoteBridge {
         controller.onTrackInfoReceived = { [weak self] trackInfo in
             MainActor.assumeIsolated { [weak self] in
                 guard let self else { return }
+                // Reject events not from an allowed application (e.g. non-Chromium apps)
+                if let filter = self.bundleIdentifierFilter,
+                    !filter(trackInfo?.payload.bundleIdentifier)
+                {
+                    return
+                }
                 guard let trackInfo else {
                     self.lastTrackIdentifier = nil
                     self.lastArtworkID = nil
@@ -45,7 +54,8 @@ final class MediaRemoteBridge {
                 }
 
                 let payload = trackInfo.payload
-                let newIdentifier = payload.uniqueIdentifier
+                // Use title+artist only — album is unreliable in YTM MediaRemote updates
+                let newIdentifier = "\(payload.title ?? "")-\(payload.artist ?? "")"
                 let sameTrack =
                     self.lastTrackIdentifier != nil
                     && newIdentifier == self.lastTrackIdentifier
