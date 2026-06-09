@@ -404,6 +404,8 @@ final class NowPlayingManager {
         case .appleMusic:
             artwork = await ArtworkFetcher.shared.fetchAppleMusicArtwork()
         case .youTubeMusic:
+            // MediaRemote delivers artwork directly — trust it, skip iTunes Search
+            guard state.artwork == nil else { return }
             artwork = await ArtworkFetcher.shared.fetchYouTubeMusicArtwork(
                 thumbnailURL: state.thumbnailURL,
                 title: state.title,
