@@ -7,6 +7,7 @@ final class AppState {
     var isExpanded: Bool = false
     var activeCard: IslandCard = .idle
     var latestError: String?
+    var isPhysicalNotch: Bool = false
 
     var openSettingsAction: (() -> Void)?
 
