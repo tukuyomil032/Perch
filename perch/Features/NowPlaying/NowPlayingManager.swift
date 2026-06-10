@@ -27,17 +27,20 @@ final class NowPlayingManager {
     // Safety: no concurrent writes; deinit read is single-threaded on dealloc.
     private nonisolated(unsafe) var ncObservers: [NSObjectProtocol] = []  // NotificationCenter.default
     private nonisolated(unsafe) var dnObservers: [NSObjectProtocol] = []  // DistributedNotificationCenter
+    private nonisolated(unsafe) var wsObservers: [NSObjectProtocol] = []  // NSWorkspace.shared.notificationCenter
     // nonisolated(unsafe): accessed from deinit. cancel() on Task is Sendable — safe from any context.
     private nonisolated(unsafe) var ytmPollTask: Task<Void, Never>?
     private nonisolated(unsafe) var amPositionTask: Task<Void, Never>?
     private nonisolated(unsafe) var lyricsPrefetchTask: Task<Void, Never>?
     private nonisolated(unsafe) var mediaRemoteStateTask: Task<Void, Never>?
     private var isYTMPolling: Bool = false
+    private var wasYTMPolling: Bool = false
     private let logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
 
     init() {
         setupSpotifyObserver()
         setupAppleMusicObserver()
+        setupLifecycleObservers()
         startYouTubeMusicPolling()
         Task { @MainActor in await attemptMRFetch() }
         // Only accept MediaRemote events from Chromium browsers (YTM source)
@@ -61,6 +64,7 @@ final class NowPlayingManager {
     deinit {
         ncObservers.forEach { NotificationCenter.default.removeObserver($0) }
         dnObservers.forEach { DistributedNotificationCenter.default().removeObserver($0) }
+        wsObservers.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
         ytmPollTask?.cancel()
         amPositionTask?.cancel()
         lyricsPrefetchTask?.cancel()
@@ -217,6 +221,57 @@ final class NowPlayingManager {
         dnObservers.append(observer)
     }
 
+    // MARK: - Lifecycle Observers (app termination, sleep/wake)
+
+    private func setupLifecycleObservers() {
+        let ws = NSWorkspace.shared.notificationCenter
+
+        let terminateObs = ws.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification,
+            object: nil, queue: .main
+        ) { [weak self] notification in
+            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                let bundleID = app.bundleIdentifier
+            else { return }
+            Task { @MainActor [weak self] in self?.handleAppTermination(bundleID: bundleID) }
+        }
+
+        let sleepObs = ws.addObserver(
+            forName: NSWorkspace.willSleepNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.currentState = nil }
+        }
+
+        let wakeObs = ws.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.pollYouTubeMusic()
+                let info = await MRMediaRemote.shared.fetchNowPlayingInfo()
+                if let state = NowPlayingState(from: info) {
+                    self.applyState(state, source: "MRMediaRemote")
+                }
+            }
+        }
+
+        wsObservers = [terminateObs, sleepObs, wakeObs]
+    }
+
+    private func handleAppTermination(bundleID: String) {
+        guard let state = currentState else { return }
+        let matches: Bool
+        switch state.source {
+        case .spotify: matches = bundleID == "com.spotify.client"
+        case .appleMusic: matches = bundleID == "com.apple.Music"
+        case .youTubeMusic: matches = Self.chromiumBrowsers.contains { $0.bundleId == bundleID }
+        default: matches = false
+        }
+        if matches { currentState = nil }
+    }
+
     // MARK: - YouTube Music (AppleScript polling)
 
     private func startYouTubeMusicPolling() {
@@ -229,12 +284,17 @@ final class NowPlayingManager {
     }
 
     private func pollYouTubeMusic() async {
-        isYTMPolling = false
         let runningIds = Set(
             NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier }
         )
         let activeBrowsers = Self.chromiumBrowsers.filter { runningIds.contains($0.bundleId) }
-        isYTMPolling = !activeBrowsers.isEmpty
+        let nowPolling = !activeBrowsers.isEmpty
+        // Browser(s) just quit → clear YTM state immediately
+        if wasYTMPolling && !nowPolling && currentState?.source == .youTubeMusic {
+            currentState = nil
+        }
+        wasYTMPolling = nowPolling
+        isYTMPolling = nowPolling
         // State updates are handled exclusively by MediaRemoteBridge
     }
 

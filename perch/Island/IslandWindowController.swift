@@ -10,6 +10,7 @@ final class IslandWindowController: NSWindowController {
         let screen = NSScreen.perchPreferredScreen ?? NSScreen.main!
         let notchSize = screen.perchNotchSize
         let mode: IslandMode = notchSize == .zero ? .floatingPill : .physicalNotch(notchSize: notchSize)
+        appState.isPhysicalNotch = (mode != .floatingPill)
         let frame = IslandGeometry.compactFrame(mode: mode, screen: screen)
 
         let window = IslandWindow(contentRect: frame, styleMask: [], backing: .buffered, defer: false)
