@@ -15,13 +15,7 @@ permissions:
   contents: write
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────
-  # Build arm64 and x86_64 in parallel on separate runners
-  # ─────────────────────────────────────────────────────────────────────────
-  build:
-    strategy:
-      matrix:
-        arch: [arm64, x86_64]
+  release:
     runs-on: macos-26
     env:
       SCHEME: perch
@@ -30,13 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache DerivedData (${{ matrix.arch }})
+      - name: Cache DerivedData
         uses: actions/cache@v4
         with:
           path: build/DerivedData
-          key: ${{ runner.os }}-dd-release-${{ matrix.arch }}-${{ hashFiles('perch.xcodeproj/project.pbxproj', 'perch.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          key: ${{ runner.os }}-dd-release-${{ hashFiles('perch.xcodeproj/project.pbxproj', 'perch.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-dd-release-${{ matrix.arch }}-
+            ${{ runner.os }}-dd-release-
 
       - name: Resolve version
         id: version
@@ -52,19 +46,19 @@ jobs:
           echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG"                   >> "$GITHUB_OUTPUT"
 
-      - name: Build ${{ matrix.arch }} archive
+      - name: Build universal archive
         run: |
           set -o pipefail
           xcodebuild archive \
             -scheme "$SCHEME" \
             -configuration Release \
-            -archivePath "build/$APP_NAME-${{ matrix.arch }}.xcarchive" \
+            -archivePath build/$APP_NAME.xcarchive \
             -destination 'generic/platform=macOS' \
             -derivedDataPath build/DerivedData \
             -skipPackagePluginValidation \
             -skipMacroValidation \
             -jobs "$(sysctl -n hw.logicalcpu)" \
-            "ARCHS=${{ matrix.arch }}" \
+            "ARCHS=arm64 x86_64" \
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
@@ -72,76 +66,9 @@ jobs:
             MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
             SKIP_INSTALL=NO 2>&1 | tail -100
 
-      - name: Upload archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: archive-${{ matrix.arch }}
-          path: build/${{ env.APP_NAME }}-${{ matrix.arch }}.xcarchive
-          retention-days: 1
-
-  # ─────────────────────────────────────────────────────────────────────────
-  # Combine with lipo → sign → DMG → GitHub Release
-  # ─────────────────────────────────────────────────────────────────────────
-  release:
-    needs: build
-    runs-on: macos-26
-    env:
-      SCHEME: perch
-      APP_NAME: perch
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.version }}"
-          else
-            TAG="${GITHUB_REF_NAME}"
-          fi
-          VERSION="${TAG#v}"
-          BASE_VERSION="${VERSION%%-*}"
-          echo "version=$VERSION"           >> "$GITHUB_OUTPUT"
-          echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG"                   >> "$GITHUB_OUTPUT"
-
-      - name: Download arm64 archive
-        uses: actions/download-artifact@v4
-        with:
-          name: archive-arm64
-          path: build/${{ env.APP_NAME }}-arm64.xcarchive
-
-      - name: Download x86_64 archive
-        uses: actions/download-artifact@v4
-        with:
-          name: archive-x86_64
-          path: build/${{ env.APP_NAME }}-x86_64.xcarchive
-
-      - name: Create universal app with lipo
-        run: |
-          ARM64_APP="build/$APP_NAME-arm64.xcarchive/Products/Applications/$APP_NAME.app"
-          X86_APP="build/$APP_NAME-x86_64.xcarchive/Products/Applications/$APP_NAME.app"
-          UNIVERSAL_APP="build/$APP_NAME.app"
-
-          cp -R "$ARM64_APP" "$UNIVERSAL_APP"
-
-          # Lipo all Mach-O binaries (main executable + any embedded frameworks)
-          find "$UNIVERSAL_APP" -type f | while IFS= read -r f; do
-            rel="${f#$UNIVERSAL_APP/}"
-            arm_f="$ARM64_APP/$rel"
-            x86_f="$X86_APP/$rel"
-            if [ -f "$arm_f" ] && [ -f "$x86_f" ] && lipo -info "$arm_f" > /dev/null 2>&1; then
-              lipo -create "$arm_f" "$x86_f" -output "$f"
-            fi
-          done
-
-          echo "=== Universal binary check ==="
-          lipo -info "$UNIVERSAL_APP/Contents/MacOS/$APP_NAME"
-
       - name: Ad-hoc sign app bundle
         run: |
-          APP="build/$APP_NAME.app"
+          APP="build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app"
           codesign --force --deep --sign - --timestamp=none "${APP}"
           echo "Signed: ${APP}"
 
@@ -151,7 +78,7 @@ jobs:
           mkdir -p build/dmg
           STAGING="build/dmg-staging"
           mkdir -p "$STAGING"
-          cp -R "build/$APP_NAME.app" "$STAGING/$APP_NAME.app"
+          cp -R "build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" "$STAGING/$APP_NAME.app"
           hdiutil create \
             -volname "Perch" \
             -srcfolder "$STAGING" \
