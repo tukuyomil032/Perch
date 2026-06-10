@@ -39,17 +39,19 @@ final class MediaRemoteBridge {
         controller.onTrackInfoReceived = { [weak self] trackInfo in
             MainActor.assumeIsolated { [weak self] in
                 guard let self else { return }
-                // Reject events not from an allowed application (e.g. non-Chromium apps)
-                if let filter = self.bundleIdentifierFilter,
-                    !filter(trackInfo?.payload.bundleIdentifier)
-                {
-                    return
-                }
                 guard let trackInfo else {
+                    // nil = nothing playing. Always propagate regardless of source filter —
+                    // filter(nil) returns false, which would otherwise silently drop tab-close events.
                     self.lastTrackIdentifier = nil
                     self.lastArtworkID = nil
                     self.currentState = nil
                     self.stateContinuation?.yield(nil)
+                    return
+                }
+                // Reject events not from an allowed application (e.g. non-Chromium apps)
+                if let filter = self.bundleIdentifierFilter,
+                    !filter(trackInfo.payload.bundleIdentifier)
+                {
                     return
                 }
 
