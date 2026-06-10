@@ -63,12 +63,16 @@ private struct NotchNowPlayingContent: View {
             displayedArtworkID = state.artworkID
         }
         .onChange(of: state.artworkID) { _, newID in
-            guard newID != displayedArtworkID else { return }
+            guard let newID, newID != displayedArtworkID else { return }
             Task { @MainActor in
                 withAnimation(.easeIn(duration: 0.18)) { artworkAngle = 90 }
                 try? await Task.sleep(for: .milliseconds(180))
-                displayedArtwork = state.artwork
-                displayedArtworkID = newID
+                // Read from manager.currentState after sleep — captured `state` may be stale
+                // (SwiftUI closures capture value types at closure-creation time)
+                if manager.currentState?.artworkID == newID {
+                    displayedArtwork = manager.currentState?.artwork
+                    displayedArtworkID = newID
+                }
                 withAnimation(.easeOut(duration: 0.18)) { artworkAngle = 0 }
             }
         }
