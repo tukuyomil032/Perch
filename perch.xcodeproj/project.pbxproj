@@ -7,12 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0E9B581DEA7444588A383555 /* MediaRemoteAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 5EC016E2A8BA4516AB09390A /* MediaRemoteAdapter */; };
 		BA0A723D2FCEBA1A00F08C06 /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A723C2FCEBA1A00F08C06 /* Defaults */; };
 		BA0A72422FCEBA4F00F08C06 /* InMemoryLogging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */; };
 		BA0A72442FCEBA4F00F08C06 /* Logging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72432FCEBA4F00F08C06 /* Logging */; };
 		BA0A72472FCEBA7600F08C06 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */; };
 		BA0A724A2FCEBABC00F08C06 /* LyricsKit in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72492FCEBABC00F08C06 /* LyricsKit */; };
-		0E9B581DEA7444588A383555 /* MediaRemoteAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 5EC016E2A8BA4516AB09390A /* MediaRemoteAdapter */; };
 		CF26B21B955740D69EB91851 /* MediaRemoteAdapter in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 5EC016E2A8BA4516AB09390A /* MediaRemoteAdapter */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -32,6 +32,20 @@
 			remoteInfo = perch;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7A28C612CDC0455CB128A58F /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CF26B21B955740D69EB91851 /* MediaRemoteAdapter in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		BA0A707E2FCD694B00F08C06 /* perch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = perch.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -603,21 +617,15 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		7A28C612CDC0455CB128A58F /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				CF26B21B955740D69EB91851 /* MediaRemoteAdapter in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin XCRemoteSwiftPackageReference section */
+		185D8EF0AE794F73837563A8 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ejbills/mediaremote-adapter.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
 		BA0A723B2FCEBA1A00F08C06 /* XCRemoteSwiftPackageReference "Defaults" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/sindresorhus/Defaults";
@@ -650,17 +658,14 @@
 				minimumVersion = 1.9.0;
 			};
 		};
-		185D8EF0AE794F73837563A8 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ejbills/mediaremote-adapter.git";
-			requirement = {
-				branch = master;
-				kind = branch;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		5EC016E2A8BA4516AB09390A /* MediaRemoteAdapter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 185D8EF0AE794F73837563A8 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */;
+			productName = MediaRemoteAdapter;
+		};
 		BA0A723C2FCEBA1A00F08C06 /* Defaults */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = BA0A723B2FCEBA1A00F08C06 /* XCRemoteSwiftPackageReference "Defaults" */;
@@ -685,11 +690,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BA0A72482FCEBABC00F08C06 /* XCRemoteSwiftPackageReference "LyricsKit" */;
 			productName = LyricsKit;
-		};
-		5EC016E2A8BA4516AB09390A /* MediaRemoteAdapter */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 185D8EF0AE794F73837563A8 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */;
-			productName = MediaRemoteAdapter;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
