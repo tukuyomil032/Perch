@@ -12,19 +12,18 @@ struct ExpandedIslandView: View {
 
             VStack(spacing: 0) {
                 header
-                Divider().opacity(0.3)
-                cardContent
+                Divider().opacity(0.15)
+                presetContent
+                    .animation(DesignSystem.springAnimation, value: appState.activePreset)
             }
         }
         .frame(width: 420)
     }
 
+    // MARK: - Header
+
     private var header: some View {
         HStack {
-            Text("Perch")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Spacer()
             Button {
                 appState.collapse()
             } label: {
@@ -33,41 +32,47 @@ struct ExpandedIslandView: View {
                     .imageScale(.medium)
             }
             .buttonStyle(.plain)
+            Spacer()
+            PresetTabBar()
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
         .padding(.bottom, 8)
     }
 
+    // MARK: - Preset Content
+
     @ViewBuilder
-    private var cardContent: some View {
-        let manager = appState.nowPlayingManager
-        switch appState.activeCard {
-        case .nowPlaying:
-            if let state = manager.currentState {
-                NowPlayingCard(state: state, manager: manager)
-            } else {
-                emptyState(icon: "music.note", message: "Play some music")
-            }
-        case .aiUsage:
-            AIUsageWidget().body(size: .standard)
-        case .idle:
-            emptyState(icon: "bird", message: "Nothing here yet")
-        default:
-            emptyState(icon: "questionmark", message: "Coming soon")
+    private var presetContent: some View {
+        switch appState.activePreset {
+        case .daily:
+            dailyLayout
+        case .dev:
+            devLayout
         }
     }
 
-    private func emptyState(icon: String, message: String) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 32))
-                .foregroundStyle(.secondary)
-            Text(message)
-                .font(.system(size: 13))
-                .foregroundStyle(.tertiary)
+    // MARK: - Daily: NowPlaying (primary) + AI mini (secondary)
+
+    private var dailyLayout: some View {
+        VStack(spacing: 0) {
+            NowPlayingStandardWidget()
+            Divider()
+                .opacity(0.08)
+                .padding(.horizontal, 12)
+            AIUsageCompactView()
         }
-        .frame(height: 100)
-        .padding(16)
+    }
+
+    // MARK: - Dev: AI Usage (primary) + NowPlaying mini (secondary)
+
+    private var devLayout: some View {
+        VStack(spacing: 0) {
+            AIUsageStandardView()
+            Divider()
+                .opacity(0.08)
+                .padding(.horizontal, 12)
+            NowPlayingMiniWidget()
+        }
     }
 }
