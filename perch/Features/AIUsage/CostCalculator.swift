@@ -1,6 +1,6 @@
 import Foundation
 
-enum CostCalculator {
+nonisolated enum CostCalculator {
     struct ModelPricing: Sendable {
         let inputPerMillion: Double
         let outputPerMillion: Double
