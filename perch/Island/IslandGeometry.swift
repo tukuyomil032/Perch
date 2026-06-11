@@ -6,9 +6,10 @@ enum IslandGeometry {
             size: compactSize(mode: mode), topOffset: topOffset(mode: mode), environment: environment, mode: mode)
     }
 
-    static func expandedFrame(mode: IslandMode, environment: ScreenEnvironment) -> CGRect {
+    static func expandedFrame(mode: IslandMode, environment: ScreenEnvironment, height: CGFloat? = nil) -> CGRect {
         centeredFrame(
-            size: expandedSize(mode: mode), topOffset: topOffset(mode: mode), environment: environment, mode: mode)
+            size: expandedSize(mode: mode, height: height),
+            topOffset: topOffset(mode: mode), environment: environment, mode: mode)
     }
 
     static func compactFrame(mode: IslandMode, screen: NSScreen) -> CGRect {
@@ -28,9 +29,9 @@ enum IslandGeometry {
         }
     }
 
-    private static func expandedSize(mode: IslandMode) -> CGSize {
+    private static func expandedSize(mode: IslandMode, height: CGFloat? = nil) -> CGSize {
         switch mode {
-        case .floatingPill: return CGSize(width: 420, height: 280)
+        case .floatingPill: return CGSize(width: 420, height: height ?? 280)
         case .physicalNotch: return CGSize(width: 460, height: 220)
         }
     }

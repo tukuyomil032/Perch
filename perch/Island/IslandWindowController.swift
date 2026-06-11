@@ -53,7 +53,9 @@ final class IslandWindowController: NSWindowController {
         appState.isPhysicalNotch = (mode != .floatingPill)
         let frame =
             appState.isExpanded
-            ? IslandGeometry.expandedFrame(mode: mode, environment: environment)
+            ? IslandGeometry.expandedFrame(
+                mode: mode, environment: environment,
+                height: mode == .floatingPill ? appState.expandedWindowHeight : nil)
             : IslandGeometry.compactFrame(mode: mode, environment: environment)
         window?.setFrame(frame, display: true)
 
@@ -99,6 +101,7 @@ final class IslandWindowController: NSWindowController {
     private func observeExpanded() {
         withObservationTracking {
             _ = appState.isExpanded
+            _ = appState.expandedWindowHeight
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 self?.updateLayout()
