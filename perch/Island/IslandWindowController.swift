@@ -56,6 +56,16 @@ final class IslandWindowController: NSWindowController {
             ? IslandGeometry.expandedFrame(mode: mode, environment: environment)
             : IslandGeometry.compactFrame(mode: mode, environment: environment)
         window?.setFrame(frame, display: true)
+
+        logger.debug(
+            "updateLayout",
+            metadata: [
+                "mode": .string("\(mode)"),
+                "windowFrame": .string("\(window?.frame ?? .zero)"),
+                "contentViewFrame": .string("\(window?.contentView?.frame ?? .zero)"),
+                "screenMidX": .stringConvertible(environment.frame.midX),
+                "pillMidX": .stringConvertible(frame.midX),
+            ])
     }
 
     private static func resolveScreenEnvironment() -> (ScreenEnvironment, NSScreen) {

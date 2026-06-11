@@ -42,14 +42,24 @@ nonisolated struct ScreenEnvironment: Sendable {
     }
 
     static func mockNotchedMacBook(frame: CGRect = CGRect(x: 0, y: 0, width: 1512, height: 982)) -> ScreenEnvironment {
-        ScreenEnvironment(
+        let notchWidth: CGFloat = 208
+        let notchHeight: CGFloat = 38
+        let sideWidth = (frame.width - notchWidth) / 2
+
+        return ScreenEnvironment(
             frame: frame,
-            visibleFrame: CGRect(x: frame.origin.x, y: frame.origin.y, width: frame.width, height: frame.height - 38),
-            safeAreaInsetsTop: 38,
+            visibleFrame: CGRect(
+                x: frame.origin.x, y: frame.origin.y,
+                width: frame.width, height: frame.height - notchHeight),
+            safeAreaInsetsTop: notchHeight,
             auxiliaryTopLeftArea: CGRect(
-                x: frame.origin.x, y: frame.origin.y + frame.height - 38, width: 652, height: 38),
+                x: frame.origin.x,
+                y: frame.origin.y + frame.height - notchHeight,
+                width: sideWidth, height: notchHeight),
             auxiliaryTopRightArea: CGRect(
-                x: frame.origin.x + 860, y: frame.origin.y + frame.height - 38, width: 652, height: 38),
+                x: frame.origin.x + sideWidth + notchWidth,
+                y: frame.origin.y + frame.height - notchHeight,
+                width: sideWidth, height: notchHeight),
             isBuiltIn: true,
             displayName: "Mock MacBook Notch"
         )
