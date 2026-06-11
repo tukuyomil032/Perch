@@ -9,6 +9,9 @@ enum DesignSystem {
     static let springAnimation = Animation.spring(response: 0.32, dampingFraction: 0.82)
     static let expandAnimation = Animation.spring(response: 0.35, dampingFraction: 0.86)
     static let subtleAnimation = Animation.easeInOut(duration: 0.2)
+
+    // AI provider brand colors
+    static let claudeAmber = Color(red: 0.851, green: 0.467, blue: 0.024)  // #d97706
 }
 
 // MARK: - Shared UI Components
