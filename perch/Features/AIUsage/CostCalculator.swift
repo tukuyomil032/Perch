@@ -19,8 +19,8 @@ enum CostCalculator {
         "gemini-2.5-flash": ModelPricing(inputPerMillion: 0.15, outputPerMillion: 0.60, cacheReadPerMillion: nil),
     ]
 
-    static func cost(model: String, inputTokens: Int, outputTokens: Int, cacheReadTokens: Int = 0) -> Double {
-        guard let p = pricing[model] else { return 0.0 }
+    static func cost(model: String, inputTokens: Int, outputTokens: Int, cacheReadTokens: Int = 0) -> Double? {
+        guard let p = pricing[model] else { return nil }
         let inputCost = Double(inputTokens) / 1_000_000 * p.inputPerMillion
         let outputCost = Double(outputTokens) / 1_000_000 * p.outputPerMillion
         let cacheCost =
@@ -30,7 +30,7 @@ enum CostCalculator {
         return inputCost + outputCost + cacheCost
     }
 
-    static func estimateCost(totalTokens: Int, model: String) -> Double {
+    static func estimateCost(totalTokens: Int, model: String) -> Double? {
         let inputTokens = Int(Double(totalTokens) * 0.75)
         let outputTokens = totalTokens - inputTokens
         return cost(model: model, inputTokens: inputTokens, outputTokens: outputTokens)

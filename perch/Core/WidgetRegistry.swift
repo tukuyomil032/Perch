@@ -17,7 +17,7 @@ struct AnyPerchWidget: Identifiable, @unchecked Sendable {
         _body = { size in widget.body(size: size) }
     }
 
-    func body(size: WidgetSize) -> AnyView {
+    @MainActor func body(size: WidgetSize) -> AnyView {
         _body(size)
     }
 }

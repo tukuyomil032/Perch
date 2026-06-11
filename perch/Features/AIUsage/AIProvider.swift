@@ -1,9 +1,9 @@
-import SwiftUI
+import Foundation
 
 protocol AIProvider: Identifiable, Sendable {
     var id: String { get }
     var displayName: String { get }
-    var brandColor: Color { get }
+    var brandColorHex: String { get }
     var icon: String { get }
     var isConfigured: Bool { get }
 

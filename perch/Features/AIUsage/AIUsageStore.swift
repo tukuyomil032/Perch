@@ -11,7 +11,6 @@ final class AIUsageStore {
 
     private var providers: [any AIProvider] = []
     private let scheduler = RefreshScheduler()
-    private var refreshTask: Task<Void, Never>?
 
     var activeUsage: AIUsageData? {
         guard let id = activeProviderId else { return nil }
@@ -29,20 +28,16 @@ final class AIUsageStore {
         }
     }
 
-    func startAutoRefresh() {
+    func startAutoRefresh() async {
         let interval = Defaults[.aiRefreshInterval]
-        Task {
-            await scheduler.setInterval(interval)
-            await scheduler.start { [weak self] in
-                await self?.refresh()
-            }
+        await scheduler.setInterval(interval)
+        await scheduler.start { [weak self] in
+            await self?.refresh()
         }
     }
 
-    func stopAutoRefresh() {
-        Task {
-            await scheduler.stop()
-        }
+    func stopAutoRefresh() async {
+        await scheduler.stop()
     }
 
     func refresh() async {
