@@ -22,7 +22,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mouseMonitor?.startMonitoring()
 
         appState.aiUsageStore.registerProvider(ClaudeProvider())
-        Task { await appState.aiUsageStore.startAutoRefresh() }
+        Task {
+            await appState.aiUsageStore.refresh()
+            await appState.aiUsageStore.startAutoRefresh()
+        }
 
         logger.info("Perch launch complete")
     }
