@@ -1,12 +1,22 @@
 import AppKit
 
 enum IslandGeometry {
+    static func compactFrame(mode: IslandMode, environment: ScreenEnvironment) -> CGRect {
+        centeredFrame(
+            size: compactSize(mode: mode), topOffset: topOffset(mode: mode), environment: environment, mode: mode)
+    }
+
+    static func expandedFrame(mode: IslandMode, environment: ScreenEnvironment) -> CGRect {
+        centeredFrame(
+            size: expandedSize(mode: mode), topOffset: topOffset(mode: mode), environment: environment, mode: mode)
+    }
+
     static func compactFrame(mode: IslandMode, screen: NSScreen) -> CGRect {
-        centeredFrame(size: compactSize(mode: mode), topOffset: topOffset(mode: mode), screen: screen, mode: mode)
+        compactFrame(mode: mode, environment: ScreenEnvironment.live(screen: screen))
     }
 
     static func expandedFrame(mode: IslandMode, screen: NSScreen) -> CGRect {
-        centeredFrame(size: expandedSize(mode: mode), topOffset: topOffset(mode: mode), screen: screen, mode: mode)
+        expandedFrame(mode: mode, environment: ScreenEnvironment.live(screen: screen))
     }
 
     private static func compactSize(mode: IslandMode) -> CGSize {
@@ -32,10 +42,12 @@ enum IslandGeometry {
         }
     }
 
-    private static func centeredFrame(size: CGSize, topOffset: CGFloat, screen: NSScreen, mode: IslandMode) -> CGRect {
+    private static func centeredFrame(
+        size: CGSize, topOffset: CGFloat, environment: ScreenEnvironment, mode: IslandMode
+    ) -> CGRect {
         // physicalNotch must be flush with the true screen top (above menu bar area).
         // visibleFrame.maxY is below the menu bar — using it would offset the notch window downward.
-        let sf = mode == .floatingPill ? screen.visibleFrame : screen.frame
+        let sf = mode == .floatingPill ? environment.visibleFrame : environment.frame
         return CGRect(
             x: sf.midX - size.width / 2,
             y: sf.maxY - size.height - topOffset,

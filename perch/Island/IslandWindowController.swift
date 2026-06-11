@@ -1,5 +1,9 @@
 import AppKit
+import Defaults
+import Logging
 import SwiftUI
+
+private let logger = Logger(label: "com.tukuyomi032.perch.IslandWindowController")
 
 @MainActor
 final class IslandWindowController: NSWindowController {
@@ -7,11 +11,21 @@ final class IslandWindowController: NSWindowController {
 
     init(appState: AppState) {
         self.appState = appState
-        let screen = NSScreen.perchPreferredScreen ?? NSScreen.main!
-        let notchSize = screen.perchNotchSize
+        let (environment, screen) = Self.resolveScreenEnvironment()
+        let notchSize = environment.notchSize
         let mode: IslandMode = notchSize == .zero ? .floatingPill : .physicalNotch(notchSize: notchSize)
         appState.isPhysicalNotch = (mode != .floatingPill)
-        let frame = IslandGeometry.compactFrame(mode: mode, screen: screen)
+        let frame = IslandGeometry.compactFrame(mode: mode, environment: environment)
+
+        logger.info(
+            "initializing island window",
+            metadata: [
+                "screen": .string(screen.localizedName),
+                "simulationMode": .string(Defaults[.notchSimulationMode].rawValue),
+                "mode": .string("\(mode)"),
+                "frame": .string("\(frame)"),
+            ])
+        NSScreen.logScreenDiagnostics()
 
         let window = IslandWindow(contentRect: frame, styleMask: [], backing: .buffered, defer: false)
         let rootView = RootIslandView().environment(appState)
@@ -28,19 +42,48 @@ final class IslandWindowController: NSWindowController {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     func updateLayout() {
-        guard let screen = NSScreen.perchPreferredScreen ?? NSScreen.main else { return }
-        let notchSize = screen.perchNotchSize
+        let (environment, _) = Self.resolveScreenEnvironment()
+        let notchSize = environment.notchSize
         let mode: IslandMode = notchSize == .zero ? .floatingPill : .physicalNotch(notchSize: notchSize)
+        appState.isPhysicalNotch = (mode != .floatingPill)
         let frame =
             appState.isExpanded
-            ? IslandGeometry.expandedFrame(mode: mode, screen: screen)
-            : IslandGeometry.compactFrame(mode: mode, screen: screen)
+            ? IslandGeometry.expandedFrame(mode: mode, environment: environment)
+            : IslandGeometry.compactFrame(mode: mode, environment: environment)
         window?.setFrame(frame, display: true)
+    }
+
+    private static func resolveScreenEnvironment() -> (ScreenEnvironment, NSScreen) {
+        let screen = NSScreen.perchPreferredScreen ?? NSScreen.main!
+        switch Defaults[.notchSimulationMode] {
+        case .auto:
+            return (ScreenEnvironment.live(screen: screen), screen)
+        case .forceNotched:
+            return (ScreenEnvironment.mockNotchedMacBook(frame: screen.frame), screen)
+        case .forceNonNotched:
+            return (ScreenEnvironment.mockNonNotchedMac(frame: screen.frame), screen)
+        }
     }
 
     private func startObserving() {
         observeExpanded()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screenParametersDidChange(_:)),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
+    }
+
+    @objc private func screenParametersDidChange(_ notification: Notification) {
+        logger.info("screen parameters changed — recalculating layout")
+        NSScreen.logScreenDiagnostics()
+        updateLayout()
     }
 
     private func observeExpanded() {

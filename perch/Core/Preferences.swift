@@ -15,4 +15,5 @@ extension Defaults.Keys {
     static let enableYouTubeMusic = Key<Bool>("enableYouTubeMusic", default: true)
     static let languageCode = Key<String>("languageCode", default: "en")
     static let aiRefreshInterval = Key<RefreshInterval>("aiRefreshInterval", default: .fiveMinutes)
+    static let notchSimulationMode = Key<NotchSimulationMode>("notchSimulationMode", default: .auto)
 }

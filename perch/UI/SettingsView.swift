@@ -18,6 +18,10 @@ struct SettingsView: View {
                 .tabItem { Label("Now Playing", systemImage: "music.note") }
             LanguageTab(languageCode: $languageCode)
                 .tabItem { Label("Language", systemImage: "globe") }
+            #if DEBUG
+            DebugTab()
+                .tabItem { Label("Debug", systemImage: "ladybug") }
+            #endif
         }
         .frame(width: 420, height: 320)
     }
@@ -103,3 +107,23 @@ private struct LanguageTab: View {
         .padding()
     }
 }
+
+#if DEBUG
+private struct DebugTab: View {
+    @Default(.notchSimulationMode) private var notchSimulationMode
+
+    var body: some View {
+        Form {
+            Section("Debug") {
+                Picker("Notch Simulation", selection: $notchSimulationMode) {
+                    ForEach(NotchSimulationMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+}
+#endif
