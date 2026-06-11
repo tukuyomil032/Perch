@@ -26,7 +26,14 @@ struct CompactPillView: View {
             }
         }
         .onTapGesture {
-            let card: IslandCard = appState.nowPlayingManager.currentState != nil ? .nowPlaying : .idle
+            let card: IslandCard
+            if appState.nowPlayingManager.currentState != nil {
+                card = .nowPlaying
+            } else if appState.aiUsageStore.activeUsage != nil {
+                card = .aiUsage
+            } else {
+                card = .idle
+            }
             appState.expand(to: card)
         }
     }

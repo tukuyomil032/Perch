@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-struct AnyPerchWidget: Identifiable {
+struct AnyPerchWidget: Identifiable, @unchecked Sendable {
     let id: String
     let displayName: String
     let icon: String

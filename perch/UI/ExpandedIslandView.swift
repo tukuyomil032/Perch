@@ -49,6 +49,8 @@ struct ExpandedIslandView: View {
             } else {
                 emptyState(icon: "music.note", message: "Play some music")
             }
+        case .aiUsage:
+            AIUsageWidget().body(size: .standard)
         case .idle:
             emptyState(icon: "bird", message: "Nothing here yet")
         default:

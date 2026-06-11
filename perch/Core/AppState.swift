@@ -12,6 +12,7 @@ final class AppState {
     var openSettingsAction: (() -> Void)?
 
     let nowPlayingManager = NowPlayingManager()
+    let aiUsageStore = AIUsageStore()
 
     private let logger = Logger(label: "com.tukuyomi032.perch.AppState")
 
