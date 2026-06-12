@@ -46,6 +46,7 @@ nonisolated struct ClaudeProvider: AIProvider {
         let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: now) ?? now
         let todayKey = dayFormatter.string(from: now)
 
+        var seenRequestIds = Set<String>()
         var dayToCost: [String: Double] = [:]
         var dayToInputTokens: [String: Int] = [:]
         var dayToOutputTokens: [String: Int] = [:]
@@ -70,6 +71,11 @@ nonisolated struct ClaudeProvider: AIProvider {
                     entry.type == "assistant",
                     let msg = entry.message
                 else { continue }
+
+                // Skip duplicate API calls — same requestId appears in both main and subagent JSONL files
+                if let rid = entry.requestId, !rid.isEmpty {
+                    guard seenRequestIds.insert(rid).inserted else { continue }
+                }
 
                 let date: Date
                 if let ts = entry.timestamp,
@@ -141,12 +147,20 @@ nonisolated struct ClaudeProvider: AIProvider {
         )
     }
 
-    /// Converts raw model IDs to short display names.
+    /// Converts raw model IDs to short display names with version numbers.
     private nonisolated static func normalizeModel(_ raw: String) -> String {
         let lower = raw.lowercased()
+        // Claude 4 — specific before generic
+        if lower.contains("opus-4-8") { return "Opus 4.8" }
+        if lower.contains("opus-4-7") { return "Opus 4.7" }
+        if lower.contains("opus-4-6") { return "Opus 4.6" }
         if lower.contains("opus-4") { return "Opus 4" }
+        if lower.contains("sonnet-4-6") { return "Sonnet 4.6" }
+        if lower.contains("sonnet-4-5") { return "Sonnet 4.5" }
         if lower.contains("sonnet-4") { return "Sonnet 4" }
+        if lower.contains("haiku-4-5") { return "Haiku 4.5" }
         if lower.contains("haiku-4") { return "Haiku 4" }
+        // Claude 3
         if lower.contains("opus-3") { return "Opus 3" }
         if lower.contains("sonnet-3-7") { return "Sonnet 3.7" }
         if lower.contains("sonnet-3-5") { return "Sonnet 3.5" }
@@ -161,6 +175,7 @@ private nonisolated struct ClaudeEntry: Decodable {
     let type: String
     let timestamp: String?
     let costUSD: Double?
+    let requestId: String?
     let message: ClaudeMessage?
 }
 

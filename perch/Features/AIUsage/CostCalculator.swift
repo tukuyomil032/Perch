@@ -7,16 +7,39 @@ nonisolated enum CostCalculator {
         let cacheReadPerMillion: Double?
     }
 
+    // Updated: 2026-06-12. Sources: Anthropic pricing docs, CodexBar CostUsagePricing.swift,
+    // OpenAI API pricing, Google AI Gemini pricing.
+    // Review when providers change their pricing.
     static let pricing: [String: ModelPricing] = [
-        "claude-opus-4-6": ModelPricing(inputPerMillion: 15.0, outputPerMillion: 75.0, cacheReadPerMillion: 1.875),
-        "claude-opus-4-7": ModelPricing(inputPerMillion: 15.0, outputPerMillion: 75.0, cacheReadPerMillion: 1.875),
+        // ── Claude (Anthropic) ──────────────────────────────────────────────
+        "claude-opus-4-6": ModelPricing(inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50),
+        "claude-opus-4-7": ModelPricing(inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50),
+        "claude-opus-4-8": ModelPricing(inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50),
+        "claude-sonnet-4-5": ModelPricing(inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.30),
         "claude-sonnet-4-6": ModelPricing(inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.30),
-        "claude-haiku-4-5": ModelPricing(inputPerMillion: 0.80, outputPerMillion: 4.0, cacheReadPerMillion: 0.08),
+        "claude-haiku-4-5": ModelPricing(inputPerMillion: 1.0, outputPerMillion: 5.0, cacheReadPerMillion: 0.10),
+        "claude-haiku-4-5-20251001": ModelPricing(
+            inputPerMillion: 1.0, outputPerMillion: 5.0, cacheReadPerMillion: 0.10),
+        // ── OpenAI (GPT-5 / Codex) ──────────────────────────────────────────
+        "gpt-5.5": ModelPricing(inputPerMillion: 5.0, outputPerMillion: 30.0, cacheReadPerMillion: 0.50),
+        "gpt-5.4": ModelPricing(inputPerMillion: 2.5, outputPerMillion: 15.0, cacheReadPerMillion: nil),
+        "gpt-5.3-codex": ModelPricing(inputPerMillion: 1.75, outputPerMillion: 14.0, cacheReadPerMillion: nil),
+        "gpt-5.1-codex-max": ModelPricing(inputPerMillion: 1.25, outputPerMillion: 10.0, cacheReadPerMillion: nil),
+        "gpt-5.1-codex-mini": ModelPricing(inputPerMillion: 0.25, outputPerMillion: 2.0, cacheReadPerMillion: nil),
+        "codex-mini": ModelPricing(inputPerMillion: 1.50, outputPerMillion: 6.0, cacheReadPerMillion: nil),
         "gpt-4.1": ModelPricing(inputPerMillion: 2.0, outputPerMillion: 8.0, cacheReadPerMillion: 0.50),
+        "gpt-4.1-mini": ModelPricing(inputPerMillion: 0.40, outputPerMillion: 1.60, cacheReadPerMillion: 0.10),
         "o3": ModelPricing(inputPerMillion: 2.0, outputPerMillion: 8.0, cacheReadPerMillion: nil),
-        "o4-mini": ModelPricing(inputPerMillion: 1.10, outputPerMillion: 4.40, cacheReadPerMillion: 0.275),
-        "gemini-2.5-pro": ModelPricing(inputPerMillion: 1.25, outputPerMillion: 10.0, cacheReadPerMillion: nil),
-        "gemini-2.5-flash": ModelPricing(inputPerMillion: 0.15, outputPerMillion: 0.60, cacheReadPerMillion: nil),
+        "o4-mini": ModelPricing(inputPerMillion: 0.55, outputPerMillion: 2.20, cacheReadPerMillion: nil),
+        // ── Google Gemini ────────────────────────────────────────────────────
+        "gemini-3.5-flash": ModelPricing(inputPerMillion: 1.50, outputPerMillion: 9.0, cacheReadPerMillion: 0.15),
+        "gemini-3.1-pro-preview": ModelPricing(inputPerMillion: 2.0, outputPerMillion: 12.0, cacheReadPerMillion: 0.20),
+        "gemini-3.1-flash-lite-preview": ModelPricing(
+            inputPerMillion: 0.25, outputPerMillion: 1.50, cacheReadPerMillion: nil),
+        "gemini-3-flash-preview": ModelPricing(inputPerMillion: 0.50, outputPerMillion: 3.0, cacheReadPerMillion: nil),
+        "gemini-2.5-pro": ModelPricing(inputPerMillion: 1.25, outputPerMillion: 10.0, cacheReadPerMillion: 0.125),
+        "gemini-2.5-flash": ModelPricing(inputPerMillion: 0.30, outputPerMillion: 2.50, cacheReadPerMillion: 0.03),
+        "gemini-2.5-flash-lite": ModelPricing(inputPerMillion: 0.10, outputPerMillion: 0.40, cacheReadPerMillion: nil),
     ]
 
     static func cost(model: String, inputTokens: Int, outputTokens: Int, cacheReadTokens: Int = 0) -> Double? {
