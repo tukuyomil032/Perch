@@ -45,16 +45,16 @@ struct ExpandedIslandView: View {
     @ViewBuilder
     private var presetContent: some View {
         switch appState.activePreset {
-        case .daily:
-            dailyLayout
-        case .dev:
-            devLayout
+        case .music:
+            musicLayout
+        case .ai:
+            aiLayout
         }
     }
 
-    // MARK: - Daily: NowPlaying (primary) + AI mini (secondary)
+    // MARK: - Music: NowPlaying (primary) + AI mini (secondary)
 
-    private var dailyLayout: some View {
+    private var musicLayout: some View {
         VStack(spacing: 0) {
             NowPlayingStandardWidget()
             Divider()
@@ -64,9 +64,9 @@ struct ExpandedIslandView: View {
         }
     }
 
-    // MARK: - Dev: AI Usage (primary) + NowPlaying mini (secondary)
+    // MARK: - AI: AI Usage (primary) + NowPlaying mini (secondary)
 
-    private var devLayout: some View {
+    private var aiLayout: some View {
         VStack(spacing: 0) {
             AIUsageStandardView()
             Divider()

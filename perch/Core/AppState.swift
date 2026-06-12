@@ -6,7 +6,7 @@ import Logging
 final class AppState {
     var isExpanded: Bool = false
     var activeCard: IslandCard = .idle
-    var activePreset: IslandPreset = .daily
+    var activePreset: IslandPreset = .music
     var latestError: String?
     var isPhysicalNotch: Bool = false
 

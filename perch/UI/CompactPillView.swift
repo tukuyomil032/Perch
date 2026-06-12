@@ -120,10 +120,9 @@ struct CompactPillView: View {
 
     private func handleTap() {
         if isMusicActive {
-            // Daily shows NowPlaying prominently
-            appState.activePreset = .daily
+            appState.activePreset = .music
         } else if isAIActive {
-            appState.activePreset = .dev
+            appState.activePreset = .ai
         }
         appState.expand(to: isMusicActive ? .nowPlaying : isAIActive ? .aiUsage : .idle)
     }
