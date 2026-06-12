@@ -31,7 +31,8 @@ final class IslandWindowController: NSWindowController {
         let rootView = RootIslandView().environment(appState)
         let hostingController = NSHostingController(rootView: rootView)
         hostingController.view.wantsLayer = true
-        hostingController.view.layer?.backgroundColor = .clear
+        hostingController.view.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingController.view.layer?.isOpaque = false
         window.contentViewController = hostingController
 
         super.init(window: window)

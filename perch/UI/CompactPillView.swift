@@ -76,6 +76,7 @@ struct CompactPillView: View {
                     .frame(width: 16, height: 16)
             }
             .frame(width: 34, height: 34)
+            .clipShape(Circle())  // clip corners so no gray bleed from hosting view
         }
     }
 

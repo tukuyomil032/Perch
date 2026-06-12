@@ -22,6 +22,7 @@ struct RootIslandView: View {
 
     var body: some View {
         ZStack {
+            Color.clear  // ensure no implicit background from NSHostingController bleeds through
             if appState.isExpanded {
                 if appState.isPhysicalNotch {
                     NotchExpandedView()
