@@ -43,14 +43,18 @@ nonisolated enum CostCalculator {
     ]
 
     static func cost(model: String, inputTokens: Int, outputTokens: Int, cacheReadTokens: Int = 0) -> Double? {
-        guard let p = pricing[model] else { return nil }
+        let lower = model.lowercased()
+        guard let p = pricing[lower] ?? resolveFuzzy(lower) else { return nil }
         let inputCost = Double(inputTokens) / 1_000_000 * p.inputPerMillion
         let outputCost = Double(outputTokens) / 1_000_000 * p.outputPerMillion
-        let cacheCost =
-            cacheReadTokens > 0
-            ? Double(cacheReadTokens) / 1_000_000 * (p.cacheReadPerMillion ?? 0)
-            : 0.0
+        let cacheCost = Double(cacheReadTokens) / 1_000_000 * (p.cacheReadPerMillion ?? 0)
         return inputCost + outputCost + cacheCost
+    }
+
+    // Handles date-suffixed model IDs like "claude-sonnet-4-5-20250514" → matches "claude-sonnet-4-5"
+    private static func resolveFuzzy(_ lower: String) -> ModelPricing? {
+        let sorted = pricing.keys.sorted { $0.count > $1.count }
+        return sorted.first(where: { lower.hasPrefix($0) }).flatMap { pricing[$0] }
     }
 
     static func estimateCost(totalTokens: Int, model: String) -> Double? {

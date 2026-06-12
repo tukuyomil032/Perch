@@ -50,6 +50,8 @@ nonisolated struct ClaudeProvider: AIProvider {
         var dayToCost: [String: Double] = [:]
         var dayToInputTokens: [String: Int] = [:]
         var dayToOutputTokens: [String: Int] = [:]
+        var dayToCacheReadTokens: [String: Int] = [:]
+        var dayToCacheCreationTokens: [String: Int] = [:]
         var modelCost: [String: Double] = [:]
         var modelTotalTokens: [String: Int] = [:]
 
@@ -94,6 +96,7 @@ nonisolated struct ClaudeProvider: AIProvider {
                 let inputTokens = usage?.inputTokens ?? 0
                 let outputTokens = usage?.outputTokens ?? 0
                 let cacheReadTokens = usage?.cacheReadInputTokens ?? 0
+                let cacheCreationTokens = usage?.cacheCreationInputTokens ?? 0
 
                 let cost: Double
                 if let precomputed = entry.costUSD {
@@ -112,8 +115,11 @@ nonisolated struct ClaudeProvider: AIProvider {
                 dayToCost[key, default: 0] += cost
                 dayToInputTokens[key, default: 0] += inputTokens
                 dayToOutputTokens[key, default: 0] += outputTokens
+                dayToCacheReadTokens[key, default: 0] += cacheReadTokens
+                dayToCacheCreationTokens[key, default: 0] += cacheCreationTokens
                 modelCost[model, default: 0] += cost
-                modelTotalTokens[model, default: 0] += inputTokens + outputTokens
+                modelTotalTokens[model, default: 0] +=
+                    inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens
             }
         }
 
@@ -130,8 +136,16 @@ nonisolated struct ClaudeProvider: AIProvider {
 
         let todayUSD = dayToCost[todayKey] ?? 0
         let thirtyDayUSD = dayToCost.values.reduce(0, +)
-        let todayTokens = (dayToInputTokens[todayKey] ?? 0) + (dayToOutputTokens[todayKey] ?? 0)
-        let thirtyDayTokens = dayToInputTokens.values.reduce(0, +) + dayToOutputTokens.values.reduce(0, +)
+        let todayTokens =
+            (dayToInputTokens[todayKey] ?? 0)
+            + (dayToOutputTokens[todayKey] ?? 0)
+            + (dayToCacheReadTokens[todayKey] ?? 0)
+            + (dayToCacheCreationTokens[todayKey] ?? 0)
+        let thirtyDayTokens =
+            dayToInputTokens.values.reduce(0, +)
+            + dayToOutputTokens.values.reduce(0, +)
+            + dayToCacheReadTokens.values.reduce(0, +)
+            + dayToCacheCreationTokens.values.reduce(0, +)
 
         return AIUsageData(
             cost: CostInfo(
@@ -177,6 +191,14 @@ private nonisolated struct ClaudeEntry: Decodable {
     let costUSD: Double?
     let requestId: String?
     let message: ClaudeMessage?
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case timestamp
+        case costUSD = "cost_usd"
+        case requestId = "request_id"
+        case message
+    }
 }
 
 private nonisolated struct ClaudeMessage: Decodable {
@@ -188,10 +210,12 @@ private nonisolated struct ClaudeUsage: Decodable {
     let inputTokens: Int?
     let outputTokens: Int?
     let cacheReadInputTokens: Int?
+    let cacheCreationInputTokens: Int?
 
     nonisolated enum CodingKeys: String, CodingKey {
         case inputTokens = "input_tokens"
         case outputTokens = "output_tokens"
         case cacheReadInputTokens = "cache_read_input_tokens"
+        case cacheCreationInputTokens = "cache_creation_input_tokens"
     }
 }
