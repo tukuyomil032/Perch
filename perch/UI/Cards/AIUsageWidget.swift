@@ -18,6 +18,20 @@ nonisolated struct AIUsageWidget: PerchWidget {
     }
 }
 
+// MARK: - Provider logo helper
+
+private func providerLogoAssetName(_ id: String) -> String {
+    switch id {
+    case "claude": return "claude-logo"
+    case "codex": return "codex-logo"
+    case "gemini": return "gemini-logo"
+    case "cursor": return "cursor-logo"
+    case "openrouter": return "openrouter-logo"
+    case "opencode": return "opencode-logo"
+    default: return "claude-logo"
+    }
+}
+
 // MARK: - Mini (tiny indicator, used in dual-activity pill or side slots)
 
 struct AIUsageMiniView: View {
@@ -25,11 +39,14 @@ struct AIUsageMiniView: View {
 
     var body: some View {
         let store = appState.aiUsageStore
+        let id = store.activeProviderId ?? "claude"
         HStack(spacing: 5) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(DesignSystem.claudeAmber)
-                .frame(width: 8, height: 8)
-            Text("Claude")
+            Image(providerLogoAssetName(id))
+                .resizable()
+                .renderingMode(.template)
+                .foregroundStyle(DesignSystem.claudeAmber)
+                .frame(width: 9, height: 9)
+            Text(store.activeUsage?.planName ?? id.capitalized)
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(.secondary)
             if let cost = store.activeUsage?.cost {
@@ -45,7 +62,7 @@ struct AIUsageMiniView: View {
     }
 }
 
-// MARK: - Compact (one-liner for Daily preset bottom bar)
+// MARK: - Compact (one-liner for Music preset bottom bar)
 
 struct AIUsageCompactView: View {
     @Environment(AppState.self) private var appState
@@ -53,12 +70,15 @@ struct AIUsageCompactView: View {
     var body: some View {
         let store = appState.aiUsageStore
         let usage = store.activeUsage
+        let id = store.activeProviderId ?? "claude"
 
         HStack(spacing: 6) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(DesignSystem.claudeAmber)
-                .frame(width: 8, height: 8)
-            Text("Claude Code")
+            Image(providerLogoAssetName(id))
+                .resizable()
+                .renderingMode(.template)
+                .foregroundStyle(DesignSystem.claudeAmber)
+                .frame(width: 10, height: 10)
+            Text(usage?.planName ?? id.capitalized)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.secondary)
             Spacer()
@@ -73,7 +93,7 @@ struct AIUsageCompactView: View {
                         .font(.system(size: 9))
                         .foregroundStyle(.quaternary)
                 }
-            } else if let err = store.errors["claude"] {
+            } else if let err = store.errors[id] {
                 Label(err, systemImage: "exclamationmark.triangle")
                     .font(.system(size: 9))
                     .foregroundStyle(.secondary)
@@ -102,15 +122,39 @@ struct AIUsageStandardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Provider header
             HStack {
+                // Logo + name
                 HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(DesignSystem.claudeAmber)
-                        .frame(width: 7, height: 7)
-                    Text("Claude Code")
+                    Image(providerLogoAssetName(store.activeProviderId ?? "claude"))
+                        .resizable()
+                        .renderingMode(.template)
+                        .foregroundStyle(DesignSystem.claudeAmber)
+                        .frame(width: 11, height: 11)
+                    Text(usage?.planName ?? (store.activeProviderId ?? "claude").capitalized)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                // Provider switcher (only when 2+ configured)
+                if store.configuredProviders.count > 1 {
+                    HStack(spacing: 4) {
+                        ForEach(store.configuredProviders, id: \.id) { provider in
+                            Button {
+                                store.selectProvider(provider.id)
+                            } label: {
+                                Image(providerLogoAssetName(provider.id))
+                                    .resizable()
+                                    .renderingMode(.template)
+                                    .frame(width: 10, height: 10)
+                                    .foregroundStyle(
+                                        store.activeProviderId == provider.id
+                                            ? AnyShapeStyle(.primary) : AnyShapeStyle(.quaternary)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                // Refresh
                 if store.isRefreshing {
                     ProgressView().scaleEffect(0.45)
                 } else {
