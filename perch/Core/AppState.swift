@@ -14,11 +14,13 @@ final class AppState {
         activePreset.expandedHeight
     }
 
-    /// Compact window width: 170pt when both music and AI are active, 150pt otherwise.
+    /// Compact window width: 20px wider than pill content to give buffer for scaleEffect (max 1.05×).
+    /// single: content 150px → window 170px (150×1.05=157.5 < 170 ✓)
+    /// dual:   content ~158px → window 190px (158×1.05=165.9 < 190 ✓)
     var compactWindowWidth: CGFloat {
         let isMusicActive = nowPlayingManager.currentState != nil
         let isAIActive = aiUsageStore.activeUsage != nil
-        return (isMusicActive && isAIActive) ? 170 : 150
+        return (isMusicActive && isAIActive) ? 190 : 170
     }
 
     var openSettingsAction: (() -> Void)?
