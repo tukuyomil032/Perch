@@ -21,6 +21,15 @@ final class AIUsageStore {
         providers.filter { $0.isConfigured }
     }
 
+    /// Provider with highest today cost — used to show its logo in compact pill.
+    var mostUsedProviderId: String? {
+        usageByProvider
+            .filter { $0.value.cost?.todayUSD ?? 0 > 0 }
+            .max(by: { ($0.value.cost?.todayUSD ?? 0) < ($1.value.cost?.todayUSD ?? 0) })
+            .map(\.key)
+            ?? activeProviderId
+    }
+
     func registerProvider(_ provider: any AIProvider) {
         providers.append(provider)
         if activeProviderId == nil && provider.isConfigured {

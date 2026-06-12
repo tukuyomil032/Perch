@@ -14,6 +14,13 @@ final class AppState {
         activePreset.expandedHeight
     }
 
+    /// Compact window width: 170pt when both music and AI are active, 150pt otherwise.
+    var compactWindowWidth: CGFloat {
+        let isMusicActive = nowPlayingManager.currentState != nil
+        let isAIActive = aiUsageStore.activeUsage != nil
+        return (isMusicActive && isAIActive) ? 170 : 150
+    }
+
     var openSettingsAction: (() -> Void)?
 
     let nowPlayingManager = NowPlayingManager()

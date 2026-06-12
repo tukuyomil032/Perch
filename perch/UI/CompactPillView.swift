@@ -33,12 +33,9 @@ struct CompactPillView: View {
     // MARK: - Single pill (music OR AI OR default)
 
     private var singlePillView: some View {
-        ZStack {
-            VibrancyBackground()
-            pillContent
-        }
-        .clipShape(Capsule())
-        .frame(width: 150, height: 34)
+        pillContent
+            .frame(width: 150, height: 34)
+            .background(.regularMaterial, in: Capsule())
     }
 
     @ViewBuilder
@@ -59,30 +56,46 @@ struct CompactPillView: View {
         .animation(DesignSystem.springAnimation, value: isAIActive)
     }
 
-    // MARK: - Dual activity: music capsule + AI circle
+    // MARK: - Dual activity: music capsule + provider logo circle
 
     private var dualActivityView: some View {
         HStack(spacing: 8) {
-            // Left: music capsule
-            ZStack {
-                VibrancyBackground()
-                if let state = appState.nowPlayingManager.currentState {
-                    NowPlayingCompact(state: state)
-                }
+            // Left: music capsule — using SwiftUI material to avoid NSVisualEffectView clip bleed
+            if let state = appState.nowPlayingManager.currentState {
+                NowPlayingCompact(state: state)
+                    .frame(width: 116, height: 34)
+                    .background(.regularMaterial, in: Capsule())
             }
-            .clipShape(Capsule())
-            .frame(width: 116, height: 34)
 
-            // Right: AI usage circle (34pt)
+            // Right: most-used provider logo circle
             ZStack {
                 Circle()
-                    .fill(Color.black)
+                    .fill(.black)
                     .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
-                Image(systemName: "sparkles")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(DesignSystem.claudeAmber)
+                providerLogoView
+                    .frame(width: 16, height: 16)
             }
             .frame(width: 34, height: 34)
+        }
+    }
+
+    private var providerLogoView: some View {
+        let id = appState.aiUsageStore.mostUsedProviderId ?? "claude"
+        return Image(providerLogoAssetName(id))
+            .resizable()
+            .renderingMode(.template)
+            .foregroundStyle(DesignSystem.claudeAmber)
+    }
+
+    private func providerLogoAssetName(_ id: String) -> String {
+        switch id {
+        case "claude": return "claude-logo"
+        case "codex": return "codex-logo"
+        case "gemini": return "gemini-logo"
+        case "cursor": return "cursor-logo"
+        case "openrouter": return "openrouter-logo"
+        case "opencode": return "opencode-logo"
+        default: return "claude-logo"
         }
     }
 
@@ -90,9 +103,12 @@ struct CompactPillView: View {
 
     private var aiCompactInline: some View {
         HStack(spacing: 5) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(DesignSystem.claudeAmber)
-                .frame(width: 7, height: 7)
+            let id = appState.aiUsageStore.mostUsedProviderId ?? "claude"
+            Image(providerLogoAssetName(id))
+                .resizable()
+                .renderingMode(.template)
+                .foregroundStyle(DesignSystem.claudeAmber)
+                .frame(width: 10, height: 10)
             if let cost = appState.aiUsageStore.activeUsage?.cost {
                 Text(formatCost(cost.todayUSD))
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
