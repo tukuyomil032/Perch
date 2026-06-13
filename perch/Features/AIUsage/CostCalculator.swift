@@ -61,16 +61,20 @@ nonisolated enum CostCalculator {
 
     static func cost(
         model: String, inputTokens: Int, outputTokens: Int,
-        cacheReadTokens: Int = 0, cacheCreationTokens: Int = 0
+        cacheReadTokens: Int = 0,
+        cache5mTokens: Int = 0,  // ephemeral 5-min cache: 1.25× input
+        cache1hTokens: Int = 0,  // ephemeral 1-hour cache: 2.0× input (ccusage CACHE_CREATE_1H_INPUT_MULTIPLIER)
+        cacheCreationTokens: Int = 0  // legacy field — treated as 5m
     ) -> Double? {
         let lower = model.lowercased()
         guard let p = pricing[lower] ?? resolveFuzzy(lower) else { return nil }
         let inputCost = Double(inputTokens) / 1_000_000 * p.inputPerMillion
         let outputCost = Double(outputTokens) / 1_000_000 * p.outputPerMillion
         let cacheReadCost = Double(cacheReadTokens) / 1_000_000 * (p.cacheReadPerMillion ?? 0)
-        let cacheWriteCost =
-            Double(cacheCreationTokens) / 1_000_000 * (p.cacheWritePerMillion ?? p.inputPerMillion * 1.25)
-        return inputCost + outputCost + cacheReadCost + cacheWriteCost
+        let effective5m = cache5mTokens + cacheCreationTokens
+        let cache5mCost = Double(effective5m) / 1_000_000 * (p.cacheWritePerMillion ?? p.inputPerMillion * 1.25)
+        let cache1hCost = Double(cache1hTokens) / 1_000_000 * (p.inputPerMillion * 2.0)
+        return inputCost + outputCost + cacheReadCost + cache5mCost + cache1hCost
     }
 
     // Handles date-suffixed model IDs like "claude-sonnet-4-5-20250514" → matches "claude-sonnet-4-5"
@@ -79,9 +83,9 @@ nonisolated enum CostCalculator {
         return sorted.first(where: { lower.hasPrefix($0) }).flatMap { pricing[$0] }
     }
 
-    static func estimateCost(totalTokens: Int, model: String) -> Double? {
-        let inputTokens = Int(Double(totalTokens) * 0.75)
-        let outputTokens = totalTokens - inputTokens
+    static func estimateCost(totalTokens count: Int, model: String) -> Double? {
+        let inputTokens = Int(Double(count) * 0.75)
+        let outputTokens = count - inputTokens
         return cost(model: model, inputTokens: inputTokens, outputTokens: outputTokens)
     }
 }
