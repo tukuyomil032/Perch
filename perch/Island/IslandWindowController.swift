@@ -107,10 +107,15 @@ final class IslandWindowController: NSWindowController {
     private func observeExpanded() {
         withObservationTracking {
             _ = appState.isExpanded
-            _ = appState.expandedWindowHeight
-            _ = appState.compactWindowWidth
-            _ = appState.compactWindowHeight
             _ = appState.presetStore.activePresetID
+            if appState.isExpanded {
+                // When expanded, only track height — avoids pulling in aiUsageStore.activeUsage
+                // which fires on every refresh() chunk and storms setFrame() calls
+                _ = appState.expandedWindowHeight
+            } else {
+                _ = appState.compactWindowWidth
+                _ = appState.compactWindowHeight
+            }
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 self?.updateLayout()
