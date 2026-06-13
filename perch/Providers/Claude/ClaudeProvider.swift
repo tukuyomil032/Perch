@@ -76,6 +76,7 @@ nonisolated struct ClaudeProvider: AIProvider {
                 let lineData = Data(line.utf8)
                 guard let entry = try? decoder.decode(ClaudeEntry.self, from: lineData),
                     entry.type == "assistant",
+                    entry.isSidechain != true,  // exclude subagent turns; only count main session
                     let _ = entry.message
                 else { continue }
 
@@ -201,6 +202,7 @@ nonisolated struct ClaudeProvider: AIProvider {
 
 private nonisolated struct ClaudeEntry: Decodable {
     let type: String
+    let isSidechain: Bool?
     let timestamp: String?
     let costUSD: Double?
     let requestId: String?
@@ -208,6 +210,7 @@ private nonisolated struct ClaudeEntry: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case type
+        case isSidechain
         case timestamp
         case costUSD = "cost_usd"
         case requestId = "request_id"
