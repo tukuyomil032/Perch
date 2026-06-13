@@ -136,11 +136,6 @@ struct CompactPillView: View {
     // MARK: - Tap handler
 
     private func handleTap() {
-        if isMusicActive {
-            appState.activePreset = .music
-        } else if isAIActive {
-            appState.activePreset = .ai
-        }
         appState.expand(to: isMusicActive ? .nowPlaying : isAIActive ? .aiUsage : .idle)
     }
 }

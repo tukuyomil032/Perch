@@ -6,12 +6,18 @@ import Logging
 final class AppState {
     var isExpanded: Bool = false
     var activeCard: IslandCard = .idle
-    var activePreset: IslandPreset = .music
     var latestError: String?
     var isPhysicalNotch: Bool = false
 
+    let presetStore = PresetStore()
+    let widgetRegistry = WidgetRegistry()
+
     var expandedWindowHeight: CGFloat {
-        activePreset.expandedHeight
+        guard let preset = presetStore.activePreset else { return 280 }
+        let sizeHeights: [WidgetSize: CGFloat] = [.mini: 36, .compact: 52, .standard: 140, .full: 280]
+        let widgetTotal = preset.widgets.map { sizeHeights[$0.size] ?? 44 }.reduce(0, +)
+        let gaps = CGFloat(max(0, preset.widgets.count - 1)) * 8
+        return 52 + widgetTotal + gaps + 16
     }
 
     /// Compact window width: 20px wider than pill content to give buffer for scaleEffect (max 1.05×).

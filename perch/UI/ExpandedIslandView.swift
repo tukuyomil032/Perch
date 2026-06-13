@@ -14,7 +14,7 @@ struct ExpandedIslandView: View {
                 header
                 Divider().opacity(0.15)
                 presetContent
-                    .animation(DesignSystem.springAnimation, value: appState.activePreset)
+                    .animation(DesignSystem.springAnimation, value: appState.presetStore.activePresetID)
             }
         }
         .frame(width: 420)
@@ -40,39 +40,31 @@ struct ExpandedIslandView: View {
         .padding(.bottom, 8)
     }
 
-    // MARK: - Preset Content
+    // MARK: - Preset Content (dynamic from WidgetRegistry)
 
     @ViewBuilder
     private var presetContent: some View {
-        switch appState.activePreset {
-        case .music:
-            musicLayout
-        case .ai:
-            aiLayout
+        let placements = appState.presetStore.activePreset?.widgets ?? []
+        let mainWidgets = placements.filter { $0.position == .main }
+        let secondaryWidgets = placements.filter { $0.position != .main }
+
+        VStack(spacing: 0) {
+            ForEach(mainWidgets) { placement in
+                widgetView(for: placement)
+            }
+            if !secondaryWidgets.isEmpty {
+                Divider().opacity(0.08).padding(.horizontal, 12)
+                ForEach(secondaryWidgets) { placement in
+                    widgetView(for: placement)
+                }
+            }
         }
     }
 
-    // MARK: - Music: NowPlaying (primary) + AI mini (secondary)
-
-    private var musicLayout: some View {
-        VStack(spacing: 0) {
-            NowPlayingStandardWidget()
-            Divider()
-                .opacity(0.08)
-                .padding(.horizontal, 12)
-            AIUsageCompactView()
-        }
-    }
-
-    // MARK: - AI: AI Usage (primary) + NowPlaying mini (secondary)
-
-    private var aiLayout: some View {
-        VStack(spacing: 0) {
-            AIUsageStandardView()
-            Divider()
-                .opacity(0.08)
-                .padding(.horizontal, 12)
-            NowPlayingMiniWidget()
+    @ViewBuilder
+    private func widgetView(for placement: WidgetPlacement) -> some View {
+        if let widget = appState.widgetRegistry.widget(forId: placement.widgetId) {
+            widget.body(size: placement.size)
         }
     }
 }

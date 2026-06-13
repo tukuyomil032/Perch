@@ -84,15 +84,15 @@ final class PresetStore {
         let daily = PresetLayout(
             name: "Daily",
             widgets: [
-                WidgetPlacement(widgetId: "nowPlaying", size: .standard, position: .main),
-                WidgetPlacement(widgetId: "aiUsage", size: .compact, position: .sidebar),
+                WidgetPlacement(widgetId: "now-playing", size: .standard, position: .main),
+                WidgetPlacement(widgetId: "ai-usage", size: .compact, position: .sidebar),
             ]
         )
         let dev = PresetLayout(
             name: "Dev",
             widgets: [
-                WidgetPlacement(widgetId: "aiUsage", size: .full, position: .main),
-                WidgetPlacement(widgetId: "nowPlaying", size: .compact, position: .bottom),
+                WidgetPlacement(widgetId: "ai-usage", size: .full, position: .main),
+                WidgetPlacement(widgetId: "now-playing", size: .compact, position: .bottom),
             ]
         )
         presets = [daily, dev]

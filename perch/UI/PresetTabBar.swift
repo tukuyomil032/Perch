@@ -4,15 +4,14 @@ struct PresetTabBar: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        @Bindable var state = appState
         HStack(spacing: 4) {
-            ForEach(IslandPreset.allCases) { preset in
-                Button(preset.rawValue) {
+            ForEach(appState.presetStore.presets) { preset in
+                Button(preset.name) {
                     withAnimation(DesignSystem.springAnimation) {
-                        appState.activePreset = preset
+                        appState.presetStore.select(id: preset.id)
                     }
                 }
-                .buttonStyle(PresetTabButtonStyle(isSelected: appState.activePreset == preset))
+                .buttonStyle(PresetTabButtonStyle(isSelected: appState.presetStore.activePresetID == preset.id))
             }
         }
     }

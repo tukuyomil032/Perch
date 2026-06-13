@@ -110,6 +110,7 @@ final class IslandWindowController: NSWindowController {
             _ = appState.expandedWindowHeight
             _ = appState.compactWindowWidth
             _ = appState.compactWindowHeight
+            _ = appState.presetStore.activePresetID
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 self?.updateLayout()

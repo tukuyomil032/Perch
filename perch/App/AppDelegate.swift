@@ -21,6 +21,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         mouseMonitor?.startMonitoring()
 
+        // Widget registration
+        appState.widgetRegistry.register(NowPlayingWidget())
+        appState.widgetRegistry.register(AIUsageWidget())
+
         appState.aiUsageStore.registerProvider(ClaudeProvider())
         Task {
             await appState.aiUsageStore.refresh()
