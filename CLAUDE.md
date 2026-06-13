@@ -68,6 +68,36 @@ Integration Layer (AppKit)
 | Features | `perch/Features/` | NowPlaying、FileShelf、AIUsage、DevStatus、HUD |
 | Providers | `perch/Providers/` | Claude、Codex、OpenAI、OpenRouter、GitHub |
 
+## Widget Preset System（絶対に忘れてはならない設計原則）
+
+### タブ = プリセット（機能ではない）
+
+Perch のタブは機能スイッチ（Music/AI）ではなく、ユーザー定義の**ウィジェットレイアウト設定**の切り替えである。
+
+### 機能はウィジェットとして実装する
+
+```swift
+// 新機能追加時の必須パターン:
+nonisolated struct DevStatusWidget: PerchWidget {
+    let id = "devStatus"
+    let supportedSizes: Set<WidgetSize> = [.compact, .standard]
+    func body(size: WidgetSize) -> AnyView { ... }
+}
+// AppDelegate で登録:
+appState.widgetRegistry.register(DevStatusWidget())
+```
+
+### 実装済みインフラ（変更・削除禁止）
+
+| ファイル | 役割 |
+|---------|------|
+| `perch/Core/PresetStore.swift` | プリセット CRUD + Defaults 永続化 |
+| `perch/Core/WidgetLayout.swift` | `WidgetPlacement`, `PresetLayout` |
+| `perch/Core/WidgetRegistry.swift` | ウィジェット登録・検索 |
+| `perch/Core/WidgetProtocol.swift` | `PerchWidget` プロトコル |
+
+詳細: `docs/superpowers/specs/widget-preset-system-design.md`
+
 ## Coding Conventions
 
 ### Swift Style
