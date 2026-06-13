@@ -30,6 +30,7 @@ final class IslandWindowController: NSWindowController {
         let window = IslandWindow(contentRect: frame, styleMask: [], backing: .buffered, defer: false)
         let rootView = RootIslandView().environment(appState)
         let hostingController = NSHostingController(rootView: rootView)
+        hostingController.sizingOptions = []  // Prevent SwiftUI from fighting manual setFrame() calls
         hostingController.view.wantsLayer = true
         hostingController.view.layer?.backgroundColor = NSColor.clear.cgColor
         hostingController.view.layer?.isOpaque = false
@@ -61,6 +62,7 @@ final class IslandWindowController: NSWindowController {
                 mode: mode, environment: environment,
                 width: mode == .floatingPill ? appState.compactWindowWidth : nil,
                 height: mode == .floatingPill ? appState.compactWindowHeight : nil)
+        guard window?.frame != frame else { return }
         window?.setFrame(frame, display: true)
 
         logger.debug(
