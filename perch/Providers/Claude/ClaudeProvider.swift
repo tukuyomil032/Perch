@@ -46,7 +46,8 @@ nonisolated struct ClaudeProvider: AIProvider {
         let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: now) ?? now
         let todayKey = dayFormatter.string(from: now)
 
-        var seenRequestIds = Set<String>()
+        // ccusage uses (messageId, requestId) composite key for cross-file dedup
+        var seenCompositeKeys = Set<String>()
         var dayToCost: [String: Double] = [:]
         var dayToInputTokens: [String: Int] = [:]
         var dayToOutputTokens: [String: Int] = [:]
@@ -67,18 +68,24 @@ nonisolated struct ClaudeProvider: AIProvider {
             guard fileURL.pathExtension == "jsonl" else { continue }
             guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { continue }
 
-            // Pass 1: within-file dedup — keep LAST entry per requestId (streaming chunks share
-            // the same requestId; later chunks have higher cumulative token counts, so last wins)
-            var latestByRequestId: [String: (ClaudeEntry, Date)] = [:]
-            var entriesWithoutId: [(ClaudeEntry, Date)] = []
+            // Pass 1: within-file dedup — ccusage strategy: keep entry with MOST total tokens
+            // when same (messageId, requestId) composite key appears multiple times
+            var latestByCompositeKey: [String: (ClaudeEntry, Date)] = [:]
+            var entriesWithoutKey: [(ClaudeEntry, Date)] = []
 
             for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
                 let lineData = Data(line.utf8)
-                guard let entry = try? decoder.decode(ClaudeEntry.self, from: lineData),
-                    entry.type == "assistant",
-                    entry.isSidechain != true,  // exclude subagent turns; only count main session
-                    let _ = entry.message
-                else { continue }
+                guard let entry = try? decoder.decode(ClaudeEntry.self, from: lineData) else { continue }
+
+                // ccusage: is_valid_usage_entry filters
+                guard entry.type == "assistant" else { continue }
+                guard entry.isSidechain != true else { continue }  // skip subagent turns
+                guard entry.isApiErrorMessage != true else { continue }  // skip API error entries
+                guard let msg = entry.message else { continue }
+                // empty strings are invalid (ccusage checks these)
+                if let msgId = msg.id, msgId.isEmpty { continue }
+                if let rid = entry.requestId, rid.isEmpty { continue }
+                if let model = msg.model, model.isEmpty { continue }
 
                 let date: Date
                 if let ts = entry.timestamp, let parsed = isoFormatter.date(from: ts) {
@@ -88,18 +95,31 @@ nonisolated struct ClaudeProvider: AIProvider {
                 }
                 guard date >= thirtyDaysAgo else { continue }
 
-                if let rid = entry.requestId, !rid.isEmpty {
-                    latestByRequestId[rid] = (entry, date)  // overwrite → last chunk wins
+                let msgId = msg.id ?? ""
+                let rid = entry.requestId ?? ""
+                let compositeKey = "\(msgId):\(rid)"
+
+                if !msgId.isEmpty || !rid.isEmpty {
+                    // ccusage: keep entry with more total tokens (should_replace_deduped_entry)
+                    let newTotal = totalTokens(msg.usage)
+                    if let existing = latestByCompositeKey[compositeKey] {
+                        let existingTotal = totalTokens(existing.0.message?.usage)
+                        if newTotal > existingTotal {
+                            latestByCompositeKey[compositeKey] = (entry, date)
+                        }
+                    } else {
+                        latestByCompositeKey[compositeKey] = (entry, date)
+                    }
                 } else {
-                    entriesWithoutId.append((entry, date))
+                    entriesWithoutKey.append((entry, date))
                 }
             }
 
-            // Pass 2: cross-file dedup — skip requestIds already seen in earlier files
+            // Pass 2: cross-file dedup via composite key set
             let fileCandidates: [(ClaudeEntry, Date)] =
-                latestByRequestId.compactMap { rid, pair in
-                    seenRequestIds.insert(rid).inserted ? pair : nil
-                } + entriesWithoutId
+                latestByCompositeKey.compactMap { key, pair in
+                    seenCompositeKeys.insert(key).inserted ? pair : nil
+                } + entriesWithoutKey
 
             for (entry, date) in fileCandidates {
                 guard let msg = entry.message else { continue }
@@ -110,31 +130,44 @@ nonisolated struct ClaudeProvider: AIProvider {
                 let inputTokens = usage?.inputTokens ?? 0
                 let outputTokens = usage?.outputTokens ?? 0
                 let cacheReadTokens = usage?.cacheReadInputTokens ?? 0
-                let cacheCreationTokens = usage?.cacheCreationInputTokens ?? 0
+
+                // ccusage: split cache_creation into 5m (1.25x) and 1h (2.0x)
+                let cache5mTokens: Int
+                let cache1hTokens: Int
+                if let breakdown = usage?.cacheCreation {
+                    cache5mTokens = breakdown.ephemeral5mInputTokens ?? 0
+                    cache1hTokens = breakdown.ephemeral1hInputTokens ?? 0
+                } else {
+                    // legacy format: all cache_creation treated as 5m
+                    cache5mTokens = usage?.cacheCreationInputTokens ?? 0
+                    cache1hTokens = 0
+                }
 
                 let cost: Double
                 if let precomputed = entry.costUSD {
-                    cost = precomputed
+                    cost = precomputed  // costUSD (exact from API) takes priority
                 } else if let calculated = CostCalculator.cost(
                     model: msg.model ?? "",
                     inputTokens: inputTokens,
                     outputTokens: outputTokens,
                     cacheReadTokens: cacheReadTokens,
-                    cacheCreationTokens: cacheCreationTokens
+                    cache5mTokens: cache5mTokens,
+                    cache1hTokens: cache1hTokens
                 ) {
                     cost = calculated
                 } else {
                     cost = 0
                 }
 
+                let cacheCreationTotal = cache5mTokens + cache1hTokens
                 dayToCost[key, default: 0] += cost
                 dayToInputTokens[key, default: 0] += inputTokens
                 dayToOutputTokens[key, default: 0] += outputTokens
                 dayToCacheReadTokens[key, default: 0] += cacheReadTokens
-                dayToCacheCreationTokens[key, default: 0] += cacheCreationTokens
+                dayToCacheCreationTokens[key, default: 0] += cacheCreationTotal
                 modelCost[model, default: 0] += cost
                 modelTotalTokens[model, default: 0] +=
-                    inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens
+                    inputTokens + outputTokens + cacheReadTokens + cacheCreationTotal
             }
         }
 
@@ -176,10 +209,20 @@ nonisolated struct ClaudeProvider: AIProvider {
         )
     }
 
+    private nonisolated static func totalTokens(_ usage: ClaudeUsage?) -> Int {
+        guard let u = usage else { return 0 }
+        let cacheCreate: Int
+        if let b = u.cacheCreation {
+            cacheCreate = (b.ephemeral5mInputTokens ?? 0) + (b.ephemeral1hInputTokens ?? 0)
+        } else {
+            cacheCreate = u.cacheCreationInputTokens ?? 0
+        }
+        return (u.inputTokens ?? 0) + (u.outputTokens ?? 0) + cacheCreate + (u.cacheReadInputTokens ?? 0)
+    }
+
     /// Converts raw model IDs to short display names with version numbers.
     private nonisolated static func normalizeModel(_ raw: String) -> String {
         let lower = raw.lowercased()
-        // Claude 4 — specific before generic
         if lower.contains("opus-4-8") { return "Opus 4.8" }
         if lower.contains("opus-4-7") { return "Opus 4.7" }
         if lower.contains("opus-4-6") { return "Opus 4.6" }
@@ -189,7 +232,6 @@ nonisolated struct ClaudeProvider: AIProvider {
         if lower.contains("sonnet-4") { return "Sonnet 4" }
         if lower.contains("haiku-4-5") { return "Haiku 4.5" }
         if lower.contains("haiku-4") { return "Haiku 4" }
-        // Claude 3
         if lower.contains("opus-3") { return "Opus 3" }
         if lower.contains("sonnet-3-7") { return "Sonnet 3.7" }
         if lower.contains("sonnet-3-5") { return "Sonnet 3.5" }
@@ -203,22 +245,25 @@ nonisolated struct ClaudeProvider: AIProvider {
 private nonisolated struct ClaudeEntry: Decodable {
     let type: String
     let isSidechain: Bool?
+    let isApiErrorMessage: Bool?
     let timestamp: String?
-    let costUSD: Double?
+    let costUSD: Double?  // JSON key: "costUSD" (ccusage uses camelCase)
     let requestId: String?
     let message: ClaudeMessage?
 
     enum CodingKeys: String, CodingKey {
         case type
         case isSidechain
+        case isApiErrorMessage
         case timestamp
-        case costUSD = "cost_usd"
-        case requestId = "request_id"
+        case costUSD  // matches JSON "costUSD" exactly
+        case requestId
         case message
     }
 }
 
 private nonisolated struct ClaudeMessage: Decodable {
+    let id: String?  // for composite dedup key with requestId
     let model: String?
     let usage: ClaudeUsage?
 }
@@ -228,11 +273,23 @@ private nonisolated struct ClaudeUsage: Decodable {
     let outputTokens: Int?
     let cacheReadInputTokens: Int?
     let cacheCreationInputTokens: Int?
+    let cacheCreation: CacheCreationBreakdown?
 
     nonisolated enum CodingKeys: String, CodingKey {
         case inputTokens = "input_tokens"
         case outputTokens = "output_tokens"
         case cacheReadInputTokens = "cache_read_input_tokens"
         case cacheCreationInputTokens = "cache_creation_input_tokens"
+        case cacheCreation = "cache_creation"
+    }
+}
+
+private nonisolated struct CacheCreationBreakdown: Decodable {
+    let ephemeral5mInputTokens: Int?
+    let ephemeral1hInputTokens: Int?
+
+    nonisolated enum CodingKeys: String, CodingKey {
+        case ephemeral5mInputTokens = "ephemeral_5m_input_tokens"
+        case ephemeral1hInputTokens = "ephemeral_1h_input_tokens"
     }
 }
