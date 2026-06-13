@@ -67,28 +67,41 @@ nonisolated struct ClaudeProvider: AIProvider {
             guard fileURL.pathExtension == "jsonl" else { continue }
             guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { continue }
 
+            // Pass 1: within-file dedup — keep LAST entry per requestId (streaming chunks share
+            // the same requestId; later chunks have higher cumulative token counts, so last wins)
+            var latestByRequestId: [String: (ClaudeEntry, Date)] = [:]
+            var entriesWithoutId: [(ClaudeEntry, Date)] = []
+
             for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
                 let lineData = Data(line.utf8)
                 guard let entry = try? decoder.decode(ClaudeEntry.self, from: lineData),
                     entry.type == "assistant",
-                    let msg = entry.message
+                    let _ = entry.message
                 else { continue }
 
-                // Skip duplicate API calls — same requestId appears in both main and subagent JSONL files
-                if let rid = entry.requestId, !rid.isEmpty {
-                    guard seenRequestIds.insert(rid).inserted else { continue }
-                }
-
                 let date: Date
-                if let ts = entry.timestamp,
-                    let parsed = isoFormatter.date(from: ts)
-                {
+                if let ts = entry.timestamp, let parsed = isoFormatter.date(from: ts) {
                     date = parsed
                 } else {
                     date = now
                 }
                 guard date >= thirtyDaysAgo else { continue }
 
+                if let rid = entry.requestId, !rid.isEmpty {
+                    latestByRequestId[rid] = (entry, date)  // overwrite → last chunk wins
+                } else {
+                    entriesWithoutId.append((entry, date))
+                }
+            }
+
+            // Pass 2: cross-file dedup — skip requestIds already seen in earlier files
+            let fileCandidates: [(ClaudeEntry, Date)] =
+                latestByRequestId.compactMap { rid, pair in
+                    seenRequestIds.insert(rid).inserted ? pair : nil
+                } + entriesWithoutId
+
+            for (entry, date) in fileCandidates {
+                guard let msg = entry.message else { continue }
                 let key = dayFormatter.string(from: date)
                 let model = normalizeModel(msg.model ?? "unknown")
                 let usage = msg.usage
@@ -105,7 +118,8 @@ nonisolated struct ClaudeProvider: AIProvider {
                     model: msg.model ?? "",
                     inputTokens: inputTokens,
                     outputTokens: outputTokens,
-                    cacheReadTokens: cacheReadTokens
+                    cacheReadTokens: cacheReadTokens,
+                    cacheCreationTokens: cacheCreationTokens
                 ) {
                     cost = calculated
                 } else {

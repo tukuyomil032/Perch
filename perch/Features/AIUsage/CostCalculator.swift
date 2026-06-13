@@ -5,6 +5,17 @@ nonisolated enum CostCalculator {
         let inputPerMillion: Double
         let outputPerMillion: Double
         let cacheReadPerMillion: Double?
+        let cacheWritePerMillion: Double?
+
+        init(
+            inputPerMillion: Double, outputPerMillion: Double, cacheReadPerMillion: Double?,
+            cacheWritePerMillion: Double? = nil
+        ) {
+            self.inputPerMillion = inputPerMillion
+            self.outputPerMillion = outputPerMillion
+            self.cacheReadPerMillion = cacheReadPerMillion
+            self.cacheWritePerMillion = cacheWritePerMillion
+        }
     }
 
     // Updated: 2026-06-12. Sources: Anthropic pricing docs, CodexBar CostUsagePricing.swift,
@@ -12,14 +23,20 @@ nonisolated enum CostCalculator {
     // Review when providers change their pricing.
     static let pricing: [String: ModelPricing] = [
         // ── Claude (Anthropic) ──────────────────────────────────────────────
-        "claude-opus-4-6": ModelPricing(inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50),
-        "claude-opus-4-7": ModelPricing(inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50),
-        "claude-opus-4-8": ModelPricing(inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50),
-        "claude-sonnet-4-5": ModelPricing(inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.30),
-        "claude-sonnet-4-6": ModelPricing(inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.30),
-        "claude-haiku-4-5": ModelPricing(inputPerMillion: 1.0, outputPerMillion: 5.0, cacheReadPerMillion: 0.10),
+        "claude-opus-4-6": ModelPricing(
+            inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50, cacheWritePerMillion: 6.25),
+        "claude-opus-4-7": ModelPricing(
+            inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50, cacheWritePerMillion: 6.25),
+        "claude-opus-4-8": ModelPricing(
+            inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50, cacheWritePerMillion: 6.25),
+        "claude-sonnet-4-5": ModelPricing(
+            inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.30, cacheWritePerMillion: 3.75),
+        "claude-sonnet-4-6": ModelPricing(
+            inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.30, cacheWritePerMillion: 3.75),
+        "claude-haiku-4-5": ModelPricing(
+            inputPerMillion: 1.0, outputPerMillion: 5.0, cacheReadPerMillion: 0.10, cacheWritePerMillion: 1.25),
         "claude-haiku-4-5-20251001": ModelPricing(
-            inputPerMillion: 1.0, outputPerMillion: 5.0, cacheReadPerMillion: 0.10),
+            inputPerMillion: 1.0, outputPerMillion: 5.0, cacheReadPerMillion: 0.10, cacheWritePerMillion: 1.25),
         // ── OpenAI (GPT-5 / Codex) ──────────────────────────────────────────
         "gpt-5.5": ModelPricing(inputPerMillion: 5.0, outputPerMillion: 30.0, cacheReadPerMillion: 0.50),
         "gpt-5.4": ModelPricing(inputPerMillion: 2.5, outputPerMillion: 15.0, cacheReadPerMillion: nil),
@@ -42,13 +59,18 @@ nonisolated enum CostCalculator {
         "gemini-2.5-flash-lite": ModelPricing(inputPerMillion: 0.10, outputPerMillion: 0.40, cacheReadPerMillion: nil),
     ]
 
-    static func cost(model: String, inputTokens: Int, outputTokens: Int, cacheReadTokens: Int = 0) -> Double? {
+    static func cost(
+        model: String, inputTokens: Int, outputTokens: Int,
+        cacheReadTokens: Int = 0, cacheCreationTokens: Int = 0
+    ) -> Double? {
         let lower = model.lowercased()
         guard let p = pricing[lower] ?? resolveFuzzy(lower) else { return nil }
         let inputCost = Double(inputTokens) / 1_000_000 * p.inputPerMillion
         let outputCost = Double(outputTokens) / 1_000_000 * p.outputPerMillion
-        let cacheCost = Double(cacheReadTokens) / 1_000_000 * (p.cacheReadPerMillion ?? 0)
-        return inputCost + outputCost + cacheCost
+        let cacheReadCost = Double(cacheReadTokens) / 1_000_000 * (p.cacheReadPerMillion ?? 0)
+        let cacheWriteCost =
+            Double(cacheCreationTokens) / 1_000_000 * (p.cacheWritePerMillion ?? p.inputPerMillion * 1.25)
+        return inputCost + outputCost + cacheReadCost + cacheWriteCost
     }
 
     // Handles date-suffixed model IDs like "claude-sonnet-4-5-20250514" → matches "claude-sonnet-4-5"
