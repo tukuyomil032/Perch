@@ -23,6 +23,10 @@ final class AppState {
         return (isMusicActive && isAIActive) ? 190 : 170
     }
 
+    /// Compact window height: 10px taller than pill content for scaleEffect buffer.
+    /// pill content 34px → window 44px (34×1.05=35.7 < 44 ✓)
+    var compactWindowHeight: CGFloat { 44 }
+
     var openSettingsAction: (() -> Void)?
 
     let nowPlayingManager = NowPlayingManager()

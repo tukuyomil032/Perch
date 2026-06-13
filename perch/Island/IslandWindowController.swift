@@ -59,7 +59,8 @@ final class IslandWindowController: NSWindowController {
                 height: mode == .floatingPill ? appState.expandedWindowHeight : nil)
             : IslandGeometry.compactFrame(
                 mode: mode, environment: environment,
-                width: mode == .floatingPill ? appState.compactWindowWidth : nil)
+                width: mode == .floatingPill ? appState.compactWindowWidth : nil,
+                height: mode == .floatingPill ? appState.compactWindowHeight : nil)
         window?.setFrame(frame, display: true)
 
         logger.debug(
@@ -106,6 +107,7 @@ final class IslandWindowController: NSWindowController {
             _ = appState.isExpanded
             _ = appState.expandedWindowHeight
             _ = appState.compactWindowWidth
+            _ = appState.compactWindowHeight
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 self?.updateLayout()
