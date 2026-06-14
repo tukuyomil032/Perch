@@ -2,9 +2,9 @@ import Foundation
 import Security
 
 enum KeychainHelper {
-    private static let service = "com.tukuyomi032.perch"
+    private nonisolated static let service = "com.tukuyomi032.perch"
 
-    static func save(_ value: String, forKey key: String) throws {
+    nonisolated static func save(_ value: String, forKey key: String) throws {
         guard let data = value.data(using: .utf8) else { throw KeychainError.encodingFailed }
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
@@ -17,7 +17,7 @@ enum KeychainHelper {
         guard status == errSecSuccess else { throw KeychainError.saveFailed(status) }
     }
 
-    static func load(forKey key: String) -> String? {
+    nonisolated static func load(forKey key: String) -> String? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
@@ -32,7 +32,7 @@ enum KeychainHelper {
         return String(data: data, encoding: .utf8)
     }
 
-    static func delete(forKey key: String) {
+    nonisolated static func delete(forKey key: String) {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,

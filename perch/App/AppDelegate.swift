@@ -26,6 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appState.widgetRegistry.register(AIUsageWidget())
 
         appState.aiUsageStore.registerProvider(ClaudeProvider())
+        appState.aiUsageStore.registerProvider(CodexProvider())
+        appState.aiUsageStore.registerProvider(OpenAIProvider())
+        appState.aiUsageStore.registerProvider(OpenRouterProvider())
         Task {
             await appState.aiUsageStore.refresh()
             await appState.aiUsageStore.startAutoRefresh()
