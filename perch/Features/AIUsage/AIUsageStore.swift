@@ -8,6 +8,7 @@ final class AIUsageStore {
     var activeProviderId: String?
     var isRefreshing: Bool = false
     var errors: [String: String] = [:]
+    var lastRefreshError: String?
 
     private var providers: [any AIProvider] = []
     private let scheduler = RefreshScheduler()
@@ -55,6 +56,7 @@ final class AIUsageStore {
         defer { isRefreshing = false }
 
         let configured = configuredProviders
+        var refreshError: String?
         await withTaskGroup(of: (String, Result<AIUsageData, Error>).self) { group in
             for provider in configured {
                 // Capture id before entering the task to avoid crossing
@@ -75,10 +77,13 @@ final class AIUsageStore {
                     usageByProvider[id] = data
                     errors.removeValue(forKey: id)
                 case .failure(let error):
-                    errors[id] = error.localizedDescription
+                    let description = error.localizedDescription
+                    errors[id] = description
+                    refreshError = description
                 }
             }
         }
+        lastRefreshError = refreshError
     }
 
     func refreshProvider(_ id: String) async {
@@ -89,8 +94,11 @@ final class AIUsageStore {
             let data = try await provider.fetchUsage()
             usageByProvider[id] = data
             errors.removeValue(forKey: id)
+            lastRefreshError = nil
         } catch {
-            errors[id] = error.localizedDescription
+            let description = error.localizedDescription
+            errors[id] = description
+            lastRefreshError = description
         }
     }
 

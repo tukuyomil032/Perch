@@ -51,5 +51,3 @@ extension NSImage {
         ).opacity(0.9)
     }
 }
-
-extension NSImage: @unchecked Sendable {}

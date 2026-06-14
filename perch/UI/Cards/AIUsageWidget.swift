@@ -64,9 +64,14 @@ struct AIUsageMiniView: View {
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(.secondary)
             if let cost = store.activeUsage?.cost {
-                Text(formatCost(cost.todayUSD))
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.primary)
+                HStack(spacing: 3) {
+                    Text(formatCost(cost.todayUSD))
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.primary)
+                    if store.lastRefreshError != nil {
+                        staleDataIndicator(size: 8)
+                    }
+                }
             } else {
                 Text(store.isRefreshing ? "···" : "—")
                     .font(.system(size: 11, weight: .medium))
@@ -99,6 +104,9 @@ struct AIUsageCompactView: View {
                     Text(formatCost(cost.todayUSD))
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .foregroundStyle(.primary)
+                    if store.lastRefreshError != nil {
+                        staleDataIndicator(size: 8)
+                    }
                     Text("today")
                         .font(.system(size: 9))
                         .foregroundStyle(.quaternary)
@@ -181,13 +189,15 @@ struct AIUsageStandardView: View {
                 costColumn(
                     label: "Today",
                     amount: usage?.cost.map { formatCost($0.todayUSD) } ?? "—",
-                    tokens: usage?.cost.map { formatTokens($0.todayTokens) }
+                    tokens: usage?.cost.map { formatTokens($0.todayTokens) },
+                    isStale: store.lastRefreshError != nil && usage?.cost != nil
                 )
                 Spacer()
                 costColumn(
                     label: "30 days",
                     amount: usage?.cost.map { formatCost($0.thirtyDayUSD) } ?? "—",
-                    tokens: usage?.cost.map { formatTokens($0.thirtyDayTokens) }
+                    tokens: usage?.cost.map { formatTokens($0.thirtyDayTokens) },
+                    isStale: store.lastRefreshError != nil && usage?.cost != nil
                 )
             }
 
@@ -237,14 +247,19 @@ struct AIUsageStandardView: View {
         .padding(DesignSystem.cardPadding)
     }
 
-    private func costColumn(label: String, amount: String, tokens: String?) -> some View {
+    private func costColumn(label: String, amount: String, tokens: String?, isStale: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
                 .font(.system(size: 10))
                 .foregroundStyle(.white.opacity(0.35))
-            Text(amount)
-                .font(.system(size: 18, weight: .bold, design: .monospaced))
-                .foregroundStyle(.primary)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(amount)
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.primary)
+                if isStale {
+                    staleDataIndicator(size: 9)
+                }
+            }
             if let tok = tokens {
                 Text(tok)
                     .font(.system(size: 10))
@@ -286,6 +301,13 @@ private struct MiniBarChart: View {
 }
 
 // MARK: - Helpers
+
+private func staleDataIndicator(size: CGFloat) -> some View {
+    Image(systemName: "exclamationmark.triangle")
+        .font(.system(size: size, weight: .medium))
+        .foregroundStyle(.secondary)
+        .help("Stale usage data")
+}
 
 private func formatCost(_ usd: Double) -> String {
     if usd == 0 { return "$0.00" }

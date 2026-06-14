@@ -12,8 +12,8 @@ actor ArtworkFetcher {
 
     // MARK: - Spotify
 
-    /// Returns artwork by fetching the track's artwork URL via AppleScript, then downloading it.
-    func fetchSpotifyArtwork() async -> NSImage? {
+    /// Returns artwork data by fetching the track's artwork URL via AppleScript, then downloading it.
+    func fetchSpotifyArtworkData() async -> Data? {
         let urlScript = """
             tell application "Spotify"
                 if not running then return ""
@@ -28,7 +28,7 @@ actor ArtworkFetcher {
         lastSpotifyURL = urlString
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
-            return NSImage(data: data)
+            return data
         } catch {
             return nil
         }
@@ -36,8 +36,8 @@ actor ArtworkFetcher {
 
     // MARK: - Apple Music
 
-    /// Returns artwork by reading binary image data directly from the AppleScript descriptor.
-    func fetchAppleMusicArtwork() async -> NSImage? {
+    /// Returns artwork data by reading binary image data directly from the AppleScript descriptor.
+    func fetchAppleMusicArtworkData() async -> Data? {
         await Task.detached {
             var error: NSDictionary?
             let script = NSAppleScript(
@@ -52,20 +52,20 @@ actor ArtworkFetcher {
             guard let result = script?.executeAndReturnError(&error), error == nil else { return nil }
             let data = result.data
             guard !data.isEmpty else { return nil }
-            return NSImage(data: data)
+            return data
         }.value
     }
 
     // MARK: - YouTube Music
 
-    /// Fetches artwork via direct thumbnail URL (from JS injection) or falls back to iTunes Search API.
-    func fetchYouTubeMusicArtwork(thumbnailURL: URL? = nil, title: String, artist: String) async -> NSImage? {
+    /// Fetches artwork data via direct thumbnail URL (from JS injection) or falls back to iTunes Search API.
+    func fetchYouTubeMusicArtworkData(thumbnailURL: URL? = nil, title: String, artist: String) async -> Data? {
         // Direct thumbnail URL — accurate and fast
         if let url = thumbnailURL,
             let data = try? await URLSession.shared.data(from: url).0,
-            let image = NSImage(data: data)
+            NSImage(data: data) != nil
         {
-            return image
+            return data
         }
 
         // iTunes Search API fallback
@@ -90,7 +90,7 @@ actor ArtworkFetcher {
             let hiRes = artworkStr.replacingOccurrences(of: "100x100bb", with: "300x300bb")
             guard let artURL = URL(string: hiRes) else { return nil }
             let (artData, _) = try await URLSession.shared.data(from: artURL)
-            return NSImage(data: artData)
+            return NSImage(data: artData) == nil ? nil : artData
         } catch {
             return nil
         }
