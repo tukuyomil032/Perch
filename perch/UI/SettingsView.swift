@@ -18,12 +18,14 @@ struct SettingsView: View {
                 .tabItem { Label("Now Playing", systemImage: "music.note") }
             LanguageTab(languageCode: $languageCode)
                 .tabItem { Label("Language", systemImage: "globe") }
+            AIUsageTab()
+                .tabItem { Label("AI Usage", systemImage: "cpu") }
             #if DEBUG
             DebugTab()
                 .tabItem { Label("Debug", systemImage: "ladybug") }
             #endif
         }
-        .frame(width: 420, height: 320)
+        .frame(width: 420, height: 360)
     }
 }
 
@@ -105,6 +107,61 @@ private struct LanguageTab: View {
         }
         .formStyle(.grouped)
         .padding()
+    }
+}
+
+private struct AIUsageTab: View {
+    @State private var openAIKey = ""
+    @State private var openRouterKey = ""
+    @State private var openRouterMgmtKey = ""
+
+    var body: some View {
+        Form {
+            Section("OpenAI") {
+                SecureField("Admin API Key (required for usage data)", text: $openAIKey)
+                    .onSubmit { saveOpenAIKey() }
+                if OpenAIProvider().isConfigured {
+                    Button("Delete Key", role: .destructive) {
+                        OpenAIProvider.deleteAPIKey()
+                        openAIKey = ""
+                    }
+                }
+                Text("Requires Organization Admin Key — not a regular project key.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("OpenRouter") {
+                SecureField("API Key (sk-or-v1-...)", text: $openRouterKey)
+                    .onSubmit { saveOpenRouterKey() }
+                SecureField("Management Key (optional, enables chart data)", text: $openRouterMgmtKey)
+                    .onSubmit { saveOpenRouterMgmtKey() }
+                if OpenRouterProvider().isConfigured {
+                    Button("Delete Keys", role: .destructive) {
+                        OpenRouterProvider.deleteRegularKey()
+                        OpenRouterProvider.deleteManagementKey()
+                        openRouterKey = ""
+                        openRouterMgmtKey = ""
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+
+    private func saveOpenAIKey() {
+        guard !openAIKey.isEmpty else { return }
+        try? OpenAIProvider.saveAPIKey(openAIKey)
+    }
+
+    private func saveOpenRouterKey() {
+        guard !openRouterKey.isEmpty else { return }
+        try? OpenRouterProvider.saveRegularKey(openRouterKey)
+    }
+
+    private func saveOpenRouterMgmtKey() {
+        guard !openRouterMgmtKey.isEmpty else { return }
+        try? OpenRouterProvider.saveManagementKey(openRouterMgmtKey)
     }
 }
 
