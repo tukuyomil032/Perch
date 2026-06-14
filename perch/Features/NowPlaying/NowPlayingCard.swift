@@ -9,6 +9,7 @@ struct NowPlayingCard: View {
     @State private var displayedArtwork: NSImage? = nil
     @State private var displayedArtworkID: UUID? = nil
     @State private var lyrics: [LyricsLine] = []
+    @State private var isLyricsLoading: Bool = false
     @State private var showLyricsFullView: Bool = false
     @State private var isScrubbing: Bool = false
     @State private var scrubProgress: Double = 0
@@ -24,14 +25,17 @@ struct NowPlayingCard: View {
         .task(id: state.title + state.artist) {
             guard state.source != .mrMediaRemote, !state.isAd else {
                 lyrics = []
+                isLyricsLoading = false
                 return
             }
+            isLyricsLoading = true
             lyrics =
                 await LyricsStore.shared.fetchLyrics(
                     title: state.title,
                     artist: state.artist,
                     album: state.album
                 ) ?? []
+            isLyricsLoading = false
         }
     }
 
@@ -49,6 +53,8 @@ struct NowPlayingCard: View {
                             fontSize: 12
                         )
                     }
+                } else if isLyricsLoading {
+                    LyricsLoadingView()
                 } else {
                     trackInfo
                 }
