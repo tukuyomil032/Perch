@@ -120,6 +120,7 @@ private struct LanguageTab: View {
 }
 
 private struct AIUsageTab: View {
+    @Environment(AppState.self) private var appState
     @State private var openAIKey = ""
     @State private var openRouterKey = ""
     @State private var openRouterMgmtKey = ""
@@ -160,17 +161,36 @@ private struct AIUsageTab: View {
 
     private func saveOpenAIKey() {
         guard !openAIKey.isEmpty else { return }
-        try? OpenAIProvider.saveAPIKey(openAIKey)
+        let wasConfigured = OpenAIProvider().isConfigured
+        do {
+            try OpenAIProvider.saveAPIKey(openAIKey)
+            refreshAIUsageIfNeeded(wasConfigured: wasConfigured)
+        } catch {}
     }
 
     private func saveOpenRouterKey() {
         guard !openRouterKey.isEmpty else { return }
-        try? OpenRouterProvider.saveRegularKey(openRouterKey)
+        let wasConfigured = OpenRouterProvider().isConfigured
+        do {
+            try OpenRouterProvider.saveRegularKey(openRouterKey)
+            refreshAIUsageIfNeeded(wasConfigured: wasConfigured)
+        } catch {}
     }
 
     private func saveOpenRouterMgmtKey() {
         guard !openRouterMgmtKey.isEmpty else { return }
-        try? OpenRouterProvider.saveManagementKey(openRouterMgmtKey)
+        let wasConfigured = OpenRouterProvider().isConfigured
+        do {
+            try OpenRouterProvider.saveManagementKey(openRouterMgmtKey)
+            refreshAIUsageIfNeeded(wasConfigured: wasConfigured)
+        } catch {}
+    }
+
+    private func refreshAIUsageIfNeeded(wasConfigured: Bool) {
+        guard !wasConfigured else { return }
+        Task {
+            await appState.aiUsageStore.refresh()
+        }
     }
 }
 

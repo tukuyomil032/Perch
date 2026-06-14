@@ -48,7 +48,10 @@ final class NowPlayingManager {
         let chromiumBundleIds = Set(Self.chromiumBrowsers.map(\.bundleId))
         MediaRemoteBridge.shared.bundleIdentifierFilter = { bundleId in
             guard let bundleId else { return false }
-            return chromiumBundleIds.contains(bundleId)
+            guard chromiumBundleIds.contains(bundleId) else { return false }
+            return NSWorkspace.shared.runningApplications.contains { app in
+                app.bundleIdentifier == bundleId
+            }
         }
         MediaRemoteBridge.shared.start()
         mediaRemoteStateTask = Task { [weak self] in
@@ -56,6 +59,12 @@ final class NowPlayingManager {
                 guard let self else { return }
                 await MainActor.run {
                     guard self.isYTMPolling else { return }
+                    if let current = self.currentState,
+                        current.isPlaying,
+                        Self.sourcePriority(current.source.rawValue) >= Self.sourcePriority("Spotify")
+                    {
+                        return
+                    }
                     self.applyState(state, source: "YouTube Music")
                 }
             }
@@ -160,7 +169,7 @@ final class NowPlayingManager {
             let album = info["Album"] as? String
             let durationMs = info["Duration"] as? Double
             let position = info["Playback Position"] as? Double
-            MainActor.assumeIsolated { [weak self] in
+            Task { @MainActor [weak self] in
                 if playerState == "Stopped" {
                     self?.applyState(nil, source: "Spotify")
                     return
@@ -206,7 +215,7 @@ final class NowPlayingManager {
             let artist = info["Artist"] as? String ?? ""
             let album = info["Album"] as? String
             let totalTime = info["Total Time"] as? Double
-            MainActor.assumeIsolated { [weak self] in
+            Task { @MainActor [weak self] in
                 if playerState == "Stopped" {
                     self?.applyState(nil, source: "Apple Music")
                     return
@@ -420,13 +429,29 @@ final class NowPlayingManager {
         if newState == nil, let current = currentState {
             guard Self.sourcePriority(source) >= Self.sourcePriority(current.source.rawValue) else { return }
         }
+        if let incoming = newState, let current = currentState, current.isPlaying {
+            guard Self.sourcePriority(incoming.source.rawValue) >= Self.sourcePriority(current.source.rawValue) else {
+                return
+            }
+        }
+        // Capture previous track identity before overwriting currentState.
+        let prevTitle = currentState?.title
+        let prevArtist = currentState?.artist
+        let prevThumbnailURL = currentState?.thumbnailURL
+        let trackIdentityChanged: Bool
+        if let new = newState {
+            trackIdentityChanged = prevTitle != new.title || prevArtist != new.artist
+        } else {
+            trackIdentityChanged = false
+        }
         // Carry forward previous artwork during track transitions (same source).
         // Prevents the music-note placeholder from flashing until new artwork is fetched.
         // Skip carry-forward during ads so the megaphone placeholder shows immediately.
         var stateToApply = newState
         if let new = newState, new.artwork == nil, !new.isAd,
             let old = currentState, old.artwork != nil,
-            new.source == old.source
+            new.source == old.source,
+            !(trackIdentityChanged && (new.source == .spotify || new.source == .appleMusic))
         {
             stateToApply = NowPlayingState(
                 title: new.title, artist: new.artist, album: new.album, artwork: old.artwork,
@@ -437,10 +462,6 @@ final class NowPlayingManager {
             )
         }
         guard stateToApply != currentState else { return }
-        // Capture previous track identity before overwriting currentState (YTM refetch logic below).
-        let prevTitle = currentState?.title
-        let prevArtist = currentState?.artist
-        let prevThumbnailURL = currentState?.thumbnailURL
         currentState = stateToApply
         logger.debug("Now playing updated [\(source)]: \(stateToApply?.title ?? "nil")")
         let captureBundleId: String?
@@ -477,6 +498,11 @@ final class NowPlayingManager {
                 || prevTitle != state.title
                 || prevArtist != state.artist
                 || prevThumbnailURL != state.thumbnailURL
+        case .spotify, .appleMusic:
+            needsFetch =
+                state.artwork == nil
+                || prevTitle != state.title
+                || prevArtist != state.artist
         default:
             needsFetch = state.artwork == nil
         }
@@ -498,18 +524,18 @@ final class NowPlayingManager {
     }
 
     private func fetchAndApplyArtwork(for state: NowPlayingState) async {
-        let artwork: NSImage?
+        let artworkData: Data?
         switch state.source {
         case .spotify:
-            artwork = await ArtworkFetcher.shared.fetchSpotifyArtwork()
+            artworkData = await ArtworkFetcher.shared.fetchSpotifyArtworkData()
         case .appleMusic:
-            artwork = await ArtworkFetcher.shared.fetchAppleMusicArtwork()
+            artworkData = await ArtworkFetcher.shared.fetchAppleMusicArtworkData()
         case .youTubeMusic:
             // Always fetch fresh artwork for YTM — carry-forward may have populated
             // state.artwork with the previous song's image, so guard state.artwork == nil
             // was previously blocking refetch on track change. applyState now gates the
             // call via needsFetch, so we unconditionally fetch here.
-            artwork = await ArtworkFetcher.shared.fetchYouTubeMusicArtwork(
+            artworkData = await ArtworkFetcher.shared.fetchYouTubeMusicArtworkData(
                 thumbnailURL: state.thumbnailURL,
                 title: state.title,
                 artist: state.artist
@@ -517,7 +543,7 @@ final class NowPlayingManager {
         default:
             return
         }
-        guard let artwork else { return }
+        guard let artworkData, let artwork = NSImage(data: artworkData) else { return }
         guard currentState?.title == state.title,
             currentState?.artist == state.artist,
             currentState?.thumbnailURL == state.thumbnailURL,
