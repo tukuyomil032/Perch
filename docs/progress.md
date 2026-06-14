@@ -289,6 +289,16 @@
 - Task E1 ScreenCaptureKit: YTM はブラウザアプリ単位（タブ単位キャプチャはSCK制限により不可）
 - Task E1: ScreenCapture権限拒否時は疑似波形にフォールバック
 
+### Phase 3.5 バグ修正タスク（Codexレビュー + ユーザー報告）
+
+- [ ] BF1: AudioCaptureService — vDSP_measqv クラッシュ修正（start >= floatCount guard追加）
+- [ ] BF2: MediaRemoteBridge — assumeIsolated → Task { @MainActor in } に変更
+- [ ] BF3: YTM stale artwork — fetchAndApplyArtwork 照合条件を track identity のみに限定
+- [ ] BF4: ScreenCapture 権限 — 起動時に SCShareableContent アクセスで権限ダイアログ表示
+- [ ] BF5: CompactPillView — .contentShape(Capsule()) でタップ/ドラッグヒットエリアを全体に拡張
+- [ ] BF6: macOS 26 dualActivityView — providerLogoView を .glassEffect() の外に出してぼかし除去
+- [ ] BF7: BackgroundVisualizerView — CSS波 → WaveformView同様の縦バースタイルに変更（24バー、カード全体）
+
 ---
 
 ## Phase UI: 展開Island強化 + プリセットカスタマイズ（Phase 3 完了後）
