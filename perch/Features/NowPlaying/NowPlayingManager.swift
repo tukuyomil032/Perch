@@ -428,6 +428,10 @@ final class NowPlayingManager {
             )
         }
         guard stateToApply != currentState else { return }
+        // Capture previous track identity before overwriting currentState (YTM refetch logic below).
+        let prevTitle = currentState?.title
+        let prevArtist = currentState?.artist
+        let prevThumbnailURL = currentState?.thumbnailURL
         currentState = stateToApply
         logger.debug("Now playing updated [\(source)]: \(stateToApply?.title ?? "nil")")
         guard let state = stateToApply else {
@@ -441,8 +445,24 @@ final class NowPlayingManager {
             amPositionTask?.cancel()
             amPositionTask = nil
         }
-        Task { @MainActor [weak self] in
-            await self?.fetchAndApplyArtwork(for: state)
+        // For YTM, always refetch artwork when the track changes (title/thumbnailURL differs),
+        // even if carry-forward populated state.artwork with the previous song's image.
+        // For other sources, only fetch when artwork is missing.
+        let needsFetch: Bool
+        switch state.source {
+        case .youTubeMusic:
+            needsFetch =
+                state.artwork == nil
+                || prevTitle != state.title
+                || prevArtist != state.artist
+                || prevThumbnailURL != state.thumbnailURL
+        default:
+            needsFetch = state.artwork == nil
+        }
+        if needsFetch {
+            Task { @MainActor [weak self] in
+                await self?.fetchAndApplyArtwork(for: state)
+            }
         }
         if state.source != .mrMediaRemote, !state.isAd {
             lyricsPrefetchTask?.cancel()
@@ -464,8 +484,10 @@ final class NowPlayingManager {
         case .appleMusic:
             artwork = await ArtworkFetcher.shared.fetchAppleMusicArtwork()
         case .youTubeMusic:
-            // MediaRemote delivers artwork directly — trust it, skip iTunes Search
-            guard state.artwork == nil else { return }
+            // Always fetch fresh artwork for YTM — carry-forward may have populated
+            // state.artwork with the previous song's image, so guard state.artwork == nil
+            // was previously blocking refetch on track change. applyState now gates the
+            // call via needsFetch, so we unconditionally fetch here.
             artwork = await ArtworkFetcher.shared.fetchYouTubeMusicArtwork(
                 thumbnailURL: state.thumbnailURL,
                 title: state.title,
