@@ -4,6 +4,7 @@ import Logging
 private let logger = Logger(label: "com.tukuyomi032.perch.NotchDetector")
 
 extension NSScreen {
+    @MainActor
     var perchNotchSize: CGSize {
         if let leftArea = auxiliaryTopLeftArea, let rightArea = auxiliaryTopRightArea {
             let notchWidth = frame.width - leftArea.width - rightArea.width
@@ -47,6 +48,7 @@ extension NSScreen {
         return NSScreen.screens.first(where: { $0.isBuiltInDisplay }) ?? main
     }
 
+    @MainActor
     static func logScreenDiagnostics() {
         logger.info(
             "screen diagnostics",
