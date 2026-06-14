@@ -79,7 +79,6 @@ nonisolated struct ClaudeProvider: AIProvider {
 
                 // ccusage: is_valid_usage_entry filters
                 guard entry.type == "assistant" else { continue }
-                guard entry.isSidechain != true else { continue }  // skip subagent turns
                 guard entry.isApiErrorMessage != true else { continue }  // skip API error entries
                 guard let msg = entry.message else { continue }
                 // empty strings are invalid (ccusage checks these)
