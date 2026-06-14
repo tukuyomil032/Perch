@@ -12,7 +12,6 @@ final class AudioCaptureService: NSObject {
     func startCapturing(bundleId: String) async {
         guard bundleId != currentBundleId else { return }
         await stopCapturing()
-        currentBundleId = bundleId
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(
                 false, onScreenWindowsOnly: false)
@@ -34,8 +33,11 @@ final class AudioCaptureService: NSObject {
                 self, type: .audio,
                 sampleHandlerQueue: .global(qos: .userInteractive))
             try await stream?.startCapture()
+            currentBundleId = bundleId  // set only after successful capture start
         } catch {
             // Permission denied or app not found — pseudo-waveform fallback (no-op)
+            currentBundleId = nil
+            stream = nil
         }
     }
 
@@ -66,9 +68,12 @@ extension AudioCaptureService: SCStreamOutput {
         let bandSize = max(1, floatCount / 8)
         let levels: [Float] = (0..<8).map { band in
             let start = band * bandSize
+            guard start < floatCount else { return 0 }
             let end = min(start + bandSize, floatCount)
+            let sampleCount = end - start
+            guard sampleCount > 0 else { return 0 }
             var rms: Float = 0
-            vDSP_measqv(floatPtr + start, 1, &rms, vDSP_Length(end - start))
+            vDSP_measqv(floatPtr + start, 1, &rms, vDSP_Length(sampleCount))
             return min(1.0, sqrt(rms) * 10.0)
         }
         Task { @MainActor [weak self] in self?.rmsLevels = levels }
