@@ -94,11 +94,19 @@ extension AudioCaptureService: SCStreamOutput {
             guard sampleCount > 0 else { return 0 }
             var rms: Float = 0
             vDSP_measqv(floatPtr + start, 1, &rms, vDSP_Length(sampleCount))
-            return min(1.0, sqrt(rms) * 10.0)
+            // dB scale: maps [-60dB, -5dB] → [0.0, 1.0] (human hearing perception)
+            let db = 20.0 * log10(max(Double(rms), 1e-7))
+            return Float(max(0.0, min(1.0, (db + 60.0) / 55.0)))
         }
         Task { @MainActor [weak self, stream] in
             guard stream === self?.stream else { return }
-            self?.rmsLevels = levels
+            // Attack/Release: fast rise (0.8), slow fall (0.25) for natural bar motion
+            let previous = self?.rmsLevels ?? Array(repeating: 0, count: 8)
+            let smoothed = zip(levels, previous).map { new, old -> Float in
+                let alpha: Float = new > old ? 0.8 : 0.25
+                return alpha * new + (1 - alpha) * old
+            }
+            self?.rmsLevels = smoothed
         }
     }
 }
