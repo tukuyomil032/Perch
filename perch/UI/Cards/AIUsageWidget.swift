@@ -18,7 +18,7 @@ nonisolated struct AIUsageWidget: PerchWidget {
     }
 }
 
-// MARK: - Provider logo helper
+// MARK: - Provider logo helpers
 
 private func providerLogoAssetName(_ id: String) -> String {
     switch id {
@@ -32,6 +32,24 @@ private func providerLogoAssetName(_ id: String) -> String {
     }
 }
 
+@ViewBuilder
+private func providerLogoImage(
+    _ id: String, size: CGFloat, activeColor: AnyShapeStyle = AnyShapeStyle(DesignSystem.claudeAmber)
+) -> some View {
+    if id == "codex" {
+        Image(providerLogoAssetName(id))
+            .resizable()
+            .renderingMode(.original)
+            .frame(width: size, height: size)
+    } else {
+        Image(providerLogoAssetName(id))
+            .resizable()
+            .renderingMode(.template)
+            .foregroundStyle(activeColor)
+            .frame(width: size, height: size)
+    }
+}
+
 // MARK: - Mini (tiny indicator, used in dual-activity pill or side slots)
 
 struct AIUsageMiniView: View {
@@ -41,11 +59,7 @@ struct AIUsageMiniView: View {
         let store = appState.aiUsageStore
         let id = store.activeProviderId ?? "claude"
         HStack(spacing: 5) {
-            Image(providerLogoAssetName(id))
-                .resizable()
-                .renderingMode(.template)
-                .foregroundStyle(DesignSystem.claudeAmber)
-                .frame(width: 9, height: 9)
+            providerLogoImage(id, size: 9)
             Text(store.activeUsage?.planName ?? id.capitalized)
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(.secondary)
@@ -73,11 +87,7 @@ struct AIUsageCompactView: View {
         let id = store.activeProviderId ?? "claude"
 
         HStack(spacing: 6) {
-            Image(providerLogoAssetName(id))
-                .resizable()
-                .renderingMode(.template)
-                .foregroundStyle(DesignSystem.claudeAmber)
-                .frame(width: 10, height: 10)
+            providerLogoImage(id, size: 10)
             Text(usage?.planName ?? id.capitalized)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.secondary)
@@ -124,11 +134,7 @@ struct AIUsageStandardView: View {
             HStack {
                 // Logo + name
                 HStack(spacing: 5) {
-                    Image(providerLogoAssetName(store.activeProviderId ?? "claude"))
-                        .resizable()
-                        .renderingMode(.template)
-                        .foregroundStyle(DesignSystem.claudeAmber)
-                        .frame(width: 11, height: 11)
+                    providerLogoImage(store.activeProviderId ?? "claude", size: 11)
                     Text(usage?.planName ?? (store.activeProviderId ?? "claude").capitalized)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
@@ -141,14 +147,13 @@ struct AIUsageStandardView: View {
                             Button {
                                 store.selectProvider(provider.id)
                             } label: {
-                                Image(providerLogoAssetName(provider.id))
-                                    .resizable()
-                                    .renderingMode(.template)
-                                    .frame(width: 10, height: 10)
-                                    .foregroundStyle(
-                                        store.activeProviderId == provider.id
-                                            ? AnyShapeStyle(.primary) : AnyShapeStyle(.quaternary)
-                                    )
+                                providerLogoImage(
+                                    provider.id,
+                                    size: 10,
+                                    activeColor: store.activeProviderId == provider.id
+                                        ? AnyShapeStyle(.primary) : AnyShapeStyle(.quaternary)
+                                )
+                                .opacity(provider.id == "codex" && store.activeProviderId != provider.id ? 0.3 : 1.0)
                             }
                             .buttonStyle(.plain)
                         }

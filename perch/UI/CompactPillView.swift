@@ -82,10 +82,22 @@ struct CompactPillView: View {
 
     private var providerLogoView: some View {
         let id = appState.aiUsageStore.mostUsedProviderId ?? "claude"
-        return Image(providerLogoAssetName(id))
-            .resizable()
-            .renderingMode(.template)
-            .foregroundStyle(DesignSystem.claudeAmber)
+        let assetName = providerLogoAssetName(id)
+        if id == "codex" {
+            return AnyView(
+                Image(assetName)
+                    .resizable()
+                    .renderingMode(.original)
+                    .frame(width: 16, height: 16)
+            )
+        }
+        return AnyView(
+            Image(assetName)
+                .resizable()
+                .renderingMode(.template)
+                .foregroundStyle(DesignSystem.claudeAmber)
+                .frame(width: 16, height: 16)
+        )
     }
 
     private func providerLogoAssetName(_ id: String) -> String {
@@ -105,11 +117,18 @@ struct CompactPillView: View {
     private var aiCompactInline: some View {
         HStack(spacing: 5) {
             let id = appState.aiUsageStore.mostUsedProviderId ?? "claude"
-            Image(providerLogoAssetName(id))
-                .resizable()
-                .renderingMode(.template)
-                .foregroundStyle(DesignSystem.claudeAmber)
-                .frame(width: 10, height: 10)
+            if id == "codex" {
+                Image(providerLogoAssetName(id))
+                    .resizable()
+                    .renderingMode(.original)
+                    .frame(width: 10, height: 10)
+            } else {
+                Image(providerLogoAssetName(id))
+                    .resizable()
+                    .renderingMode(.template)
+                    .foregroundStyle(DesignSystem.claudeAmber)
+                    .frame(width: 10, height: 10)
+            }
             if let cost = appState.aiUsageStore.activeUsage?.cost {
                 Text(formatCost(cost.todayUSD))
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
