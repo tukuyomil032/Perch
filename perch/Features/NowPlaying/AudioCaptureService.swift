@@ -91,6 +91,9 @@ extension AudioCaptureService: SCStreamOutput {
             vDSP_measqv(floatPtr + start, 1, &rms, vDSP_Length(sampleCount))
             return min(1.0, sqrt(rms) * 10.0)
         }
-        Task { @MainActor [weak self] in self?.rmsLevels = levels }
+        Task { @MainActor [weak self, stream] in
+            guard stream === self?.stream else { return }
+            self?.rmsLevels = levels
+        }
     }
 }
