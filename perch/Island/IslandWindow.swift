@@ -34,4 +34,15 @@ final class IslandWindow: NSWindow {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    // Prevent SwiftUI's updateAnimatedWindowSize from recursively calling setFrame
+    // during a layout pass, which causes an infinite constraint loop and crash.
+    private var isUpdatingFrame = false
+
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        guard !isUpdatingFrame else { return }
+        isUpdatingFrame = true
+        defer { isUpdatingFrame = false }
+        super.setFrame(frameRect, display: flag)
+    }
 }
