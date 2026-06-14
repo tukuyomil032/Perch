@@ -1,7 +1,7 @@
 # Perch Development Progress
 
-**Current Phase**: Phase 2e 完了 → Phase 3 へ
-**Last Updated**: 2026-06-04
+**Current Phase**: Phase 3 完了 → Phase UI（展開Island強化 + プリセットカスタマイズ）
+**Last Updated**: 2026-06-14
 
 ---
 
@@ -213,6 +213,10 @@
   - isApiErrorMessage フィルタ、ephemeral_1h 2.0x、ephemeral_5m 1.25x
   - CostCalculator.swift: モデル別単価テーブル、cache tiering (5m/1h)
 - [x] T3-4: Codex Provider (`perch/Providers/Codex/CodexProvider.swift`)
+  - `~/.codex/sessions/YYYY/MM/DD/*.jsonl` を解析（ccusage準拠）
+  - `turn_context.model` でモデル名取得、最後の `token_count` イベントを累積トークンとして使用
+  - `cached_input_tokens` → cacheReadTokens として CostCalculator に渡す
+  - 制限: Codex Desktop（GUI）はJSONL未出力のためトラッキング不可
 - [x] T3-5: AIUsageStore + RefreshScheduler (`perch/Features/AIUsage/AIUsageStore.swift`)
 - [x] T3-6: AIUsageCard / AIUsageWidget (`perch/Features/AIUsage/`)
 - [x] T3-7: Settings UI — Provider切り替えタブ
@@ -222,12 +226,48 @@
   - `costUSD` JSONキー修正 (旧: `"cost_usd"` → 正: `"costUSD"`)
   - `isSidechain` フィルタ削除（サブエージェント呼び出しも課金対象）
   - 30日間コスト実測: ccusage Claude分 $528.83 に対して±5%以内
+- [x] T3-11: OpenAI Provider (`perch/Providers/OpenAI/OpenAIProvider.swift`)
+  - 公式 Usage API (2024年12月発表) — `/v1/organization/costs` + `/v1/organization/usage/completions`
+  - **Organization Admin Key 必須**（通常の sk-... 不可）。`platform.openai.com/settings/organization/admin-keys` で発行
+  - コスト (USD) + トークン数を30日分・日別・モデル別に取得
+  - `amount.value` の String/Double 混在に対応（CodexBar 知見）
+- [x] T3-12: OpenRouter Provider (`perch/Providers/OpenRouter/OpenRouterProvider.swift`)
+  - Regular Key (`sk-or-v1-...`): `/api/v1/key` で today/weekly/monthly 合計値取得
+  - Management Key: `/api/v1/activity` で30日分の日別・モデル別データ取得（チャート表示対応）
+  - 両キーを Keychain に個別保存。Management Key があれば自動的にフル機能
+- [x] T3-13: Settings UI — OpenAI/OpenRouter API Key 入力フォーム
+  - `perch/UI/SettingsView.swift` に "AI Usage" タブを追加
+  - SecureField + onSubmit + 削除ボタン
+  - `KeychainHelper.swift`: `nonisolated` 追加（Swift 6 で nonisolated context から呼び出し可能に）
 
 ### 既知の制限
-- Codex Provider: プロバイダロゴ未実装（Phase 6 対応予定）
-- OpenAI / OpenRouter Provider: Phase 6 以降
+- Codex/OpenRouter/OpenAI Provider: プロバイダロゴ未実装（Phase 6 対応予定）
+- OpenAI Admin Key: Organization 管理者でない個人アカウントでは発行不可の場合あり
+- OpenRouter `/api/v1/activity`: 30日上限、約 UTC+30分の集計遅延あり
+- Codex Desktop（GUI）セッション: JSONL未出力のため CodexProvider でトラッキング不可
+- Gemini / Cursor Provider: Phase 6 以降
 - プリセットカスタマイズUI（ウィジェット追加/削除/並び替え）: 次フェーズ（展開UI強化）で実装
-- ccusage の Codex 分（$161/30日）は ClaudeProvider には含まれない（正しい挙動）
+
+---
+
+---
+
+## Phase UI: 展開Island強化 + プリセットカスタマイズ（Phase 3 完了後）
+
+詳細仕様: `docs/superpowers/specs/phase-ui-expanded-island-and-preset.md`
+
+### 目標
+- `ExpandedIslandView` ハードコードを廃止 → `WidgetRegistry + PresetStore` 動的レンダリングに完全移行
+- ユーザーが Settings 内でプリセット追加/削除/リネーム、ウィジェット並び替えができる
+- 展開アニメーションを BoringNotch レベルに強化（`matchedGeometryEffect`）
+
+### タスク
+- [ ] T-UI-1: `ExpandedIslandView.swift` — ハードコード廃止、`ForEach + WidgetRegistry` に移行
+- [ ] T-UI-2: `PresetTabBar.swift` — `presetStore.presets` から動的タブ生成
+- [ ] T-UI-3: `AppState.swift` — `IslandPreset` enum 廃止、`PresetStore` に一本化
+- [ ] T-UI-4: Settings — プリセット CRUD UI（追加/削除/リネーム）
+- [ ] T-UI-5: Settings — ウィジェット並び替え/追加/削除/サイズ変更 UI
+- [ ] T-UI-6: 展開アニメーション強化（`matchedGeometryEffect` + spring 同期）
 
 ---
 
