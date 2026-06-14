@@ -42,57 +42,63 @@ struct NowPlayingCard: View {
     // MARK: - Two Column View (Pattern 1: default)
 
     private var twoColumnView: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
-                artworkView
-                if !lyrics.isEmpty {
-                    TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
-                        LyricsView(
-                            lines: lyrics,
-                            elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
-                            fontSize: 12
-                        )
-                    }
-                } else if isLyricsLoading {
-                    LyricsLoadingView()
-                } else {
-                    trackInfo
-                }
-            }
-            .frame(maxHeight: .infinity)
-            HStack(spacing: 0) {
-                WaveformView(
-                    isPlaying: state.isPlaying,
-                    color: state.artwork?.dominantColor() ?? .white.opacity(0.8)
-                )
-                .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
-                .padding(.trailing, 6)
-                Text(state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Spacer(minLength: 8)
-                if !lyrics.isEmpty {
-                    Button {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                            showLyricsFullView = true
+        ZStack(alignment: .topLeading) {
+            BackgroundVisualizerView(
+                isPlaying: state.isPlaying,
+                color: state.artwork?.dominantColor() ?? .white
+            )
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 12) {
+                    artworkView
+                    if !lyrics.isEmpty {
+                        TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
+                            LyricsView(
+                                lines: lyrics,
+                                elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
+                                fontSize: 12
+                            )
                         }
-                    } label: {
-                        Image(systemName: "music.note.list")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.55))
-                            .frame(width: 28, height: 28)
-                            .contentShape(Rectangle())
+                    } else if isLyricsLoading {
+                        LyricsLoadingView()
+                    } else {
+                        trackInfo
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Show lyrics")
                 }
+                .frame(maxHeight: .infinity)
+                HStack(spacing: 0) {
+                    WaveformView(
+                        isPlaying: state.isPlaying,
+                        color: state.artwork?.dominantColor() ?? .white.opacity(0.8)
+                    )
+                    .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
+                    .padding(.trailing, 6)
+                    Text(state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 8)
+                    if !lyrics.isEmpty {
+                        Button {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                                showLyricsFullView = true
+                            }
+                        } label: {
+                            Image(systemName: "music.note.list")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.55))
+                                .frame(width: 28, height: 28)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Show lyrics")
+                    }
+                }
+                progressSection
+                controlsSection
             }
-            progressSection
-            controlsSection
+            .padding(16)
         }
-        .padding(16)
     }
 
     // MARK: - Lyrics Full View (Pattern 2)
@@ -320,5 +326,39 @@ struct NowPlayingCard: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct BackgroundVisualizerView: View {
+    let isPlaying: Bool
+    let color: Color
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isPlaying)) { ctx in
+            Canvas { context, size in
+                let t = ctx.date.timeIntervalSince1970
+                for i in 0..<3 {
+                    let phase = Double(i) * .pi * 2.0 / 3.0
+                    let amp = 12.0 - Double(i) * 3.0
+                    var path = Path()
+                    var x = 0.0
+                    var first = true
+                    while x <= size.width {
+                        let y = size.height * 0.65 + sin(x * 0.012 + t * 1.5 + phase) * amp
+                        if first {
+                            path.move(to: .init(x: x, y: y))
+                            first = false
+                        } else {
+                            path.addLine(to: .init(x: x, y: y))
+                        }
+                        x += 3
+                    }
+                    path.addLine(to: .init(x: size.width, y: size.height))
+                    path.addLine(to: .init(x: 0, y: size.height))
+                    path.closeSubpath()
+                    context.fill(path, with: .color(color.opacity(0.07 - Double(i) * 0.02)))
+                }
+            }
+        }
     }
 }
