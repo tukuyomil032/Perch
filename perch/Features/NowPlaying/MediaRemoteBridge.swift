@@ -37,7 +37,7 @@ final class MediaRemoteBridge {
         guard !isListening else { return }
 
         controller.onTrackInfoReceived = { [weak self] trackInfo in
-            MainActor.assumeIsolated { [weak self] in
+            Task { @MainActor [weak self] in
                 guard let self else { return }
                 guard let trackInfo else {
                     // nil = nothing playing. Always propagate regardless of source filter —
@@ -92,7 +92,7 @@ final class MediaRemoteBridge {
         }
 
         controller.onListenerTerminated = { [weak self] in
-            MainActor.assumeIsolated { [weak self] in
+            Task { @MainActor [weak self] in
                 guard let self else { return }
                 logger.warning("MediaRemote listener terminated unexpectedly")
                 self.isListening = false
