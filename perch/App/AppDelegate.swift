@@ -1,5 +1,6 @@
 import AppKit
 import Logging
+import ScreenCaptureKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -32,6 +33,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await appState.aiUsageStore.refresh()
             await appState.aiUsageStore.startAutoRefresh()
+        }
+
+        // Request ScreenCapture permission on first launch
+        Task {
+            _ = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
         }
 
         logger.info("Perch launch complete")
