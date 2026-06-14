@@ -72,7 +72,13 @@ struct CompactPillView: View {
     private var singlePillView: some View {
         pillContent
             .frame(width: isSatelliteVisible ? pillSize.musicCapsuleWidth : pillW, height: pillH)
-            .background(Color.black, in: Capsule())
+            .background {
+                if #available(macOS 26, *) {
+                    Capsule().fill(.clear).glassEffect(.regular.tint(.black), in: .capsule)
+                } else {
+                    Capsule().fill(Color.black)
+                }
+            }
     }
 
     @ViewBuilder
@@ -96,7 +102,39 @@ struct CompactPillView: View {
 
     // MARK: - Dual activity: music capsule + satellite circle with metaball
 
+    @ViewBuilder
     private var dualActivityView: some View {
+        if #available(macOS 26, *) {
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: dragProgress > 0 ? 8 : 0) {
+                    if let state = appState.nowPlayingManager.currentState {
+                        NowPlayingCompact(
+                            state: state,
+                            waveformLevels: appState.nowPlayingManager.audioCaptureService.rmsLevels.allSatisfy({
+                                $0 == 0
+                            })
+                                ? nil : appState.nowPlayingManager.audioCaptureService.rmsLevels
+                        )
+                        .frame(width: dragProgress > 0.5 ? pillSize.musicCapsuleWidth : pillW, height: pillH)
+                        .glassEffect(.regular.tint(.black), in: .capsule)
+                    }
+                    if dragProgress > 0 {
+                        ZStack {
+                            Circle().fill(.clear).glassEffect(.regular.tint(.black), in: .circle)
+                            providerLogoView
+                        }
+                        .frame(width: pillH, height: pillH)
+                        .scaleEffect(dragProgress)
+                        .opacity(dragProgress)
+                    }
+                }
+            }
+        } else {
+            metalDualActivityView
+        }
+    }
+
+    private var metalDualActivityView: some View {
         HStack(spacing: 0) {
             if let state = appState.nowPlayingManager.currentState {
                 NowPlayingCompact(
