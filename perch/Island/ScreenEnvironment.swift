@@ -1,6 +1,6 @@
 import AppKit
 
-nonisolated struct ScreenEnvironment: Sendable {
+struct ScreenEnvironment: Sendable {
     let frame: CGRect
     let visibleFrame: CGRect
     let safeAreaInsetsTop: CGFloat
