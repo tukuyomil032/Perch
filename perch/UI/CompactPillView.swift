@@ -8,6 +8,7 @@ struct CompactPillView: View {
     private var isMusicActive: Bool { appState.nowPlayingManager.currentState != nil }
     private var isAIActive: Bool { appState.aiUsageStore.activeUsage != nil }
     private var isDualActivity: Bool { isMusicActive && isAIActive }
+    private var isIdle: Bool { !isMusicActive && !isAIActive }
 
     var body: some View {
         Group {
@@ -27,6 +28,9 @@ struct CompactPillView: View {
             withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) { isBouncing = true }
             withAnimation(.spring(response: 0.2, dampingFraction: 0.8).delay(0.15)) { isBouncing = false }
         }
+        .opacity(isIdle && !isHovered ? 0.12 : 1.0)
+        .animation(.easeInOut(duration: 0.25), value: isIdle)
+        .animation(.easeInOut(duration: 0.25), value: isHovered)
         .onTapGesture { handleTap() }
     }
 
@@ -46,9 +50,6 @@ struct CompactPillView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
             } else if isAIActive {
                 aiCompactInline
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            } else {
-                defaultContent
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
         }
@@ -138,24 +139,11 @@ struct CompactPillView: View {
         .padding(.horizontal, 12)
     }
 
-    // MARK: - Default idle content
-
-    private var defaultContent: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(.green)
-                .frame(width: 6, height: 6)
-            Text("Perch")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary)
-        }
-        .padding(.horizontal, 12)
-    }
-
     // MARK: - Tap handler
 
     private func handleTap() {
-        appState.expand(to: isMusicActive ? .nowPlaying : isAIActive ? .aiUsage : .idle)
+        guard !isIdle else { return }
+        appState.expand(to: isMusicActive ? .nowPlaying : .aiUsage)
     }
 }
 
