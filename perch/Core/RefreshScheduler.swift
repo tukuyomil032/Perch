@@ -7,7 +7,7 @@ enum RefreshInterval: String, CaseIterable, Codable, Defaults.Serializable {
     case fifteenMinutes = "15m"
     case manual
 
-    var timeInterval: TimeInterval? {
+    nonisolated var timeInterval: TimeInterval? {
         switch self {
         case .oneMinute: return 60
         case .fiveMinutes: return 300
