@@ -7,7 +7,7 @@ enum RefreshInterval: String, CaseIterable, Codable, Defaults.Serializable {
     case fifteenMinutes = "15m"
     case manual
 
-    nonisolated var timeInterval: TimeInterval? {
+    var timeInterval: TimeInterval? {
         switch self {
         case .oneMinute: return 60
         case .fiveMinutes: return 300
@@ -28,6 +28,7 @@ actor RefreshScheduler {
     }
 
     func start(action: @Sendable @escaping () async -> Void) {
+        task?.cancel()
         self.action = action
         guard interval != .manual else { return }
         scheduleLoop()
