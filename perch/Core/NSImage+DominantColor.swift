@@ -1,53 +1,94 @@
-// perch/Core/NSImage+DominantColor.swift
 import AppKit
-@preconcurrency import CoreImage
 import SwiftUI
 
 extension NSImage {
-    private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
-
-    /// Extracts the dominant color using CIAreaAverage.
-    /// Skips near-black/near-white images and boosts saturation for vibrant wave colors.
+    /// Extracts the dominant color by saturation-weighted pixel sampling.
+    /// Weights vivid pixels by saturation² so dark/muted backgrounds (e.g. ClariS ALIVE)
+    /// don't pull the result toward gray when a bright accent color is present.
     func dominantColor() -> Color {
-        guard let cgRef = cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+        guard let cgImage = cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return .white.opacity(0.8)
         }
-        let ci = CIImage(cgImage: cgRef)
+
+        let side = 32
+        let bytesPerPixel = 4
+        let bytesPerRow = side * bytesPerPixel
+        var pixelData = [UInt8](repeating: 0, count: side * side * bytesPerPixel)
+
         guard
-            let filter = CIFilter(
-                name: "CIAreaAverage",
-                parameters: [
-                    kCIInputImageKey: ci,
-                    kCIInputExtentKey: CIVector(cgRect: ci.extent),
-                ]),
-            let output = filter.outputImage
+            let ctx = CGContext(
+                data: &pixelData,
+                width: side, height: side,
+                bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
         else { return .white.opacity(0.8) }
 
-        var pixel = [UInt8](repeating: 0, count: 4)
-        Self.ciContext.render(
-            output,
-            toBitmap: &pixel,
-            rowBytes: 4,
-            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-            format: .RGBA8,
-            colorSpace: CGColorSpaceCreateDeviceRGB())
+        ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: side, height: side))
 
-        let r = Double(pixel[0]) / 255.0
-        let g = Double(pixel[1]) / 255.0
-        let b = Double(pixel[2]) / 255.0
-        let brightness = (r + g + b) / 3.0
+        var weightedR: Double = 0
+        var weightedG: Double = 0
+        var weightedB: Double = 0
+        var totalWeight: Double = 0
 
-        // Avoid near-black or near-white
-        guard brightness > 0.15 && brightness < 0.92 else { return .white.opacity(0.8) }
+        for i in 0..<(side * side) {
+            let base = i * bytesPerPixel
+            let r = Double(pixelData[base]) / 255.0
+            let g = Double(pixelData[base + 1]) / 255.0
+            let b = Double(pixelData[base + 2]) / 255.0
 
-        // Boost saturation: scale so the highest component approaches 1.0 (cap at 1.5x)
+            let maxC = max(r, g, b)
+            let minC = min(r, g, b)
+            let saturation = maxC > 0 ? (maxC - minC) / maxC : 0
+
+            // saturation² heavily downweights grays/darks and upweights vivid colors
+            let weight = saturation * saturation
+            weightedR += r * weight
+            weightedG += g * weight
+            weightedB += b * weight
+            totalWeight += weight
+        }
+
+        // Fallback: if image has almost no vivid pixels, use simple average
+        guard totalWeight > 0.5 else {
+            return Self.simpleAverageColor(pixels: pixelData, count: side * side)
+        }
+
+        var r = weightedR / totalWeight
+        var g = weightedG / totalWeight
+        var b = weightedB / totalWeight
+
+        // Normalize: bring max channel to 1.0 for maximum vibrancy
         let maxC = max(r, g, b)
-        guard maxC > 0 else { return .white.opacity(0.8) }
+        if maxC > 0 {
+            r = min(r / maxC, 1.0)
+            g = min(g / maxC, 1.0)
+            b = min(b / maxC, 1.0)
+        }
+
+        return Color(red: r, green: g, blue: b).opacity(0.9)
+    }
+
+    private static func simpleAverageColor(pixels: [UInt8], count: Int) -> Color {
+        var r: Double = 0
+        var g: Double = 0
+        var b: Double = 0
+        for i in 0..<count {
+            let base = i * 4
+            r += Double(pixels[base]) / 255.0
+            g += Double(pixels[base + 1]) / 255.0
+            b += Double(pixels[base + 2]) / 255.0
+        }
+        let n = Double(count)
+        let maxC = max(r / n, g / n, b / n)
+        guard maxC > 0.15 else { return .white.opacity(0.8) }
         let boost = min(1.0 / maxC, 1.5)
         return Color(
-            red: min(r * boost, 1.0),
-            green: min(g * boost, 1.0),
-            blue: min(b * boost, 1.0)
+            red: min(r / n * boost, 1.0),
+            green: min(g / n * boost, 1.0),
+            blue: min(b / n * boost, 1.0)
         ).opacity(0.9)
     }
 }
