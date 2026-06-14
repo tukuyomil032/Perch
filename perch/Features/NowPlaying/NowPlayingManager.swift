@@ -19,6 +19,7 @@ final class NowPlayingManager {
         ("com.pushplaylabs.sidekick", "Sidekick"),
     ]
     private(set) var currentState: NowPlayingState?
+    let audioCaptureService = AudioCaptureService()
 
     // nonisolated(unsafe): written on MainActor (setup), read in deinit (nonisolated context).
     // @Observable macro expansion requires nonisolated(unsafe) — plain nonisolated is rejected
@@ -394,6 +395,14 @@ final class NowPlayingManager {
         }
     }
 
+    // MARK: - Audio Capture
+
+    private var ytmBrowserBundleId: String? {
+        NSWorkspace.shared.runningApplications.first { app in
+            Self.chromiumBrowsers.contains { $0.bundleId == (app.bundleIdentifier ?? "") }
+        }?.bundleIdentifier
+    }
+
     // MARK: - State Application
 
     private func applyState(_ newState: NowPlayingState?, source: String) {
@@ -434,6 +443,18 @@ final class NowPlayingManager {
         let prevThumbnailURL = currentState?.thumbnailURL
         currentState = stateToApply
         logger.debug("Now playing updated [\(source)]: \(stateToApply?.title ?? "nil")")
+        let captureBundleId: String?
+        switch stateToApply?.source {
+        case .spotify: captureBundleId = "com.spotify.client"
+        case .appleMusic: captureBundleId = "com.apple.Music"
+        case .youTubeMusic: captureBundleId = ytmBrowserBundleId
+        default: captureBundleId = nil
+        }
+        if let bid = captureBundleId {
+            Task { await audioCaptureService.startCapturing(bundleId: bid) }
+        } else {
+            Task { await audioCaptureService.stopCapturing() }
+        }
         guard let state = stateToApply else {
             amPositionTask?.cancel()
             amPositionTask = nil

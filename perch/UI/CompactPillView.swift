@@ -79,8 +79,12 @@ struct CompactPillView: View {
     private var pillContent: some View {
         Group {
             if let state = appState.nowPlayingManager.currentState {
-                NowPlayingCompact(state: state)
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                NowPlayingCompact(
+                    state: state,
+                    waveformLevels: appState.nowPlayingManager.audioCaptureService.rmsLevels.allSatisfy({ $0 == 0 })
+                        ? nil : appState.nowPlayingManager.audioCaptureService.rmsLevels
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
             } else if isAIActive {
                 aiCompactInline
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
@@ -95,9 +99,13 @@ struct CompactPillView: View {
     private var dualActivityView: some View {
         HStack(spacing: 0) {
             if let state = appState.nowPlayingManager.currentState {
-                NowPlayingCompact(state: state)
-                    .frame(width: pillSize.musicCapsuleWidth, height: pillH)
-                    .background(Color.black, in: Capsule())
+                NowPlayingCompact(
+                    state: state,
+                    waveformLevels: appState.nowPlayingManager.audioCaptureService.rmsLevels.allSatisfy({ $0 == 0 })
+                        ? nil : appState.nowPlayingManager.audioCaptureService.rmsLevels
+                )
+                .frame(width: pillSize.musicCapsuleWidth, height: pillH)
+                .background(Color.black, in: Capsule())
             }
 
             if dragProgress > 0 {

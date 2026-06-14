@@ -4,6 +4,8 @@
 <dict>
     <key>LSUIElement</key>
     <true/>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Perch uses audio capture to animate the waveform visualizer in sync with your music.</string>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSExceptionDomains</key>

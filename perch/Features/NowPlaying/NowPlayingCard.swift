@@ -68,7 +68,9 @@ struct NowPlayingCard: View {
                 HStack(spacing: 0) {
                     WaveformView(
                         isPlaying: state.isPlaying,
-                        color: state.artwork?.dominantColor() ?? .white.opacity(0.8)
+                        color: state.artwork?.dominantColor() ?? .white.opacity(0.8),
+                        externalLevels: manager.audioCaptureService.rmsLevels.allSatisfy({ $0 == 0 })
+                            ? nil : manager.audioCaptureService.rmsLevels
                     )
                     .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
                     .padding(.trailing, 6)

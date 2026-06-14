@@ -3,6 +3,7 @@ import SwiftUI
 
 struct NowPlayingCompact: View {
     let state: NowPlayingState
+    var waveformLevels: [Float]? = nil
 
     @State private var thumbScale: CGFloat = 1.0
     @State private var thumbOpacity: Double = 1.0
@@ -13,7 +14,8 @@ struct NowPlayingCompact: View {
             scrollingTitle
             WaveformView(
                 isPlaying: state.isPlaying,
-                color: state.artwork?.dominantColor() ?? .white.opacity(0.8)
+                color: state.artwork?.dominantColor() ?? .white.opacity(0.8),
+                externalLevels: waveformLevels
             )
             .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
         }
