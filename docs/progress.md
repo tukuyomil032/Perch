@@ -250,6 +250,45 @@
 
 ---
 
+## Phase 3.5: Visual Polish + NowPlaying Fixes
+
+**Branch**: `phase-3/ai-usage-widget-system`  
+**Last Updated**: 2026-06-14
+
+### 目標
+16項目の視覚・バグ・機能修正。Dynamic Island黒への統一、アイドルUX改善、衛星サークルのMetal SDF実装、NowPlayingバグ修正、ScreenCaptureKit波形、macOS 26 Liquid Glass対応。
+
+### タスク
+
+#### Group A: CompactPillView / DesignSystem (Claude)
+- [x] A1: 背景色を Dynamic Island 黒に統一（.regularMaterial → Color.black）
+- [x] A2: アイドル状態UX — "Perch" テキスト削除 + ghost opacity 0.12
+- [x] A3: 衛星サークル（デフォルトOFF、右スワイプ、Metal SDF metaball）+ ピルサイズ3段階設定
+
+#### Group B: NowPlaying バグ修正
+- [x] B1: YTM アートワーク更新バグ修正（carry-forward guard 除去）
+- [x] B2: 波形アニメーション改善（barCount 6→8, maxHeight 14→18, fps 15→60）
+- [x] B3: 歌詞ローディングアニメーション（LyricsLoadingView.swift 新規作成）
+- [x] B4: 展開音楽カード背景オーディオヴィジュアライザー
+
+#### Group C: 展開ビュー空状態クリーンアップ
+- [x] C1: "Not playing" / "No usage data" プレースホルダーテキスト全削除
+
+#### Group D: Codex SVG + i18n
+- [x] D1: Codex SVG 白背景除去 + .renderingMode(.original) でグラデーション表示
+- [x] D2: i18n 修正 — Settings ラベルを L10n.string() に接続
+
+#### Group E: ScreenCaptureKit
+- [x] E1: AudioCaptureService — 8バンド RMS → WaveformView.externalLevels
+
+#### Group F: Liquid Glass (macOS 26)
+- [x] F1: GlassEffectContainer — ピル・展開カード・衛星サークルの液体モーフィング
+
+### 既知の制限
+- Task F1 (.glassEffect) は macOS 26 Tahoe 以降のみ有効。macOS 14/15 は Metal metaball にフォールバック
+- Task E1 ScreenCaptureKit: YTM はブラウザアプリ単位（タブ単位キャプチャはSCK制限により不可）
+- Task E1: ScreenCapture権限拒否時は疑似波形にフォールバック
+
 ---
 
 ## Phase UI: 展開Island強化 + プリセットカスタマイズ（Phase 3 完了後）
