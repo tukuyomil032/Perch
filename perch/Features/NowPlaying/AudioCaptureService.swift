@@ -30,10 +30,15 @@ final class AudioCaptureService: NSObject {
             config.excludesCurrentProcessAudio = true
             config.sampleRate = 44100
             config.channelCount = 2
+            // Minimize video to suppress "stream output NOT found" error spam
+            config.width = 2
+            config.height = 2
+            config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
             stream = SCStream(filter: filter, configuration: config, delegate: nil)
-            try stream?.addStreamOutput(
-                self, type: .audio,
-                sampleHandlerQueue: .global(qos: .userInteractive))
+            let captureQueue = DispatchQueue.global(qos: .userInteractive)
+            try stream?.addStreamOutput(self, type: .audio, sampleHandlerQueue: captureQueue)
+            // Register video output to prevent SCStream internal "NOT found" errors
+            try stream?.addStreamOutput(self, type: .screen, sampleHandlerQueue: captureQueue)
             try await stream?.startCapture()
             currentBundleId = bundleId  // set only after successful capture start
         } catch {
