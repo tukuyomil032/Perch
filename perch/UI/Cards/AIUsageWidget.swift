@@ -222,10 +222,9 @@ struct AIUsageStandardView: View {
                         }
                     }
                 }
-            } else if usage == nil {
-                Text(store.isRefreshing ? "Loading…" : "No usage data")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+            } else if usage == nil && store.isRefreshing {
+                ProgressView()
+                    .scaleEffect(0.6)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 12)
             }

@@ -41,10 +41,6 @@ struct NowPlayingMiniWidget: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.white.opacity(0.35))
                     .lineLimit(1)
-            } else {
-                Text("Not playing")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.quaternary)
             }
             Spacer()
         }
@@ -62,16 +58,7 @@ struct NowPlayingStandardWidget: View {
         if let state = appState.nowPlayingManager.currentState {
             NowPlayingCard(state: state, manager: appState.nowPlayingManager)
         } else {
-            VStack(spacing: 8) {
-                Image(systemName: "music.note")
-                    .font(.system(size: 28))
-                    .foregroundStyle(.secondary)
-                Text("Not playing")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.tertiary)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 140)
+            EmptyView()
         }
     }
 }
