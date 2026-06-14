@@ -6,7 +6,7 @@ import ScreenCaptureKit
 @MainActor
 final class AudioCaptureService: NSObject {
     private(set) var rmsLevels: [Float] = Array(repeating: 0, count: 8)
-    private var stream: SCStream?
+    nonisolated(unsafe) private var stream: SCStream?
     private var currentBundleId: String?
 
     func startCapturing(bundleId: String) async {
@@ -54,6 +54,7 @@ extension AudioCaptureService: SCStreamOutput {
         _ stream: SCStream, didOutputSampleBuffer buffer: CMSampleBuffer,
         of type: SCStreamOutputType
     ) {
+        guard stream === self.stream else { return }
         guard type == .audio,
             let blockBuffer = CMSampleBufferGetDataBuffer(buffer)
         else { return }
