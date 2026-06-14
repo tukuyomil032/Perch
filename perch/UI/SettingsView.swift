@@ -11,21 +11,22 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             GeneralTab(launchAtLogin: $launchAtLogin, showInAllSpaces: $showInAllSpaces)
-                .tabItem { Label("General", systemImage: "gearshape") }
+                .tabItem { Label(L10n.string("settings.general"), systemImage: "gearshape") }
             IslandTab(animationSpeed: $animationSpeed, autoCollapseDelay: $autoCollapseDelay)
-                .tabItem { Label("Island", systemImage: "rectangle.topthird.inset.filled") }
+                .tabItem { Label(L10n.string("settings.island"), systemImage: "rectangle.topthird.inset.filled") }
             NowPlayingTab()
-                .tabItem { Label("Now Playing", systemImage: "music.note") }
+                .tabItem { Label(L10n.string("settings.nowplaying"), systemImage: "music.note") }
             LanguageTab(languageCode: $languageCode)
-                .tabItem { Label("Language", systemImage: "globe") }
+                .tabItem { Label(L10n.string("settings.language"), systemImage: "globe") }
             AIUsageTab()
-                .tabItem { Label("AI Usage", systemImage: "cpu") }
+                .tabItem { Label(L10n.string("settings.ai_usage"), systemImage: "cpu") }
             #if DEBUG
             DebugTab()
-                .tabItem { Label("Debug", systemImage: "ladybug") }
+                .tabItem { Label(L10n.string("settings.debug"), systemImage: "ladybug") }
             #endif
         }
         .frame(width: 420, height: 360)
+        .id(languageCode)
     }
 }
 
@@ -35,11 +36,11 @@ private struct GeneralTab: View {
 
     var body: some View {
         Form {
-            Toggle("Launch at login", isOn: $launchAtLogin)
+            Toggle(L10n.string("settings.launch_at_login"), isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, newValue in
                     LoginItemManager.setEnabled(newValue)
                 }
-            Toggle("Show on all Spaces", isOn: $showInAllSpaces)
+            Toggle(L10n.string("settings.show_all_spaces"), isOn: $showInAllSpaces)
         }
         .formStyle(.grouped)
         .padding()
@@ -53,7 +54,7 @@ private struct IslandTab: View {
 
     var body: some View {
         Form {
-            Picker("Pill size", selection: $pillSize) {
+            Picker(L10n.string("settings.pill_size"), selection: $pillSize) {
                 ForEach(PillSizePreset.allCases, id: \.self) {
                     Text($0.displayName).tag($0)
                 }
@@ -61,15 +62,15 @@ private struct IslandTab: View {
             .pickerStyle(.segmented)
 
             Slider(value: $animationSpeed, in: 0.5...2.0, step: 0.1) {
-                Text("Animation speed")
+                Text(L10n.string("settings.animation_speed"))
             } minimumValueLabel: {
-                Text("Slow")
+                Text(L10n.string("settings.animation_slow"))
             } maximumValueLabel: {
-                Text("Fast")
+                Text(L10n.string("settings.animation_fast"))
             }
 
             Slider(value: $autoCollapseDelay, in: 1.0...10.0, step: 0.5) {
-                Text("Auto-collapse delay")
+                Text(L10n.string("settings.auto_collapse"))
             } minimumValueLabel: {
                 Text("1s")
             } maximumValueLabel: {
@@ -91,10 +92,10 @@ private struct NowPlayingTab: View {
 
     var body: some View {
         Form {
-            Section("Sources") {
-                Toggle("Spotify", isOn: $enableSpotify)
-                Toggle("Apple Music", isOn: $enableAppleMusic)
-                Toggle("YouTube Music", isOn: $enableYouTubeMusic)
+            Section(L10n.string("settings.sources")) {
+                Toggle(L10n.string("settings.spotify"), isOn: $enableSpotify)
+                Toggle(L10n.string("settings.apple_music"), isOn: $enableAppleMusic)
+                Toggle(L10n.string("settings.youtube_music"), isOn: $enableYouTubeMusic)
             }
         }
         .formStyle(.grouped)
@@ -107,7 +108,7 @@ private struct LanguageTab: View {
 
     var body: some View {
         Form {
-            Picker("Language", selection: $languageCode) {
+            Picker(L10n.string("settings.language_picker"), selection: $languageCode) {
                 Text("English").tag("en")
                 Text("日本語").tag("ja")
             }
@@ -179,7 +180,7 @@ private struct DebugTab: View {
 
     var body: some View {
         Form {
-            Section("Debug") {
+            Section(L10n.string("settings.debug")) {
                 Picker("Notch Simulation", selection: $notchSimulationMode) {
                     ForEach(NotchSimulationMode.allCases, id: \.self) { mode in
                         Text(mode.displayName).tag(mode)
