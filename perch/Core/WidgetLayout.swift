@@ -22,7 +22,7 @@ struct WidgetPlacement: Identifiable, Sendable {
 }
 
 extension WidgetPlacement: Codable {
-    nonisolated init(from decoder: any Decoder) throws {
+    init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         widgetId = try container.decode(String.self, forKey: .widgetId)
@@ -30,7 +30,7 @@ extension WidgetPlacement: Codable {
         position = try container.decode(WidgetPosition.self, forKey: .position)
     }
 
-    nonisolated func encode(to encoder: any Encoder) throws {
+    func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(widgetId, forKey: .widgetId)
