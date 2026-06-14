@@ -25,7 +25,9 @@ final class IslandWindowController: NSWindowController {
                 "mode": .string("\(mode)"),
                 "frame": .string("\(frame)"),
             ])
+        #if DEBUG
         NSScreen.logScreenDiagnostics()
+        #endif
 
         let window = IslandWindow(contentRect: frame, styleMask: [], backing: .buffered, defer: false)
         let rootView = RootIslandView().environment(appState)
@@ -100,7 +102,9 @@ final class IslandWindowController: NSWindowController {
 
     @objc private func screenParametersDidChange(_ notification: Notification) {
         logger.info("screen parameters changed — recalculating layout")
+        #if DEBUG
         NSScreen.logScreenDiagnostics()
+        #endif
         updateLayout()
     }
 
