@@ -49,9 +49,17 @@ private struct GeneralTab: View {
 private struct IslandTab: View {
     @Binding var animationSpeed: Double
     @Binding var autoCollapseDelay: Double
+    @Default(.pillSize) private var pillSize
 
     var body: some View {
         Form {
+            Picker("Pill size", selection: $pillSize) {
+                ForEach(PillSizePreset.allCases, id: \.self) {
+                    Text($0.displayName).tag($0)
+                }
+            }
+            .pickerStyle(.segmented)
+
             Slider(value: $animationSpeed, in: 0.5...2.0, step: 0.1) {
                 Text("Animation speed")
             } minimumValueLabel: {

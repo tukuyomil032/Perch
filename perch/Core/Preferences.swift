@@ -1,6 +1,32 @@
 import Defaults
 import Foundation
 
+enum PillSizePreset: String, CaseIterable, Defaults.Serializable {
+    case small, medium, large
+    var pillWidth: CGFloat {
+        switch self {
+        case .small: 130
+        case .medium: 150
+        case .large: 170
+        }
+    }
+    var pillHeight: CGFloat {
+        switch self {
+        case .small: 30
+        case .medium: 34
+        case .large: 38
+        }
+    }
+    var musicCapsuleWidth: CGFloat { pillWidth - 42 }
+    var displayName: String {
+        switch self {
+        case .small: "S"
+        case .medium: "M"
+        case .large: "L"
+        }
+    }
+}
+
 extension Defaults.Keys {
     static let launchAtLogin = Key<Bool>("launchAtLogin", default: false)
     static let islandMode = Key<String>("islandMode", default: "auto")
@@ -16,4 +42,6 @@ extension Defaults.Keys {
     static let languageCode = Key<String>("languageCode", default: "en")
     static let aiRefreshInterval = Key<RefreshInterval>("aiRefreshInterval", default: .fiveMinutes)
     static let notchSimulationMode = Key<NotchSimulationMode>("notchSimulationMode", default: .auto)
+    static let pillSize = Key<PillSizePreset>("pillSize", default: .medium)
+    static let showSatelliteCircle = Key<Bool>("showSatelliteCircle", default: false)
 }

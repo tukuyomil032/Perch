@@ -1,18 +1,25 @@
+import Defaults
 import SwiftUI
 
 struct CompactPillView: View {
     @Environment(AppState.self) private var appState
     @State private var isHovered = false
     @State private var isBouncing = false
+    @Default(.pillSize) private var pillSize
+    @Default(.showSatelliteCircle) private var showSatelliteCircle
+    @State private var dragProgress: CGFloat = 0
 
     private var isMusicActive: Bool { appState.nowPlayingManager.currentState != nil }
     private var isAIActive: Bool { appState.aiUsageStore.activeUsage != nil }
-    private var isDualActivity: Bool { isMusicActive && isAIActive }
     private var isIdle: Bool { !isMusicActive && !isAIActive }
+    private var pillW: CGFloat { pillSize.pillWidth }
+    private var pillH: CGFloat { pillSize.pillHeight }
+    private var isSatelliteVisible: Bool { showSatelliteCircle || dragProgress > 0.5 }
+    private var isDualActivity: Bool { isMusicActive && isAIActive && isSatelliteVisible }
 
     var body: some View {
         Group {
-            if isDualActivity {
+            if isMusicActive && isAIActive {
                 dualActivityView
             } else {
                 singlePillView
@@ -32,13 +39,39 @@ struct CompactPillView: View {
         .animation(.easeInOut(duration: 0.25), value: isIdle)
         .animation(.easeInOut(duration: 0.25), value: isHovered)
         .onTapGesture { handleTap() }
+        .gesture(
+            DragGesture(minimumDistance: 15)
+                .onChanged { value in
+                    guard isMusicActive && isAIActive else { return }
+                    let dx = value.translation.width
+                    if dx > 0, !showSatelliteCircle {
+                        dragProgress = min(1.0, dx / 80)
+                    } else if dx < 0, showSatelliteCircle {
+                        dragProgress = max(0.0, 1.0 + dx / 80)
+                    }
+                }
+                .onEnded { value in
+                    guard isMusicActive && isAIActive else { return }
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                        if value.translation.width > 40 {
+                            showSatelliteCircle = true
+                            dragProgress = 1.0
+                        } else if value.translation.width < -40 {
+                            showSatelliteCircle = false
+                            dragProgress = 0.0
+                        } else {
+                            dragProgress = showSatelliteCircle ? 1.0 : 0.0
+                        }
+                    }
+                }
+        )
     }
 
     // MARK: - Single pill (music OR AI OR default)
 
     private var singlePillView: some View {
         pillContent
-            .frame(width: 150, height: 34)
+            .frame(width: isSatelliteVisible ? pillSize.musicCapsuleWidth : pillW, height: pillH)
             .background(Color.black, in: Capsule())
     }
 
@@ -57,27 +90,34 @@ struct CompactPillView: View {
         .animation(DesignSystem.springAnimation, value: isAIActive)
     }
 
-    // MARK: - Dual activity: music capsule + provider logo circle
+    // MARK: - Dual activity: music capsule + satellite circle with metaball
 
     private var dualActivityView: some View {
-        HStack(spacing: 8) {
-            // Left: music capsule — using SwiftUI material to avoid NSVisualEffectView clip bleed
+        HStack(spacing: 0) {
             if let state = appState.nowPlayingManager.currentState {
                 NowPlayingCompact(state: state)
-                    .frame(width: 116, height: 34)
+                    .frame(width: pillSize.musicCapsuleWidth, height: pillH)
                     .background(Color.black, in: Capsule())
             }
 
-            // Right: most-used provider logo circle
-            ZStack {
-                Circle()
-                    .fill(.black)
-                    .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
-                providerLogoView
-                    .frame(width: 16, height: 16)
+            if dragProgress > 0 {
+                MetalLiquidBlobView(
+                    separation: dragProgress,
+                    pillHeight: pillH,
+                    providerLogoContent: AnyView(providerLogoView)
+                )
+            } else if showSatelliteCircle {
+                ZStack {
+                    Circle()
+                        .fill(.black)
+                        .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+                    providerLogoView
+                        .frame(width: 16, height: 16)
+                }
+                .frame(width: pillH, height: pillH)
+                .clipShape(Circle())
+                .padding(.leading, 8)
             }
-            .frame(width: 34, height: 34)
-            .clipShape(Circle())  // clip corners so no gray bleed from hosting view
         }
     }
 
