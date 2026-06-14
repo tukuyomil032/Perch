@@ -518,7 +518,11 @@ final class NowPlayingManager {
             return
         }
         guard let artwork else { return }
-        guard currentState == state else { return }
+        guard currentState?.title == state.title,
+            currentState?.artist == state.artist,
+            currentState?.thumbnailURL == state.thumbnailURL,
+            currentState?.source == state.source
+        else { return }
         currentState = state.enriched(artwork: artwork)
     }
 }
