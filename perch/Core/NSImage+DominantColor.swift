@@ -2,9 +2,13 @@ import AppKit
 import SwiftUI
 
 extension NSImage {
-    /// Extracts the dominant color by saturation-weighted pixel sampling.
-    /// Weights vivid pixels by saturation² so dark/muted backgrounds (e.g. ClariS ALIVE)
-    /// don't pull the result toward gray when a bright accent color is present.
+    /// Extracts the dominant color using a hue-histogram approach.
+    ///
+    /// Filters to vibrant pixels (saturation > 0.30, brightness > 0.20), finds the
+    /// most-weighted hue bucket among them, then returns the average color of that bucket.
+    /// This correctly prioritises dominant-area hues (e.g. IRIS OUT's blue-purple hair)
+    /// over small-but-vivid accents (e.g. the red arm), unlike the old CIAreaAverage
+    /// or saturation²-weighted approaches.
     func dominantColor() -> Color {
         guard let cgImage = cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return .white.opacity(0.8)
@@ -12,7 +16,6 @@ extension NSImage {
 
         let side = 32
         let bytesPerPixel = 4
-        let bytesPerRow = side * bytesPerPixel
         var pixelData = [UInt8](repeating: 0, count: side * side * bytesPerPixel)
 
         guard
@@ -20,7 +23,7 @@ extension NSImage {
                 data: &pixelData,
                 width: side, height: side,
                 bitsPerComponent: 8,
-                bytesPerRow: bytesPerRow,
+                bytesPerRow: side * bytesPerPixel,
                 space: CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
             )
@@ -28,10 +31,12 @@ extension NSImage {
 
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: side, height: side))
 
-        var weightedR: Double = 0
-        var weightedG: Double = 0
-        var weightedB: Double = 0
-        var totalWeight: Double = 0
+        // Hue histogram: 16 buckets × 22.5° each
+        let bucketCount = 16
+        var bucketWeight = [Double](repeating: 0, count: bucketCount)
+        var bucketR = [Double](repeating: 0, count: bucketCount)
+        var bucketG = [Double](repeating: 0, count: bucketCount)
+        var bucketB = [Double](repeating: 0, count: bucketCount)
 
         for i in 0..<(side * side) {
             let base = i * bytesPerPixel
@@ -41,31 +46,51 @@ extension NSImage {
 
             let maxC = max(r, g, b)
             let minC = min(r, g, b)
-            let saturation = maxC > 0 ? (maxC - minC) / maxC : 0
+            let delta = maxC - minC
 
-            // saturation² heavily downweights grays/darks and upweights vivid colors
-            let weight = saturation * saturation
-            weightedR += r * weight
-            weightedG += g * weight
-            weightedB += b * weight
-            totalWeight += weight
+            // Skip near-black and achromatic pixels
+            guard maxC > 0.20, delta / maxC > 0.30 else { continue }
+
+            // Compute hue in [0, 1)
+            var hue: Double
+            if maxC == r {
+                hue = ((g - b) / delta).truncatingRemainder(dividingBy: 6.0)
+                if hue < 0 { hue += 6 }
+                hue /= 6
+            } else if maxC == g {
+                hue = ((b - r) / delta + 2) / 6
+            } else {
+                hue = ((r - g) / delta + 4) / 6
+            }
+
+            // Weight by saturation × brightness so vivid, bright pixels count more
+            let weight = (delta / maxC) * maxC
+            let bucket = min(bucketCount - 1, Int(hue * Double(bucketCount)))
+            bucketWeight[bucket] += weight
+            bucketR[bucket] += r * weight
+            bucketG[bucket] += g * weight
+            bucketB[bucket] += b * weight
         }
 
-        // Fallback: if image has almost no vivid pixels, use simple average
-        guard totalWeight > 0.5 else {
+        // Find the dominant hue bucket
+        guard let winIdx = bucketWeight.indices.max(by: { bucketWeight[$0] < bucketWeight[$1] }),
+            bucketWeight[winIdx] > 0
+        else {
             return Self.simpleAverageColor(pixels: pixelData, count: side * side)
         }
 
-        var r = weightedR / totalWeight
-        var g = weightedG / totalWeight
-        var b = weightedB / totalWeight
+        let w = bucketWeight[winIdx]
+        var r = bucketR[winIdx] / w
+        var g = bucketG[winIdx] / w
+        var b = bucketB[winIdx] / w
 
-        // Normalize: bring max channel to 1.0 for maximum vibrancy
-        let maxC = max(r, g, b)
-        if maxC > 0 {
-            r = min(r / maxC, 1.0)
-            g = min(g / maxC, 1.0)
-            b = min(b / maxC, 1.0)
+        // Soft brightness boost: bring dark results up to at least 60% brightness
+        let brightness = max(r, g, b)
+        if brightness < 0.6, brightness > 0 {
+            let scale = 0.6 / brightness
+            r = min(r * scale, 1.0)
+            g = min(g * scale, 1.0)
+            b = min(b * scale, 1.0)
         }
 
         return Color(red: r, green: g, blue: b).opacity(0.9)
