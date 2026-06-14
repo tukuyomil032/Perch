@@ -1,5 +1,6 @@
 import Accelerate
 import Foundation
+import Logging
 import ScreenCaptureKit
 
 @Observable
@@ -8,6 +9,7 @@ final class AudioCaptureService: NSObject {
     private(set) var rmsLevels: [Float] = Array(repeating: 0, count: 8)
     nonisolated(unsafe) private var stream: SCStream?
     private var currentBundleId: String?
+    private let logger = Logger(label: "com.tukuyomi032.perch.AudioCaptureService")
 
     func startCapturing(bundleId: String) async {
         guard bundleId != currentBundleId else { return }
@@ -35,7 +37,19 @@ final class AudioCaptureService: NSObject {
             try await stream?.startCapture()
             currentBundleId = bundleId  // set only after successful capture start
         } catch {
-            // Permission denied or app not found — pseudo-waveform fallback (no-op)
+            let nsError = error as NSError
+            let description = String(describing: error)
+            let isPermissionError =
+                nsError.domain == SCStreamErrorDomain
+                || description.localizedCaseInsensitiveContains("permission")
+                || description.localizedCaseInsensitiveContains("denied")
+                || description.localizedCaseInsensitiveContains("declined")
+                || description.localizedCaseInsensitiveContains("not authorized")
+            if isPermissionError {
+                logger.error("ScreenCapture permission/capture failed: \(description)")
+            } else {
+                logger.error("Audio capture failed: \(description)")
+            }
             currentBundleId = nil
             stream = nil
         }

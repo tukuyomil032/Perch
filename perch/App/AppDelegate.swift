@@ -37,7 +37,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Request ScreenCapture permission on first launch
         Task {
-            _ = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            do {
+                _ = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            } catch {
+                logger.error("ScreenCapture permission request failed: \(String(describing: error))")
+            }
         }
 
         logger.info("Perch launch complete")
