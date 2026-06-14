@@ -4,7 +4,7 @@ import Testing
 
 @testable import perch
 
-// ScreenEnvironment is nonisolated + Sendable, so no @MainActor needed here.
+@MainActor
 struct NotchDetectorTests {
 
     // MARK: - Legacy compile-time existence checks
