@@ -5,11 +5,11 @@ struct ExpandedIslandView: View {
 
     var body: some View {
         ZStack {
+            Color.black
+                .clipShape(RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous))
             VibrancyBackground()
-                .clipShape(
-                    RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
-                )
-
+                .opacity(0.20)
+                .clipShape(RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous))
             VStack(spacing: 0) {
                 header
                 Divider().opacity(0.15)

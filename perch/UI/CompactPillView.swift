@@ -35,7 +35,7 @@ struct CompactPillView: View {
     private var singlePillView: some View {
         pillContent
             .frame(width: 150, height: 34)
-            .background(.regularMaterial, in: Capsule())
+            .background(Color.black, in: Capsule())
     }
 
     @ViewBuilder
@@ -64,7 +64,7 @@ struct CompactPillView: View {
             if let state = appState.nowPlayingManager.currentState {
                 NowPlayingCompact(state: state)
                     .frame(width: 116, height: 34)
-                    .background(.regularMaterial, in: Capsule())
+                    .background(Color.black, in: Capsule())
             }
 
             // Right: most-used provider logo circle
