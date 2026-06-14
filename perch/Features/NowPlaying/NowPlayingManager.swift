@@ -52,8 +52,8 @@ final class NowPlayingManager {
         }
         MediaRemoteBridge.shared.start()
         mediaRemoteStateTask = Task { [weak self] in
-            guard let self else { return }
             for await state in MediaRemoteBridge.shared.stateUpdates {
+                guard let self else { return }
                 await MainActor.run {
                     guard self.isYTMPolling else { return }
                     self.applyState(state, source: "YouTube Music")
