@@ -335,30 +335,24 @@ private struct BackgroundVisualizerView: View {
     let isPlaying: Bool
     let color: Color
 
+    private let barCount = 24
+    private let frequencies: [Double] = (0..<24).map { 1.5 + Double($0 % 7) * 0.3 }
+    private let phases: [Double] = (0..<24).map { Double($0) * 0.42 }
+
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isPlaying)) { ctx in
             Canvas { context, size in
                 let t = ctx.date.timeIntervalSince1970
-                for i in 0..<3 {
-                    let phase = Double(i) * .pi * 2.0 / 3.0
-                    let amp = 12.0 - Double(i) * 3.0
-                    var path = Path()
-                    var x = 0.0
-                    var first = true
-                    while x <= size.width {
-                        let y = size.height * 0.65 + sin(x * 0.012 + t * 1.5 + phase) * amp
-                        if first {
-                            path.move(to: .init(x: x, y: y))
-                            first = false
-                        } else {
-                            path.addLine(to: .init(x: x, y: y))
-                        }
-                        x += 3
-                    }
-                    path.addLine(to: .init(x: size.width, y: size.height))
-                    path.addLine(to: .init(x: 0, y: size.height))
-                    path.closeSubpath()
-                    context.fill(path, with: .color(color.opacity(0.07 - Double(i) * 0.02)))
+                let barW = size.width / CGFloat(barCount)
+                for i in 0..<barCount {
+                    let raw = sin(t * frequencies[i] + phases[i])
+                    let normalized = raw * 0.5 + 0.5
+                    let h = size.height * (0.05 + 0.60 * normalized)
+                    let x = barW * CGFloat(i) + barW * 0.2
+                    let w = barW * 0.6
+                    let rect = CGRect(x: x, y: size.height - h, width: w, height: h)
+                    let path = Path(roundedRect: rect, cornerRadius: w / 2)
+                    context.fill(path, with: .color(color.opacity(0.08)))
                 }
             }
         }
