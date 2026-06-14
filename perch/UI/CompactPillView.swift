@@ -120,13 +120,13 @@ struct CompactPillView: View {
                         .glassEffect(.regular.tint(.black), in: .capsule)
                     }
                     if dragProgress > 0 {
-                        ZStack {
-                            Circle().fill(.clear).glassEffect(.regular.tint(.black), in: .circle)
-                            providerLogoView
-                        }
-                        .frame(width: pillH, height: pillH)
-                        .scaleEffect(dragProgress)
-                        .opacity(dragProgress)
+                        Circle()
+                            .fill(.clear)
+                            .glassEffect(.regular.tint(.black), in: .circle)
+                            .overlay { providerLogoView }
+                            .frame(width: pillH, height: pillH)
+                            .scaleEffect(dragProgress)
+                            .opacity(dragProgress)
                     }
                 }
             }
