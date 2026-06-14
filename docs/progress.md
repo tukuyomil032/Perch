@@ -202,13 +202,32 @@
 
 ## Phase 3: AI Usage (v0.3)
 
-- [ ] T3-1: AIProvider protocol
-- [ ] T3-2: 認証フロー（Keychain, CLI config, env）
-- [ ] T3-3: Claude Provider
-- [ ] T3-4: Codex Provider
-- [ ] T3-5: AIUsageStore + RefreshScheduler
-- [ ] T3-6: AIUsageCard
-- [ ] T3-7: Settings UI（Provider設定）
+**Last Updated**: 2026-06-14
+
+### 実装済み
+
+- [x] T3-1: AIProvider protocol (`perch/Providers/AIProvider.swift`)
+- [x] T3-2: 認証フロー — CLAUDE_CONFIG_DIR env + ~/.claude/projects/ + ~/.config/claude/projects/ フォールバック
+- [x] T3-3: Claude Provider (`perch/Providers/Claude/ClaudeProvider.swift`)
+  - JSONL パース (ccusage 準拠): composite (messageId:requestId) dedup key
+  - isApiErrorMessage フィルタ、ephemeral_1h 2.0x、ephemeral_5m 1.25x
+  - CostCalculator.swift: モデル別単価テーブル、cache tiering (5m/1h)
+- [x] T3-4: Codex Provider (`perch/Providers/Codex/CodexProvider.swift`)
+- [x] T3-5: AIUsageStore + RefreshScheduler (`perch/Features/AIUsage/AIUsageStore.swift`)
+- [x] T3-6: AIUsageCard / AIUsageWidget (`perch/Features/AIUsage/`)
+- [x] T3-7: Settings UI — Provider切り替えタブ
+- [x] T3-8: CompactPillView — AIUsageWidget プロバイダロゴ + コスト表示
+- [x] T3-9: IslandWindowController クラッシュ修正 — `observeExpanded()` state-scoped tracking（展開中は `compactWindowWidth` を監視しない）
+- [x] T3-10: コスト計算 ccusage 完全準拠修正 (Phase 3.2/3.3)
+  - `costUSD` JSONキー修正 (旧: `"cost_usd"` → 正: `"costUSD"`)
+  - `isSidechain` フィルタ削除（サブエージェント呼び出しも課金対象）
+  - 30日間コスト実測: ccusage Claude分 $528.83 に対して±5%以内
+
+### 既知の制限
+- Codex Provider: プロバイダロゴ未実装（Phase 6 対応予定）
+- OpenAI / OpenRouter Provider: Phase 6 以降
+- プリセットカスタマイズUI（ウィジェット追加/削除/並び替え）: 次フェーズ（展開UI強化）で実装
+- ccusage の Codex 分（$161/30日）は ClaudeProvider には含まれない（正しい挙動）
 
 ---
 
