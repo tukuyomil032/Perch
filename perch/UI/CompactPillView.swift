@@ -38,6 +38,7 @@ struct CompactPillView: View {
         .opacity(isIdle && !isHovered ? 0.12 : 1.0)
         .animation(.easeInOut(duration: 0.25), value: isIdle)
         .animation(.easeInOut(duration: 0.25), value: isHovered)
+        .contentShape(Capsule())
         .onTapGesture { handleTap() }
         .gesture(
             DragGesture(minimumDistance: 15)
