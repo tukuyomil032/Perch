@@ -1,6 +1,6 @@
 import Defaults
 
-nonisolated enum NotchSimulationMode: String, CaseIterable, Defaults.Serializable {
+enum NotchSimulationMode: String, CaseIterable, Defaults.Serializable {
     case auto
     case forceNotched
     case forceNonNotched
