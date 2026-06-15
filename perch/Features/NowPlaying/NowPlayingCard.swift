@@ -112,57 +112,60 @@ struct NowPlayingCard: View {
     // MARK: - Lyrics Full View (Pattern 2)
 
     private var lyricsFullView: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                if let img = displayedArtwork {
-                    Image(nsImage: img)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 44, height: 44)
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(state.title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                    Text(state.artist)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.6))
-                        .lineLimit(1)
-                }
-                Spacer()
-                controlButton(systemName: "backward.fill", action: manager.previousTrack, size: 12)
-                controlButton(
-                    systemName: state.isPlaying ? "pause.fill" : "play.fill",
-                    action: manager.togglePlayPause, size: 14
-                )
-                controlButton(systemName: "forward.fill", action: manager.nextTrack, size: 12)
-                Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                        showLyricsFullView = false
+        ZStack(alignment: .topLeading) {
+            BackgroundVisualizerView(isPlaying: state.isPlaying, color: waveformPalette.primary)
+            VStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    if let img = displayedArtwork {
+                        Image(nsImage: img)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 44, height: 44)
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.white.opacity(0.4))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(state.title)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Text(state.artist)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    controlButton(systemName: "backward.fill", action: manager.previousTrack, size: 12)
+                    controlButton(
+                        systemName: state.isPlaying ? "pause.fill" : "play.fill",
+                        action: manager.togglePlayPause, size: 14
+                    )
+                    controlButton(systemName: "forward.fill", action: manager.nextTrack, size: 12)
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                            showLyricsFullView = false
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close lyrics")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close lyrics")
+                Divider().background(.white.opacity(0.15))
+                TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
+                    LyricsView(
+                        lines: lyrics,
+                        elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
+                        fontSize: 14
+                    )
+                }
+                .frame(maxHeight: 200)
+                Divider().background(.white.opacity(0.15))
+                progressSection
             }
-            Divider().background(.white.opacity(0.15))
-            TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
-                LyricsView(
-                    lines: lyrics,
-                    elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
-                    fontSize: 14
-                )
-            }
-            .frame(maxHeight: 200)
-            Divider().background(.white.opacity(0.15))
-            progressSection
+            .padding(16)
         }
-        .padding(16)
     }
 
     // MARK: - Artwork
@@ -337,7 +340,7 @@ struct NowPlayingCard: View {
     }
 }
 
-private struct BackgroundVisualizerView: View {
+struct BackgroundVisualizerView: View {
     let isPlaying: Bool
     let color: Color
 

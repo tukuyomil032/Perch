@@ -137,121 +137,123 @@ struct AIUsageStandardView: View {
         let usage = store.activeUsage
         let chartData = Array((usage?.chartData ?? []).suffix(30))
 
-        VStack(alignment: .leading, spacing: 0) {
-            // Provider header
-            HStack {
-                HStack(spacing: 5) {
-                    providerLogoImage(store.activeProviderId ?? "claude", size: 11)
-                    Text(usage?.planName ?? (store.activeProviderId ?? "claude").capitalized)
+        ZStack(alignment: .topLeading) {
+            BackgroundVisualizerView(isPlaying: true, color: DesignSystem.claudeAmber)
+            VStack(alignment: .leading, spacing: 0) {
+                // Provider header
+                HStack {
+                    Text(usage?.planName ?? (store.activeProviderId ?? "Claude").capitalized)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
-                }
-                Spacer()
-                if store.configuredProviders.count > 1 {
-                    HStack(spacing: 4) {
-                        ForEach(store.configuredProviders, id: \.id) { provider in
-                            Button {
-                                store.selectProvider(provider.id)
-                            } label: {
-                                providerLogoImage(
-                                    provider.id,
-                                    size: 10,
-                                    activeColor: store.activeProviderId == provider.id
-                                        ? AnyShapeStyle(.primary) : AnyShapeStyle(.quaternary)
-                                )
-                                .opacity(provider.id == "codex" && store.activeProviderId != provider.id ? 0.3 : 1.0)
+                    Spacer()
+                    if store.configuredProviders.count > 1 {
+                        Menu {
+                            ForEach(store.configuredProviders, id: \.id) { provider in
+                                Button {
+                                    store.selectProvider(provider.id)
+                                } label: {
+                                    Label(
+                                        provider.displayName,
+                                        systemImage: store.activeProviderId == provider.id
+                                            ? "checkmark" : ""
+                                    )
+                                }
                             }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-                if store.isRefreshing {
-                    ProgressView().scaleEffect(0.45)
-                } else {
-                    Button {
-                        Task { await store.refresh() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.tertiary)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            // Usage limits (session / weekly / daily) if available
-            if usage?.session != nil || usage?.weekly != nil || usage?.daily != nil {
-                Spacer(minLength: 8)
-                UsageLimitsSection(
-                    session: usage?.session,
-                    weekly: usage?.weekly,
-                    daily: usage?.daily
-                )
-            }
-
-            Spacer(minLength: 10)
-
-            // Cost 2-column
-            HStack(alignment: .top, spacing: 0) {
-                costColumn(
-                    label: "Today",
-                    amount: usage?.cost.map { formatCost($0.todayUSD) } ?? "—",
-                    tokens: usage?.cost.map { formatTokens($0.todayTokens) },
-                    isStale: store.lastRefreshError != nil && usage?.cost != nil
-                )
-                Spacer()
-                costColumn(
-                    label: "30 days",
-                    amount: usage?.cost.map { formatCost($0.thirtyDayUSD) } ?? "—",
-                    tokens: usage?.cost.map { formatTokens($0.thirtyDayTokens) },
-                    isStale: store.lastRefreshError != nil && usage?.cost != nil
-                )
-            }
-
-            Spacer(minLength: 10)
-
-            // Bar chart (30 days)
-            if !chartData.isEmpty {
-                MiniBarChart(data: chartData)
-                if let top = usage?.modelBreakdown?.first {
-                    Text("Top model: \(top.modelName) · Est. from local logs")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.quaternary)
-                        .padding(.top, 4)
-                }
-            }
-
-            // Model list
-            if let models = usage?.modelBreakdown, !models.isEmpty {
-                Divider()
-                    .opacity(0.15)
-                    .padding(.vertical, 8)
-                VStack(spacing: 5) {
-                    ForEach(models.prefix(3)) { model in
-                        HStack(spacing: 8) {
-                            Text(model.modelName)
-                                .font(.system(size: 10))
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 12))
                                 .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                            Spacer()
-                            Text(formatTokens(model.totalTokens))
-                                .font(.system(size: 9))
-                                .foregroundStyle(.quaternary)
-                            Text(formatCost(model.costUSD))
-                                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                .foregroundStyle(.primary)
-                                .frame(width: 48, alignment: .trailing)
                         }
+                        .buttonStyle(.plain)
+                    }
+                    if store.isRefreshing {
+                        ProgressView().scaleEffect(0.45)
+                    } else {
+                        Button {
+                            Task { await store.refresh() }
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-            } else if usage == nil && store.isRefreshing {
-                ProgressView()
-                    .scaleEffect(0.6)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 12)
+
+                // Usage limits (session / weekly / daily) if available
+                if usage?.session != nil || usage?.weekly != nil || usage?.daily != nil {
+                    Spacer(minLength: 8)
+                    UsageLimitsSection(
+                        session: usage?.session,
+                        weekly: usage?.weekly,
+                        daily: usage?.daily
+                    )
+                }
+
+                Spacer(minLength: 10)
+
+                // Cost 2-column
+                HStack(alignment: .top, spacing: 0) {
+                    costColumn(
+                        label: "Today",
+                        amount: usage?.cost.map { formatCost($0.todayUSD) } ?? "—",
+                        tokens: usage?.cost.map { formatTokens($0.todayTokens) },
+                        isStale: store.lastRefreshError != nil && usage?.cost != nil
+                    )
+                    Spacer()
+                    costColumn(
+                        label: "30 days",
+                        amount: usage?.cost.map { formatCost($0.thirtyDayUSD) } ?? "—",
+                        tokens: usage?.cost.map { formatTokens($0.thirtyDayTokens) },
+                        isStale: store.lastRefreshError != nil && usage?.cost != nil
+                    )
+                }
+
+                Spacer(minLength: 10)
+
+                // Bar chart (30 days)
+                if !chartData.isEmpty {
+                    MiniBarChart(data: chartData)
+                    if let top = usage?.modelBreakdown?.first {
+                        Text("Top model: \(top.modelName) · Est. from local logs")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.quaternary)
+                            .padding(.top, 4)
+                    }
+                }
+
+                // Model list
+                if let models = usage?.modelBreakdown, !models.isEmpty {
+                    Divider()
+                        .opacity(0.15)
+                        .padding(.vertical, 8)
+                    VStack(spacing: 5) {
+                        ForEach(models.prefix(3)) { model in
+                            HStack(spacing: 8) {
+                                Text(model.modelName)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(formatTokens(model.totalTokens))
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.quaternary)
+                                Text(formatCost(model.costUSD))
+                                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 48, alignment: .trailing)
+                            }
+                        }
+                    }
+                } else if usage == nil && store.isRefreshing {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 12)
+                }
             }
+            .padding(DesignSystem.cardPadding)
         }
-        .padding(DesignSystem.cardPadding)
     }
 
     private func costColumn(label: String, amount: String, tokens: String?, isStale: Bool) -> some View {
