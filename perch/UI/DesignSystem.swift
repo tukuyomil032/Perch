@@ -19,7 +19,7 @@ enum DesignSystem {
 struct VibrancyBackground: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.material = .underWindowBackground
+        view.material = .hudWindow  // deeper blur than underWindowBackground
         view.blendingMode = .behindWindow
         view.state = .active
         view.appearance = NSAppearance(named: .darkAqua)

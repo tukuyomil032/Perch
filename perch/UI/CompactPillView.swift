@@ -44,7 +44,14 @@ struct CompactPillView: View {
                     Capsule().fill(.clear).glassEffect(.regular.tint(tint), in: .capsule)
                 } else {
                     Capsule().fill(Color.black)
+                    VibrancyBackground()
+                        .opacity(0.35)
+                        .clipShape(Capsule())
                 }
+            }
+            .overlay {
+                Capsule()
+                    .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
             }
     }
 

@@ -8,12 +8,13 @@ struct ExpandedIslandView: View {
             if #available(macOS 26, *) {
                 RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
                     .fill(.clear)
-                    .glassEffect(.regular.tint(.black), in: .rect(cornerRadius: DesignSystem.cardCornerRadius))
+                    .glassEffect(
+                        .regular.tint(.black.opacity(0.7)), in: .rect(cornerRadius: DesignSystem.cardCornerRadius))
             } else {
                 Color.black
                     .clipShape(RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous))
                 VibrancyBackground()
-                    .opacity(0.20)
+                    .opacity(0.35)
                     .clipShape(RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous))
             }
             VStack(spacing: 0) {
@@ -22,6 +23,10 @@ struct ExpandedIslandView: View {
                 presetContent
                     .animation(DesignSystem.springAnimation, value: appState.presetStore.activePresetID)
             }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
+                .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
         }
         .frame(width: 420)
     }
