@@ -43,43 +43,37 @@ struct WaveformView: View {
         }
     }
 
-    private func waveform(levels: [Float]) -> some View {
-        ZStack {
-            LinearGradient(
-                colors: colors.isEmpty ? ArtworkPalette.fallback.gradientColors : colors,
-                startPoint: .bottomLeading,
-                endPoint: .topTrailing
-            )
+    private var resolvedGradientColors: [Color] {
+        let source = colors.isEmpty ? ArtworkPalette.fallback.gradientColors : colors
+        guard source.count >= 3 else { return ArtworkPalette.fallback.gradientColors }
+        return [source[0], source[1], source[2]]
+    }
 
-            // A subtle vertical sheen adds material depth without turning the
-            // tiny bars into separate per-bar gradients.
-            LinearGradient(
-                colors: [
-                    .white.opacity(0.20),
-                    .clear,
-                    .black.opacity(0.18),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .blendMode(.softLight)
-        }
-        .mask {
-            bars(levels: levels)
-        }
-        .compositingGroup()
+    private func waveform(levels: [Float]) -> some View {
+        bars(levels: levels)
     }
 
     private func bars(levels: [Float]) -> some View {
-        HStack(alignment: .center, spacing: spacing) {
+        let gradColors = resolvedGradientColors
+        return HStack(alignment: .center, spacing: spacing) {
             ForEach(0..<barCount, id: \.self) { index in
                 let level = index < levels.count ? CGFloat(levels[index]) : 0
                 let height = minHeight + (maxHeight - minHeight) * max(0.025, level)
 
                 RoundedRectangle(cornerRadius: barWidth / 2, style: .continuous)
-                    .fill(.white)
+                    .fill(
+                        LinearGradient(
+                            stops: [
+                                .init(color: gradColors[0], location: 0.0),
+                                .init(color: gradColors[1], location: 0.48),
+                                .init(color: gradColors[2], location: 1.0),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                     .frame(width: barWidth, height: height)
-                    .animation(.easeOut(duration: 0.05), value: height)
+                    .animation(.easeOut(duration: 0.055), value: height)
             }
         }
         .frame(height: maxHeight)
