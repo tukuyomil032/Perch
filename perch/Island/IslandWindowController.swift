@@ -8,6 +8,9 @@ private let logger = Logger(label: "com.tukuyomi032.perch.IslandWindowController
 @MainActor
 final class IslandWindowController: NSWindowController {
     private let appState: AppState
+    private var pendingLayoutTask: Task<Void, Never>?
+
+    private var islandWindow: IslandWindow? { window as? IslandWindow }
 
     init(appState: AppState) {
         self.appState = appState
@@ -30,16 +33,35 @@ final class IslandWindowController: NSWindowController {
         #endif
 
         let window = IslandWindow(contentRect: frame, styleMask: [], backing: .buffered, defer: false)
-        let rootView = RootIslandView().environment(appState)
-        let hostingController = NSHostingController(rootView: rootView)
-        hostingController.sizingOptions = []  // Prevent SwiftUI from fighting manual setFrame() calls
-        hostingController.view.wantsLayer = true
-        hostingController.view.layer?.backgroundColor = NSColor.clear.cgColor
-        hostingController.view.layer?.isOpaque = false
-        window.contentViewController = hostingController
+
+        // Use a fixed AppKit container view with NSHostingView pinned inside.
+        // This severs SwiftUI's window-size negotiation path: the AppKit container
+        // owns the frame, and NSHostingView renders into whatever space it is given.
+        let containerView = NSView(frame: NSRect(origin: .zero, size: frame.size))
+        containerView.translatesAutoresizingMaskIntoConstraints = true
+        containerView.autoresizingMask = [.width, .height]
+        containerView.wantsLayer = true
+        containerView.layer?.backgroundColor = NSColor.clear.cgColor
+
+        let hostingView = NSHostingView(rootView: RootIslandView().environment(appState))
+        hostingView.sizingOptions = []
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.layer?.isOpaque = false
+
+        containerView.addSubview(hostingView)
+        NSLayoutConstraint.activate([
+            hostingView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            hostingView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            hostingView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+        ])
+
+        window.contentView = containerView
 
         super.init(window: window)
-        window.setFrame(frame, display: true)
+        window.applyManagedFrame(frame, display: true)
         window.orderFrontRegardless()
         startObserving()
     }
@@ -47,6 +69,7 @@ final class IslandWindowController: NSWindowController {
     required init?(coder: NSCoder) { fatalError() }
 
     deinit {
+        pendingLayoutTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -64,8 +87,7 @@ final class IslandWindowController: NSWindowController {
                 mode: mode, environment: environment,
                 width: mode == .floatingPill ? appState.compactWindowWidth : nil,
                 height: mode == .floatingPill ? appState.compactWindowHeight : nil)
-        guard window?.frame != frame else { return }
-        window?.setFrame(frame, display: true)
+        islandWindow?.applyManagedFrame(frame, display: true)
 
         logger.debug(
             "updateLayout",
@@ -105,7 +127,16 @@ final class IslandWindowController: NSWindowController {
         #if DEBUG
         NSScreen.logScreenDiagnostics()
         #endif
-        updateLayout()
+        scheduleLayoutUpdate()
+    }
+
+    private func scheduleLayoutUpdate() {
+        pendingLayoutTask?.cancel()
+        pendingLayoutTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            self?.updateLayout()
+        }
     }
 
     private func observeExpanded() {
@@ -114,7 +145,7 @@ final class IslandWindowController: NSWindowController {
             _ = appState.presetStore.activePresetID
             if appState.isExpanded {
                 // When expanded, only track height — avoids pulling in aiUsageStore.activeUsage
-                // which fires on every refresh() chunk and storms setFrame() calls
+                // which fires on every refresh() chunk and storms applyManagedFrame() calls
                 _ = appState.expandedWindowHeight
             } else {
                 _ = appState.compactWindowWidth
@@ -122,7 +153,7 @@ final class IslandWindowController: NSWindowController {
             }
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
-                self?.updateLayout()
+                self?.scheduleLayoutUpdate()
                 self?.observeExpanded()
             }
         }
