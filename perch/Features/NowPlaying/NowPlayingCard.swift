@@ -68,7 +68,7 @@ struct NowPlayingCard: View {
                         trackInfo
                     }
                 }
-                .frame(maxHeight: .infinity)
+                .frame(height: 100)
                 HStack(spacing: 0) {
                     WaveformView(
                         isPlaying: state.isPlaying,

@@ -41,22 +41,12 @@ struct WaveformView: View {
         [Float](repeating: 0, count: barCount)
     }
 
-    /// Blends 65% real audio with 35% artistic sine-wave motion so all bars
-    /// feel alive even during sustained notes or bass-heavy sections.
-    /// Falls back to 100% synthetic when audio capture is unavailable.
+    /// Always returns pure synthetic sine-wave levels to reproduce the
+    /// organic, continuous motion users preferred before audio-reactive mode.
+    /// externalLevels are intentionally ignored so the animation stays fluid
+    /// regardless of the audio content.
     private func blendedLevels(at date: Date) -> [Float] {
-        let synthetic = syntheticLevels(at: date)
-
-        if usesSyntheticFallback || externalLevels == nil {
-            return synthetic
-        }
-
-        guard let ext = externalLevels else { return synthetic }
-
-        return (0..<barCount).map { i in
-            let audio = i < ext.count ? max(0, min(1, ext[i])) : 0
-            return 0.65 * audio + 0.35 * synthetic[i]
-        }
+        return syntheticLevels(at: date)
     }
 
     // MARK: - Rendering
@@ -87,33 +77,34 @@ struct WaveformView: View {
         .frame(height: maxHeight)
     }
 
-    /// Per-bar gradient: cycles through 3 patterns so not all bars share the
-    /// same direction or color set — matching the iOS Dynamic Island aesthetic.
+    /// Per-bar gradient with strong contrast so each bar's transition is visible.
     ///
-    /// - index % 3 == 0 (bars 0, 3): highlight → primary, top→bottom
-    /// - index % 3 == 1 (bars 1, 4): primary fade only, top→bottom
-    /// - index % 3 == 2 (bars 2, 5): primary → secondary, bottom→top
+    /// - index % 3 == 0 (bars 0, 3): full 3-color span, top→bottom
+    /// - index % 3 == 1 (bars 1, 4): highlight → near-transparent fade, top→bottom
+    /// - index % 3 == 2 (bars 2, 5): full 3-color span reversed, bottom→top
     private func gradientFill(for index: Int, colors: [Color]) -> LinearGradient {
         switch index % 3 {
         case 0:
             return LinearGradient(
                 stops: [
                     .init(color: colors[0], location: 0.0),
-                    .init(color: colors[1], location: 1.0),
+                    .init(color: colors[1], location: 0.5),
+                    .init(color: colors[2], location: 1.0),
                 ],
                 startPoint: .top, endPoint: .bottom)
         case 1:
             return LinearGradient(
                 stops: [
-                    .init(color: colors[1], location: 0.0),
-                    .init(color: colors[1].opacity(0.45), location: 1.0),
+                    .init(color: colors[0], location: 0.0),
+                    .init(color: colors[1].opacity(0.15), location: 1.0),
                 ],
                 startPoint: .top, endPoint: .bottom)
         default:
             return LinearGradient(
                 stops: [
-                    .init(color: colors[1], location: 0.0),
-                    .init(color: colors[2], location: 1.0),
+                    .init(color: colors[2], location: 0.0),
+                    .init(color: colors[1], location: 0.5),
+                    .init(color: colors[0], location: 1.0),
                 ],
                 startPoint: .bottom, endPoint: .top)
         }
