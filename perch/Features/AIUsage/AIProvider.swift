@@ -10,6 +10,12 @@ protocol AIProvider: Identifiable, Sendable {
     func fetchUsage() async throws -> AIUsageData
 }
 
+enum UsageSource: String, Sendable {
+    case anthropicOAuth
+    case localEstimate
+    case cachedOAuth
+}
+
 struct AIUsageData: Sendable {
     var session: UsageTier?
     var weekly: UsageTier?
@@ -19,13 +25,19 @@ struct AIUsageData: Sendable {
     var modelBreakdown: [ModelUsage]?
     var planName: String?
     var lastUpdated: Date?
+    var warningMessage: String?
+    var isStale: Bool = false
 }
 
 struct UsageTier: Sendable {
-    var percentRemaining: Double
+    var usedFraction: Double  // 0.0–1.0 = 使用量 (0=未使用, 1=使い切り)
     var resetsAt: Date?
-    var projectedEmptyAt: Date?
     var label: String
+    var source: UsageSource
+
+    var remainingFraction: Double { max(0, 1.0 - min(1, usedFraction)) }
+    var usedPercent: Int { Int((min(1, max(0, usedFraction)) * 100).rounded()) }
+    var remainingPercent: Int { max(0, 100 - usedPercent) }
 }
 
 struct CostInfo: Sendable {

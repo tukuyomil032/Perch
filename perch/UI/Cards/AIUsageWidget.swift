@@ -318,20 +318,32 @@ private struct UsageLimitsSection: View {
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(.white.opacity(0.12))
-                        .frame(height: 4)
-                    Capsule()
-                        .fill(progressColor(remaining: tier.percentRemaining))
-                        .frame(width: max(4, geo.size.width * CGFloat(1.0 - tier.percentRemaining)), height: 4)
+                        .frame(height: 5)
+                    if tier.usedFraction > 0 {
+                        Capsule()
+                            .fill(progressColor(used: tier.usedFraction))
+                            .frame(
+                                width: geo.size.width * CGFloat(min(1, max(0, tier.usedFraction))),
+                                height: 5
+                            )
+                    }
                 }
             }
-            .frame(height: 4)
+            .frame(height: 5)
             HStack {
-                Text("\(Int(tier.percentRemaining * 100))% 残り")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.tertiary)
+                HStack(spacing: 4) {
+                    Text("\(tier.usedPercent)% 使用")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                    if tier.source == .localEstimate {
+                        Text("(推定)")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.quaternary)
+                    }
+                }
                 if let resetAt = tier.resetsAt {
                     Spacer()
-                    Text("Reset \(formatResetDate(resetAt))")
+                    Text(resetText(resetAt))
                         .font(.system(size: 9))
                         .foregroundStyle(.quaternary)
                 }
@@ -339,10 +351,18 @@ private struct UsageLimitsSection: View {
         }
     }
 
-    private func progressColor(remaining: Double) -> Color {
-        if remaining < 0.1 { return .red }
-        if remaining < 0.3 { return .orange }
+    private func progressColor(used: Double) -> Color {
+        if used > 0.9 { return .red }
+        if used > 0.7 { return .orange }
         return DesignSystem.claudeAmber
+    }
+
+    private func resetText(_ date: Date) -> String {
+        guard date > Date() else { return "リセット間近" }
+        let fmt = RelativeDateTimeFormatter()
+        fmt.unitsStyle = .abbreviated
+        fmt.locale = Locale(identifier: "ja_JP")
+        return "リセット \(fmt.localizedString(for: date, relativeTo: Date()))"
     }
 }
 

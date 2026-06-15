@@ -88,21 +88,22 @@ nonisolated struct ClaudeProvider: AIProvider {
             throw ClaudeProviderError.invalidResponse
         }
 
-        // API returns nested windows: five_hour, seven_day, seven_day_routines
-        // utilization = fraction USED (0.0–1.0), so percentRemaining = 1 - utilization
+        // API returns nested windows: five_hour, seven_day, seven_day_claude_routines
+        // utilization = fraction USED (0.0–1.0), stored directly as usedFraction
         func parseTier(_ key: String, label: String) -> UsageTier? {
             guard let window = root[key] as? [String: Any],
                 let utilization = doubleValue(in: window, keys: ["utilization"])
             else { return nil }
-            let remaining = max(0.0, 1.0 - min(1.0, utilization))
+            let used = min(1.0, max(0.0, utilization))
             let resetsAt = dateValue(in: window, keys: ["resets_at", "resetsAt"])
-            return UsageTier(percentRemaining: remaining, resetsAt: resetsAt, label: label)
+            return UsageTier(usedFraction: used, resetsAt: resetsAt, label: label, source: .anthropicOAuth)
         }
 
         return AIUsageData(
             session: parseTier("five_hour", label: "セッション"),
             weekly: parseTier("seven_day", label: "週間"),
-            daily: parseTier("seven_day_routines", label: "Daily Routines")
+            daily: parseTier("seven_day_claude_routines", label: "Daily Routines")
+                ?? parseTier("seven_day_routines", label: "Daily Routines")
                 ?? routineUsageTier(from: root),
             planName: stringValue(in: root, keys: ["planName", "plan_name"]) ?? "Claude Code",
             lastUpdated: Date()
@@ -144,9 +145,10 @@ nonisolated struct ClaudeProvider: AIProvider {
             )
         guard let usedFraction else { return nil }
         return UsageTier(
-            percentRemaining: max(0, 1.0 - usedFraction),
+            usedFraction: min(1.0, max(0.0, usedFraction)),
             resetsAt: dateValue(in: dictionary, keys: ["resets_at", "resetsAt", "reset_at", "resetAt"]),
-            label: "Daily Routines"
+            label: "Daily Routines",
+            source: .anthropicOAuth
         )
     }
 
@@ -404,25 +406,37 @@ nonisolated struct ClaudeProvider: AIProvider {
             + dayToCacheReadTokens.values.reduce(0, +)
             + dayToCacheCreationTokens.values.reduce(0, +)
 
-        // Usage tiers: percentRemaining = how much of the limit is still available
-        let sessionPct =
-            sessionLimit > 0
-            ? max(0, 1.0 - Double(sessionTokens) / Double(sessionLimit)) : 1.0
-        let weeklyPct =
-            weeklyLimit > 0
-            ? max(0, 1.0 - Double(weekTokens) / Double(weeklyLimit)) : 1.0
-        let dailyPct =
-            dailyLimit > 0
-            ? max(0, 1.0 - Double(todayTokens) / Double(dailyLimit)) : 1.0
+        // Local estimated usage tiers (shown only when OAuth is unavailable)
+        // usedFraction = tokens used / configured limit (unreliable — user-configured limit only)
+        let sessionUsed =
+            sessionLimit > 0 ? min(1.0, Double(sessionTokens) / Double(sessionLimit)) : 0.0
+        let weeklyUsed =
+            weeklyLimit > 0 ? min(1.0, Double(weekTokens) / Double(weeklyLimit)) : 0.0
+        let dailyUsed =
+            dailyLimit > 0 ? min(1.0, Double(todayTokens) / Double(dailyLimit)) : 0.0
 
         let nextHour = Calendar.current.date(byAdding: .hour, value: 1, to: now)
         let nextWeek = Calendar.current.date(byAdding: .day, value: 7, to: sevenDaysAgo)
         let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now))
 
+        // Only include estimated tiers when a limit has been configured
+        let sessionTier: UsageTier? =
+            sessionLimit > 0
+            ? UsageTier(usedFraction: sessionUsed, resetsAt: nextHour, label: "セッション", source: .localEstimate)
+            : nil
+        let weeklyTier: UsageTier? =
+            weeklyLimit > 0
+            ? UsageTier(usedFraction: weeklyUsed, resetsAt: nextWeek, label: "週間", source: .localEstimate)
+            : nil
+        let dailyTier: UsageTier? =
+            dailyLimit > 0
+            ? UsageTier(usedFraction: dailyUsed, resetsAt: nextDay, label: "Daily Routines", source: .localEstimate)
+            : nil
+
         return AIUsageData(
-            session: UsageTier(percentRemaining: sessionPct, resetsAt: nextHour, label: "セッション"),
-            weekly: UsageTier(percentRemaining: weeklyPct, resetsAt: nextWeek, label: "週間"),
-            daily: UsageTier(percentRemaining: dailyPct, resetsAt: nextDay, label: "Daily Routines"),
+            session: sessionTier,
+            weekly: weeklyTier,
+            daily: dailyTier,
             cost: CostInfo(
                 todayUSD: todayUSD,
                 thirtyDayUSD: thirtyDayUSD,
