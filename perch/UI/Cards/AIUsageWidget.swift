@@ -135,12 +135,11 @@ struct AIUsageStandardView: View {
     var body: some View {
         let store = appState.aiUsageStore
         let usage = store.activeUsage
-        let chartData = Array((usage?.chartData ?? []).suffix(14))
+        let chartData = Array((usage?.chartData ?? []).suffix(30))
 
         VStack(alignment: .leading, spacing: 0) {
             // Provider header
             HStack {
-                // Logo + name
                 HStack(spacing: 5) {
                     providerLogoImage(store.activeProviderId ?? "claude", size: 11)
                     Text(usage?.planName ?? (store.activeProviderId ?? "claude").capitalized)
@@ -148,7 +147,6 @@ struct AIUsageStandardView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                // Provider switcher (only when 2+ configured)
                 if store.configuredProviders.count > 1 {
                     HStack(spacing: 4) {
                         ForEach(store.configuredProviders, id: \.id) { provider in
@@ -167,7 +165,6 @@ struct AIUsageStandardView: View {
                         }
                     }
                 }
-                // Refresh
                 if store.isRefreshing {
                     ProgressView().scaleEffect(0.45)
                 } else {
@@ -180,6 +177,16 @@ struct AIUsageStandardView: View {
                     }
                     .buttonStyle(.plain)
                 }
+            }
+
+            // Usage limits (session / weekly / daily) if available
+            if usage?.session != nil || usage?.weekly != nil || usage?.daily != nil {
+                Spacer(minLength: 8)
+                UsageLimitsSection(
+                    session: usage?.session,
+                    weekly: usage?.weekly,
+                    daily: usage?.daily
+                )
             }
 
             Spacer(minLength: 10)
@@ -203,7 +210,7 @@ struct AIUsageStandardView: View {
 
             Spacer(minLength: 10)
 
-            // Bar chart
+            // Bar chart (30 days)
             if !chartData.isEmpty {
                 MiniBarChart(data: chartData)
                 if let top = usage?.modelBreakdown?.first {
@@ -277,7 +284,67 @@ struct AIUsageFullView: View {
     }
 }
 
-// MARK: - Mini Bar Chart (14 vertical bars, no Charts dependency)
+// MARK: - Usage Limits Section (session / weekly / daily progress bars)
+
+private struct UsageLimitsSection: View {
+    let session: UsageTier?
+    let weekly: UsageTier?
+    let daily: UsageTier?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let session {
+                tierRow(label: "セッション", tier: session)
+            }
+            if let weekly {
+                tierRow(label: "週間", tier: weekly)
+            }
+            if let daily {
+                tierRow(label: "Daily Routines", tier: daily)
+            }
+        }
+        .padding(8)
+        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+    }
+
+    private func tierRow(label: String, tier: UsageTier) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(.white.opacity(0.12))
+                        .frame(height: 4)
+                    Capsule()
+                        .fill(progressColor(remaining: tier.percentRemaining))
+                        .frame(width: max(4, geo.size.width * CGFloat(1.0 - tier.percentRemaining)), height: 4)
+                }
+            }
+            .frame(height: 4)
+            HStack {
+                Text("\(Int(tier.percentRemaining * 100))% 残り")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+                if let resetAt = tier.resetsAt {
+                    Spacer()
+                    Text(resetAt, style: .date)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.quaternary)
+                }
+            }
+        }
+    }
+
+    private func progressColor(remaining: Double) -> Color {
+        if remaining < 0.1 { return .red }
+        if remaining < 0.3 { return .orange }
+        return DesignSystem.claudeAmber
+    }
+}
+
+// MARK: - Mini Bar Chart (30 vertical bars, no Charts dependency)
 
 private struct MiniBarChart: View {
     let data: [DailyUsage]
@@ -286,9 +353,10 @@ private struct MiniBarChart: View {
         let maxVal = data.map(\.costUSD).max() ?? 1
         let today = Calendar.current.startOfDay(for: Date())
 
-        HStack(alignment: .bottom, spacing: 3) {
+        HStack(alignment: .bottom, spacing: 2) {
             ForEach(data) { day in
-                let frac = maxVal > 0 ? CGFloat(day.costUSD / maxVal) : 0
+                // Power curve 0.7 prevents extreme values from crushing the rest
+                let frac = maxVal > 0 ? CGFloat(pow(day.costUSD / maxVal, 0.7)) : 0
                 let isToday = Calendar.current.startOfDay(for: day.date) == today
                 RoundedRectangle(cornerRadius: 1.5)
                     .fill(DesignSystem.claudeAmber.opacity(isToday ? 1.0 : 0.45 + 0.4 * frac))

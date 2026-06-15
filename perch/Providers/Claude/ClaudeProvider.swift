@@ -1,3 +1,4 @@
+import Defaults
 import Foundation
 
 nonisolated struct ClaudeProvider: AIProvider {
@@ -22,14 +23,27 @@ nonisolated struct ClaudeProvider: AIProvider {
 
     nonisolated func fetchUsage() async throws -> AIUsageData {
         let dir = projectsDir
+        let (sessionLimit, weeklyLimit, dailyLimit) = await MainActor.run {
+            (Defaults[.claudeSessionTokenLimit], Defaults[.claudeWeeklyTokenLimit], Defaults[.claudeDailyTokenLimit])
+        }
         return try await Task.detached(priority: .utility) {
-            try Self.parseProjects(in: dir)
+            try Self.parseProjects(
+                in: dir,
+                sessionLimit: sessionLimit,
+                weeklyLimit: weeklyLimit,
+                dailyLimit: dailyLimit
+            )
         }.value
     }
 
     // MARK: - Parsing (off main thread)
 
-    private nonisolated static func parseProjects(in dir: URL) throws -> AIUsageData {
+    private nonisolated static func parseProjects(
+        in dir: URL,
+        sessionLimit: Int,
+        weeklyLimit: Int,
+        dailyLimit: Int
+    ) throws -> AIUsageData {
         let fm = FileManager.default
         guard fm.fileExists(atPath: dir.path) else {
             return AIUsageData(planName: "Claude Code", lastUpdated: Date())
@@ -44,6 +58,8 @@ nonisolated struct ClaudeProvider: AIProvider {
         let decoder = JSONDecoder()
         let now = Date()
         let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: now) ?? now
+        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now
+        let oneHourAgo = Calendar.current.date(byAdding: .hour, value: -1, to: now) ?? now
         let todayKey = dayFormatter.string(from: now)
 
         // ccusage uses (messageId, requestId) composite key for cross-file dedup
@@ -55,6 +71,8 @@ nonisolated struct ClaudeProvider: AIProvider {
         var dayToCacheCreationTokens: [String: Int] = [:]
         var modelCost: [String: Double] = [:]
         var modelTotalTokens: [String: Int] = [:]
+        var sessionTokens = 0  // last 1 hour (session approximation)
+        var weekTokens = 0  // last 7 days
 
         guard
             let enumerator = fm.enumerator(
@@ -159,14 +177,16 @@ nonisolated struct ClaudeProvider: AIProvider {
                 }
 
                 let cacheCreationTotal = cache5mTokens + cache1hTokens
+                let entryTokens = inputTokens + outputTokens + cacheReadTokens + cacheCreationTotal
                 dayToCost[key, default: 0] += cost
                 dayToInputTokens[key, default: 0] += inputTokens
                 dayToOutputTokens[key, default: 0] += outputTokens
                 dayToCacheReadTokens[key, default: 0] += cacheReadTokens
                 dayToCacheCreationTokens[key, default: 0] += cacheCreationTotal
                 modelCost[model, default: 0] += cost
-                modelTotalTokens[model, default: 0] +=
-                    inputTokens + outputTokens + cacheReadTokens + cacheCreationTotal
+                modelTotalTokens[model, default: 0] += entryTokens
+                if date >= oneHourAgo { sessionTokens += entryTokens }
+                if date >= sevenDaysAgo { weekTokens += entryTokens }
             }
         }
 
@@ -194,7 +214,25 @@ nonisolated struct ClaudeProvider: AIProvider {
             + dayToCacheReadTokens.values.reduce(0, +)
             + dayToCacheCreationTokens.values.reduce(0, +)
 
+        // Usage tiers: percentRemaining = how much of the limit is still available
+        let sessionPct =
+            sessionLimit > 0
+            ? max(0, 1.0 - Double(sessionTokens) / Double(sessionLimit)) : 1.0
+        let weeklyPct =
+            weeklyLimit > 0
+            ? max(0, 1.0 - Double(weekTokens) / Double(weeklyLimit)) : 1.0
+        let dailyPct =
+            dailyLimit > 0
+            ? max(0, 1.0 - Double(todayTokens) / Double(dailyLimit)) : 1.0
+
+        let nextHour = Calendar.current.date(byAdding: .hour, value: 1, to: now)
+        let nextWeek = Calendar.current.date(byAdding: .day, value: 7, to: sevenDaysAgo)
+        let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now))
+
         return AIUsageData(
+            session: UsageTier(percentRemaining: sessionPct, resetsAt: nextHour, label: "セッション"),
+            weekly: UsageTier(percentRemaining: weeklyPct, resetsAt: nextWeek, label: "週間"),
+            daily: UsageTier(percentRemaining: dailyPct, resetsAt: nextDay, label: "Daily Routines"),
             cost: CostInfo(
                 todayUSD: todayUSD,
                 thirtyDayUSD: thirtyDayUSD,
