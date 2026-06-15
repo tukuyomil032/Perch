@@ -215,7 +215,7 @@ nonisolated enum ClaudeLocalUsageParser {
 
 // MARK: - Private JSONL Decodable models (prefixed to avoid name collisions)
 
-private struct LocalClaudeEntry: Decodable {
+private nonisolated struct LocalClaudeEntry: Decodable {
     let type: String
     let isSidechain: Bool?
     let isApiErrorMessage: Bool?
@@ -225,13 +225,13 @@ private struct LocalClaudeEntry: Decodable {
     let message: LocalClaudeMessage?
 }
 
-private struct LocalClaudeMessage: Decodable {
+private nonisolated struct LocalClaudeMessage: Decodable {
     let id: String?
     let model: String?
     let usage: LocalClaudeUsage?
 }
 
-private struct LocalClaudeUsage: Decodable {
+private nonisolated struct LocalClaudeUsage: Decodable {
     let inputTokens: Int?
     let outputTokens: Int?
     let cacheReadInputTokens: Int?
@@ -247,7 +247,7 @@ private struct LocalClaudeUsage: Decodable {
     }
 }
 
-private struct LocalCacheCreationBreakdown: Decodable {
+private nonisolated struct LocalCacheCreationBreakdown: Decodable {
     let ephemeral5mInputTokens: Int?
     let ephemeral1hInputTokens: Int?
 
