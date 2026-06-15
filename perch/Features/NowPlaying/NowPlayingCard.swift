@@ -13,6 +13,7 @@ struct NowPlayingCard: View {
     @State private var showLyricsFullView: Bool = false
     @State private var isScrubbing: Bool = false
     @State private var scrubProgress: Double = 0
+    @State private var waveformPalette = ArtworkPalette.fallback
 
     var body: some View {
         Group {
@@ -21,6 +22,9 @@ struct NowPlayingCard: View {
             } else {
                 twoColumnView
             }
+        }
+        .task(id: state.artworkID) {
+            waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
         }
         .task(id: state.title + state.artist) {
             guard state.source != .mrMediaRemote, !state.isAd else {
@@ -45,7 +49,7 @@ struct NowPlayingCard: View {
         ZStack(alignment: .topLeading) {
             BackgroundVisualizerView(
                 isPlaying: state.isPlaying,
-                color: state.artwork?.dominantColor() ?? .white
+                color: waveformPalette.primary
             )
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 12) {
@@ -68,9 +72,11 @@ struct NowPlayingCard: View {
                 HStack(spacing: 0) {
                     WaveformView(
                         isPlaying: state.isPlaying,
-                        color: state.artwork?.dominantColor() ?? .white.opacity(0.8),
-                        externalLevels: manager.audioCaptureService.rmsLevels.allSatisfy({ $0 == 0 })
-                            ? nil : manager.audioCaptureService.rmsLevels
+                        colors: waveformPalette.gradientColors,
+                        externalLevels: manager.audioCaptureService.isCaptureActive
+                            ? manager.audioCaptureService.rmsLevels
+                            : nil,
+                        usesSyntheticFallback: !manager.audioCaptureService.isCaptureActive
                     )
                     .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
                     .padding(.trailing, 6)
