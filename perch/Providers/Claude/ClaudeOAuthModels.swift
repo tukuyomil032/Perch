@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - API response models (typed Decodable — no [String: Any] in production)
 
-struct ClaudeOAuthUsageResponse: Decodable, Sendable {
+nonisolated struct ClaudeOAuthUsageResponse: Decodable, Sendable {
     let fiveHour: ClaudeUsageBucket?
     let sevenDay: ClaudeUsageBucket?
     let sevenDayRoutines: ClaudeUsageBucket?
@@ -16,7 +16,7 @@ struct ClaudeOAuthUsageResponse: Decodable, Sendable {
     }
 }
 
-struct ClaudeUsageBucket: Decodable, Sendable {
+nonisolated struct ClaudeUsageBucket: Decodable, Sendable {
     let utilization: Double
     let resetsAt: Date?
 
@@ -28,21 +28,21 @@ struct ClaudeUsageBucket: Decodable, Sendable {
 
 // MARK: - Intermediate domain models
 
-struct ClaudeLimitUsage: Sendable {
+nonisolated struct ClaudeLimitUsage: Sendable {
     let session: UsageWindow?
     let weekly: UsageWindow?
     let routines: UsageWindow?
     let planName: String?
 }
 
-struct UsageWindow: Sendable {
+nonisolated struct UsageWindow: Sendable {
     let usedFraction: Double  // 0.0–1.0
     let resetsAt: Date?
 }
 
 // MARK: - Local JSONL statistics
 
-struct ClaudeLocalUsage: Sendable {
+nonisolated struct ClaudeLocalUsage: Sendable {
     let todayTokens: Int
     let thirtyDayTokens: Int
     let todayCostUSD: Double
