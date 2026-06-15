@@ -7,18 +7,27 @@ import Foundation
 /// The class is marked @unchecked Sendable because the owner guarantees serial
 /// access. Do not call consume/reset concurrently from arbitrary queues.
 final class AudioSpectrumAnalyzer: @unchecked Sendable {
-    nonisolated(unsafe) static let bandCount = 8
+    nonisolated(unsafe) static let bandCount = 6
 
     nonisolated(unsafe) private let fftSize = 2_048
     nonisolated(unsafe) private let hopSize = 512
-    nonisolated(unsafe) private let bandEdgesHz: [Float] = [45, 90, 180, 360, 720, 1_440, 2_880, 5_760, 12_000]
-    nonisolated(unsafe) private let bandGainDB: [Float] = [0, 0.5, 1.5, 2.5, 4, 5.5, 7.5, 9.5]
+
+    // Six broad bands covering the full audible range.
+    nonisolated(unsafe) private let bandEdgesHz: [Float] = [55, 130, 300, 700, 1_600, 4_000, 12_000]
+
+    // Gentle high-shelf gain to compensate for natural low-frequency dominance.
+    nonisolated(unsafe) private let bandGainDB: [Float] = [0, 1.0, 2.0, 3.5, 5.0, 7.0]
+
+    // Per-bar attack/release times (seconds) give each bar independent inertia.
+    nonisolated(unsafe) private let attackTimes: [Float] = [0.030, 0.045, 0.024, 0.038, 0.027, 0.050]
+    nonisolated(unsafe) private let releaseTimes: [Float] = [0.170, 0.230, 0.150, 0.210, 0.180, 0.260]
+
     nonisolated(unsafe) private let fftSetup: FFTSetup
     nonisolated(unsafe) private let window: [Float]
     nonisolated(unsafe) private let publishInterval: TimeInterval
 
     nonisolated(unsafe) private var accumulator: [Float] = []
-    nonisolated(unsafe) private var smoothedLevels = [Float](repeating: 0, count: 8)
+    nonisolated(unsafe) private var smoothedLevels = [Float](repeating: 0, count: 6)
     nonisolated(unsafe) private var autoGainDB: Float = 0
     nonisolated(unsafe) private var lastPublishedAt: TimeInterval = 0
     nonisolated(unsafe) private var currentSampleRate: Float = 44_100
@@ -91,8 +100,7 @@ final class AudioSpectrumAnalyzer: @unchecked Sendable {
         let halfSize = fftSize / 2
         let log2n = vDSP_Length(log2(Double(fftSize)))
 
-        // Remove DC before windowing. Otherwise the first visual band can stay
-        // artificially high even when no audible bass is present.
+        // Remove DC before windowing.
         var centred = frame
         var mean: Float = 0
         vDSP_meanv(centred, 1, &mean, vDSP_Length(fftSize))
@@ -128,7 +136,6 @@ final class AudioSpectrumAnalyzer: @unchecked Sendable {
             }
         }
 
-        // The Hann window has a coherent gain of roughly 0.5, hence 4/N.
         var amplitudeScale = 4 / Float(fftSize)
         vDSP_vsmul(real, 1, &amplitudeScale, &real, 1, vDSP_Length(halfSize))
         vDSP_vsmul(imaginary, 1, &amplitudeScale, &imaginary, 1, vDSP_Length(halfSize))
@@ -144,8 +151,6 @@ final class AudioSpectrumAnalyzer: @unchecked Sendable {
             }
         }
 
-        // In a packed real FFT, index 0 contains DC/Nyquist bookkeeping rather
-        // than a normal audible bin. Ignore it completely.
         power[0] = 0
 
         let binWidth = sampleRate / Float(fftSize)
@@ -163,8 +168,6 @@ final class AudioSpectrumAnalyzer: @unchecked Sendable {
             let meanPower = slice.reduce(0, +) / Float(slice.count)
             let peakPower = slice.max() ?? 0
 
-            // Mean energy keeps the display stable; a small peak component
-            // preserves transients such as kicks and hi-hats.
             let visualPower = 0.78 * meanPower + 0.22 * peakPower
             let db = 10 * log10(max(visualPower, 1e-12))
             return db + bandGainDB[band]
@@ -176,8 +179,6 @@ final class AudioSpectrumAnalyzer: @unchecked Sendable {
 
         let framePeak = bandDB.max() ?? -120
 
-        // Gentle automatic gain makes quiet and loud sources occupy a similar
-        // visual range without amplifying silence indefinitely.
         if framePeak > -72 {
             let desiredGain = clamp(-14 - framePeak, minimum: -8, maximum: 18)
             let coefficient: Float = desiredGain < autoGainDB ? 0.16 : 0.025
@@ -187,44 +188,65 @@ final class AudioSpectrumAnalyzer: @unchecked Sendable {
         let floorDB: Float = -60
         let ceilingDB: Float = -14
 
+        // Restrained normalization: power 0.88 prevents quiet bands from
+        // looking artificially tall. Noise gate at 0.10 restores true silence.
         var normalized = bandDB.map { db -> Float in
             let linear = clamp(
                 (db + autoGainDB - floorDB) / (ceilingDB - floorDB),
                 minimum: 0,
                 maximum: 1
             )
-
-            // Expand quiet detail while retaining headroom for transients.
-            let compressed = powf(linear, 0.62)
-            return compressed < 0.025 ? 0 : compressed
+            let shaped = powf(linear, 0.88)
+            guard shaped > 0.10 else { return 0 }
+            return min(1, (shaped - 0.10) / 0.90)
         }
 
-        // Small spatial blur makes eight tiny bars read as one coherent audio
-        // activity instead of eight unrelated meters.
-        var spatiallySmoothed = normalized
-        for index in normalized.indices {
-            if index == 0 {
-                spatiallySmoothed[index] = 0.82 * normalized[index] + 0.18 * normalized[index + 1]
-            } else if index == normalized.count - 1 {
-                spatiallySmoothed[index] = 0.18 * normalized[index - 1] + 0.82 * normalized[index]
-            } else {
-                spatiallySmoothed[index] =
-                    0.14 * normalized[index - 1]
-                    + 0.72 * normalized[index]
-                    + 0.14 * normalized[index + 1]
-            }
-        }
-        normalized = spatiallySmoothed
+        // Remap frequency channels to a more Dynamic Island-like visual pattern.
+        // Mixes neighboring bands so the visual relationship doesn't follow a
+        // strict left=bass, right=treble spectrum slope.
+        let remapped = remapForDynamicIsland(normalized)
+
+        // Light spatial smoothing (0.04/0.92/0.04) preserves bar independence.
+        // The previous 0.14/0.72/0.14 blended bars too strongly together.
+        normalized = applySpatialSmoothing(remapped)
 
         let frameDuration = Float(hopSize) / sampleRate
-        let attack = 1 - expf(-frameDuration / 0.035)
-        let release = 1 - expf(-frameDuration / 0.20)
 
+        // Per-bar attack/release prevents all bars sharing the same inertia.
         for index in 0..<Self.bandCount {
             let target = normalized[index]
+            let attack = 1 - expf(-frameDuration / attackTimes[index])
+            let release = 1 - expf(-frameDuration / releaseTimes[index])
             let coefficient = target > smoothedLevels[index] ? attack : release
             smoothedLevels[index] += (target - smoothedLevels[index]) * coefficient
             smoothedLevels[index] = clamp(smoothedLevels[index], minimum: 0, maximum: 1)
+        }
+    }
+
+    /// Remaps the six frequency-ordered bands into a visual channel order that
+    /// resembles the iOS Dynamic Island rather than a left-to-right spectrum slope.
+    nonisolated private func remapForDynamicIsland(_ s: [Float]) -> [Float] {
+        guard s.count >= 6 else { return s }
+        return [
+            s[0] * 0.80 + s[1] * 0.20,
+            s[0] * 0.20 + s[2] * 0.80,
+            s[1] * 0.25 + s[3] * 0.75,
+            s[2] * 0.20 + s[4] * 0.80,
+            s[3] * 0.30 + s[5] * 0.70,
+            s[4] * 0.45 + s[5] * 0.55,
+        ]
+    }
+
+    nonisolated private func applySpatialSmoothing(_ input: [Float]) -> [Float] {
+        guard input.count >= 2 else { return input }
+        return input.indices.map { index in
+            if index == 0 {
+                return input[index] * 0.94 + input[index + 1] * 0.06
+            } else if index == input.count - 1 {
+                return input[index - 1] * 0.06 + input[index] * 0.94
+            } else {
+                return input[index - 1] * 0.04 + input[index] * 0.92 + input[index + 1] * 0.04
+            }
         }
     }
 
