@@ -329,7 +329,7 @@ private struct UsageLimitsSection: View {
                     .foregroundStyle(.tertiary)
                 if let resetAt = tier.resetsAt {
                     Spacer()
-                    Text(resetAt, style: .date)
+                    Text("Reset \(formatResetDate(resetAt))")
                         .font(.system(size: 9))
                         .foregroundStyle(.quaternary)
                 }
@@ -387,4 +387,12 @@ private func formatTokens(_ count: Int) -> String {
     if count >= 1_000_000 { return String(format: "%.1fM tok", Double(count) / 1_000_000) }
     if count >= 1_000 { return String(format: "%.0fK tok", Double(count) / 1_000) }
     return "\(count) tok"
+}
+
+private func formatResetDate(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "MMM d HH:mm"
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = .current
+    return formatter.string(from: date)
 }

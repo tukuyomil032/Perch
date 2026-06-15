@@ -8,7 +8,7 @@ nonisolated struct ClaudeProvider: AIProvider {
     let icon = "message.circle.fill"
 
     nonisolated var isConfigured: Bool {
-        FileManager.default.fileExists(atPath: projectsDir.path)
+        Self.loadOAuthAccessToken() != nil || FileManager.default.fileExists(atPath: projectsDir.path)
     }
 
     nonisolated private var projectsDir: URL {
@@ -26,7 +26,8 @@ nonisolated struct ClaudeProvider: AIProvider {
         let (sessionLimit, weeklyLimit, dailyLimit) = await MainActor.run {
             (Defaults[.claudeSessionTokenLimit], Defaults[.claudeWeeklyTokenLimit], Defaults[.claudeDailyTokenLimit])
         }
-        return try await Task.detached(priority: .utility) {
+
+        let localUsage = try await Task.detached(priority: .utility) {
             try Self.parseProjects(
                 in: dir,
                 sessionLimit: sessionLimit,
@@ -34,6 +35,189 @@ nonisolated struct ClaudeProvider: AIProvider {
                 dailyLimit: dailyLimit
             )
         }.value
+
+        guard let accessToken = Self.loadOAuthAccessToken() else {
+            return localUsage
+        }
+
+        do {
+            let liveUsage = try await Self.fetchOAuthUsage(accessToken: accessToken)
+            return Self.merging(liveUsage: liveUsage, into: localUsage)
+        } catch {
+            return localUsage
+        }
+    }
+
+    // MARK: - Claude OAuth usage API
+
+    private nonisolated static func loadOAuthAccessToken() -> String? {
+        let env = ProcessInfo.processInfo.environment
+        if let token = env["CLAUDE_OAUTH_TOKEN"]?.trimmingCharacters(in: .whitespacesAndNewlines), !token.isEmpty {
+            return token
+        }
+        if let token = env["ANTHROPIC_OAUTH_TOKEN"]?.trimmingCharacters(in: .whitespacesAndNewlines), !token.isEmpty {
+            return token
+        }
+        return KeychainHelper.load(forKey: "claude_oauth_access_token")
+    }
+
+    private nonisolated static func fetchOAuthUsage(accessToken: String) async throws -> AIUsageData {
+        var req = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!)
+        req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.timeoutInterval = 15
+
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
+            throw ClaudeProviderError.httpError((resp as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw ClaudeProviderError.invalidResponse
+        }
+
+        let sessionLeft = normalizedFraction(
+            doubleValue(in: root, keys: ["fiveHourUsageLeftRate", "five_hour_usage_left_rate"]))
+        let weeklyLeft = normalizedFraction(
+            doubleValue(in: root, keys: ["weeklyUsageLeftRate", "weekly_usage_left_rate"]))
+
+        return AIUsageData(
+            session: sessionLeft.map {
+                UsageTier(
+                    percentRemaining: $0,
+                    resetsAt: dateValue(in: root, keys: ["fiveHourUsageResetTime", "five_hour_usage_reset_time"]),
+                    label: "セッション"
+                )
+            },
+            weekly: weeklyLeft.map {
+                UsageTier(
+                    percentRemaining: $0,
+                    resetsAt: dateValue(in: root, keys: ["weeklyUsageResetTime", "weekly_usage_reset_time"]),
+                    label: "週間"
+                )
+            },
+            daily: routineUsageTier(from: root),
+            planName: stringValue(in: root, keys: ["planName", "plan_name"]) ?? "Claude Code",
+            lastUpdated: Date()
+        )
+    }
+
+    private nonisolated static func merging(liveUsage: AIUsageData, into localUsage: AIUsageData) -> AIUsageData {
+        var merged = localUsage
+        if let session = liveUsage.session { merged.session = session }
+        if let weekly = liveUsage.weekly { merged.weekly = weekly }
+        if let daily = liveUsage.daily { merged.daily = daily }
+        if let planName = liveUsage.planName { merged.planName = planName }
+        merged.lastUpdated = liveUsage.lastUpdated ?? Date()
+        return merged
+    }
+
+    private nonisolated static func routineUsageTier(from root: [String: Any]) -> UsageTier? {
+        let preferredKeys = [
+            "seven_day_claude_routines", "seven_day_routines", "claude_routines", "routines", "routine",
+        ]
+        for key in preferredKeys {
+            if let tier = routineUsageTier(from: root[key]) {
+                return tier
+            }
+        }
+        return firstRoutineUsageTier(in: root)
+    }
+
+    private nonisolated static func routineUsageTier(from value: Any?) -> UsageTier? {
+        guard let dictionary = value as? [String: Any] else { return nil }
+        let utilization = normalizedFraction(
+            doubleValue(in: dictionary, keys: ["utilization", "usagePercent", "usage_percent"])
+        )
+        let usedFraction =
+            utilization
+            ?? usageFraction(
+                used: doubleValue(in: dictionary, keys: ["usage", "current_usage", "currentUsage", "used_credits"]),
+                limit: doubleValue(in: dictionary, keys: ["limit", "monthly_limit", "monthlyLimit"])
+            )
+        guard let usedFraction else { return nil }
+        return UsageTier(
+            percentRemaining: max(0, 1.0 - usedFraction),
+            resetsAt: dateValue(in: dictionary, keys: ["resets_at", "resetsAt", "reset_at", "resetAt"]),
+            label: "Daily Routines"
+        )
+    }
+
+    private nonisolated static func firstRoutineUsageTier(in value: Any) -> UsageTier? {
+        if let dictionary = value as? [String: Any] {
+            for (key, nested) in dictionary {
+                let lower = key.lowercased()
+                if lower.contains("routine"), let tier = routineUsageTier(from: nested) {
+                    return tier
+                }
+                if let tier = firstRoutineUsageTier(in: nested) {
+                    return tier
+                }
+            }
+        } else if let array = value as? [Any] {
+            for nested in array {
+                if let tier = firstRoutineUsageTier(in: nested) {
+                    return tier
+                }
+            }
+        }
+        return nil
+    }
+
+    private nonisolated static func doubleValue(in dictionary: [String: Any], keys: [String]) -> Double? {
+        for key in keys {
+            if let value = dictionary[key] as? Double { return value }
+            if let value = dictionary[key] as? Int { return Double(value) }
+            if let value = dictionary[key] as? String, let double = Double(value) { return double }
+        }
+        return nil
+    }
+
+    private nonisolated static func stringValue(in dictionary: [String: Any], keys: [String]) -> String? {
+        for key in keys {
+            if let value = dictionary[key] as? String, !value.isEmpty { return value }
+        }
+        return nil
+    }
+
+    private nonisolated static func dateValue(in dictionary: [String: Any], keys: [String]) -> Date? {
+        guard let raw = stringValue(in: dictionary, keys: keys) else { return nil }
+        return parseAPIDate(raw)
+    }
+
+    private nonisolated static func normalizedFraction(_ value: Double?) -> Double? {
+        guard let value else { return nil }
+        let fraction = value > 1 ? value / 100 : value
+        return min(1, max(0, fraction))
+    }
+
+    private nonisolated static func usageFraction(used: Double?, limit: Double?) -> Double? {
+        guard let used, let limit, limit > 0 else { return nil }
+        return min(1, max(0, used / limit))
+    }
+
+    private nonisolated static func parseAPIDate(_ raw: String) -> Date? {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: raw) { return date }
+        iso.formatOptions = [.withInternetDateTime]
+        if let date = iso.date(from: raw) { return date }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        for format in ["MMM d, h:mma", "MMM d, h:mm a", "MMM d 'at' h:mma", "MMM d 'at' h:mm a"] {
+            formatter.dateFormat = format
+            if let parsed = formatter.date(from: raw) {
+                return Calendar.current.date(
+                    bySetting: .year,
+                    value: Calendar.current.component(.year, from: Date()),
+                    of: parsed
+                )
+            }
+        }
+        return nil
     }
 
     // MARK: - Parsing (off main thread)
@@ -275,6 +459,11 @@ nonisolated struct ClaudeProvider: AIProvider {
         if lower.contains("haiku-3") { return "Haiku 3" }
         return raw
     }
+}
+
+enum ClaudeProviderError: Error {
+    case httpError(Int)
+    case invalidResponse
 }
 
 // MARK: - Private Decodable models
