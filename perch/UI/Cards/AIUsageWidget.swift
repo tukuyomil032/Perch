@@ -180,6 +180,23 @@ struct AIUsageStandardView: View {
                     }
                 }
 
+                // Warning banner (OAuth failure or local log error)
+                if let warning = usage?.warningMessage {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                        Text(warning)
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange.opacity(0.8))
+                            .lineLimit(2)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 4))
+                    .padding(.top, 6)
+                }
+
                 // Usage limits (session / weekly / daily) if available
                 if usage?.session != nil || usage?.weekly != nil || usage?.daily != nil {
                     Spacer(minLength: 8)
@@ -198,14 +215,14 @@ struct AIUsageStandardView: View {
                         label: "Today",
                         amount: usage?.cost.map { formatCost($0.todayUSD) } ?? "—",
                         tokens: usage?.cost.map { formatTokens($0.todayTokens) },
-                        isStale: store.lastRefreshError != nil && usage?.cost != nil
+                        isStale: usage?.warningMessage != nil && usage?.cost != nil
                     )
                     Spacer()
                     costColumn(
                         label: "30 days",
                         amount: usage?.cost.map { formatCost($0.thirtyDayUSD) } ?? "—",
                         tokens: usage?.cost.map { formatTokens($0.thirtyDayTokens) },
-                        isStale: store.lastRefreshError != nil && usage?.cost != nil
+                        isStale: usage?.warningMessage != nil && usage?.cost != nil
                     )
                 }
 
