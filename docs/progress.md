@@ -341,6 +341,17 @@
 - [ ] T5-5: DevStatusCard
 - [ ] T5-6: ピル通知 + macOS通知センター連携
 
+### 将来機能: サテライトサークル（将来フェーズで実装予定）
+
+`CompactPillView.isSatelliteVisible` は現在 `false` で固定。
+将来、以下のコンテンツを表示するために実装を再開する:
+- タイマー（集中モード残り時間表示）
+- 集中モード ON/OFF トグル
+- **Claude Code / Codex CLI のリアルタイム実行ステータス**（BoringNotch "activity" スタイル）
+  - キャラクターアニメーション（ASCII art が動く既存アプリ参考）
+  - ツール実行中インジケータ
+  - [参考アプリ調査必要: Claude Code status display apps]
+
 ---
 
 ## Phase 6: Stabilization & Distribution (v1.0)
