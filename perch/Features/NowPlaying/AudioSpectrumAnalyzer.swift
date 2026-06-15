@@ -225,15 +225,18 @@ final class AudioSpectrumAnalyzer: @unchecked Sendable {
 
     /// Remaps the six frequency-ordered bands into a visual channel order that
     /// resembles the iOS Dynamic Island rather than a left-to-right spectrum slope.
+    /// Bass energy (s[0]) is spread across all six bars rather than concentrated
+    /// on bars 0–1, which previously caused persistent left-side dominance in
+    /// bass-heavy genres (hip-hop, trap, etc.).
     nonisolated private func remapForDynamicIsland(_ s: [Float]) -> [Float] {
         guard s.count >= 6 else { return s }
         return [
-            s[0] * 0.80 + s[1] * 0.20,
-            s[0] * 0.20 + s[2] * 0.80,
-            s[1] * 0.25 + s[3] * 0.75,
-            s[2] * 0.20 + s[4] * 0.80,
-            s[3] * 0.30 + s[5] * 0.70,
-            s[4] * 0.45 + s[5] * 0.55,
+            s[0] * 0.40 + s[5] * 0.40 + s[2] * 0.20,  // bar0: bass+treble+mid
+            s[1] * 0.55 + s[4] * 0.45,  // bar1: low-mid+high
+            s[0] * 0.30 + s[2] * 0.50 + s[4] * 0.20,  // bar2: mid-dominated
+            s[1] * 0.25 + s[3] * 0.50 + s[5] * 0.25,  // bar3: mid-high
+            s[0] * 0.40 + s[4] * 0.35 + s[3] * 0.25,  // bar4: bass+high+mid
+            s[5] * 0.40 + s[2] * 0.35 + s[3] * 0.25,  // bar5: treble+mid
         ]
     }
 
