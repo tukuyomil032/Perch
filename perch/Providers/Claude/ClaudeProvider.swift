@@ -58,6 +58,15 @@ nonisolated struct ClaudeProvider: AIProvider {
         if let token = env["ANTHROPIC_OAUTH_TOKEN"]?.trimmingCharacters(in: .whitespacesAndNewlines), !token.isEmpty {
             return token
         }
+        // Claude Code stores OAuth credentials in ~/.claude/.credentials.json
+        let credPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/.credentials.json")
+        if let data = try? Data(contentsOf: credPath),
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let token = json["access_token"] as? String, !token.isEmpty
+        {
+            return token
+        }
         return KeychainHelper.load(forKey: "claude_oauth_access_token")
     }
 
@@ -66,6 +75,8 @@ nonisolated struct ClaudeProvider: AIProvider {
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
+        // Required to avoid aggressive rate-limiting (429)
+        req.setValue("claude-code/1.0", forHTTPHeaderField: "User-Agent")
         req.timeoutInterval = 15
 
         let (data, resp) = try await URLSession.shared.data(for: req)
@@ -77,27 +88,22 @@ nonisolated struct ClaudeProvider: AIProvider {
             throw ClaudeProviderError.invalidResponse
         }
 
-        let sessionLeft = normalizedFraction(
-            doubleValue(in: root, keys: ["fiveHourUsageLeftRate", "five_hour_usage_left_rate"]))
-        let weeklyLeft = normalizedFraction(
-            doubleValue(in: root, keys: ["weeklyUsageLeftRate", "weekly_usage_left_rate"]))
+        // API returns nested windows: five_hour, seven_day, seven_day_routines
+        // utilization = fraction USED (0.0–1.0), so percentRemaining = 1 - utilization
+        func parseTier(_ key: String, label: String) -> UsageTier? {
+            guard let window = root[key] as? [String: Any],
+                let utilization = doubleValue(in: window, keys: ["utilization"])
+            else { return nil }
+            let remaining = max(0.0, 1.0 - min(1.0, utilization))
+            let resetsAt = dateValue(in: window, keys: ["resets_at", "resetsAt"])
+            return UsageTier(percentRemaining: remaining, resetsAt: resetsAt, label: label)
+        }
 
         return AIUsageData(
-            session: sessionLeft.map {
-                UsageTier(
-                    percentRemaining: $0,
-                    resetsAt: dateValue(in: root, keys: ["fiveHourUsageResetTime", "five_hour_usage_reset_time"]),
-                    label: "セッション"
-                )
-            },
-            weekly: weeklyLeft.map {
-                UsageTier(
-                    percentRemaining: $0,
-                    resetsAt: dateValue(in: root, keys: ["weeklyUsageResetTime", "weekly_usage_reset_time"]),
-                    label: "週間"
-                )
-            },
-            daily: routineUsageTier(from: root),
+            session: parseTier("five_hour", label: "セッション"),
+            weekly: parseTier("seven_day", label: "週間"),
+            daily: parseTier("seven_day_routines", label: "Daily Routines")
+                ?? routineUsageTier(from: root),
             planName: stringValue(in: root, keys: ["planName", "plan_name"]) ?? "Claude Code",
             lastUpdated: Date()
         )
