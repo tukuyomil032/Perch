@@ -5,15 +5,15 @@ import Security
 
 nonisolated enum ClaudeCredentialResolver {
     /// Resolves the OAuth access token using this priority:
-    /// 1. CLAUDE_OAUTH_TOKEN env var
-    /// 2. ANTHROPIC_OAUTH_TOKEN env var
-    /// 3. ~/.claude/.credentials.json (Claude Code's own credential file)
-    /// 4. Perch Keychain (com.tukuyomi032.perch.claude)
+    /// 1. CLAUDE_CODE_OAUTH_TOKEN env var (official Claude Code env var)
+    /// 2. ~/.claude/.credentials.json → claudeAiOauth.accessToken
+    /// 3. macOS Keychain via /usr/bin/security (Claude Code-credentials / oauth.claude)
+    /// 4. Perch Keychain (com.tukuyomi032.perch.claude) for manually entered tokens
     static func resolveAccessToken() -> String? {
         let env = ProcessInfo.processInfo.environment
-        if let token = normalized(env["CLAUDE_OAUTH_TOKEN"]) { return token }
-        if let token = normalized(env["ANTHROPIC_OAUTH_TOKEN"]) { return token }
+        if let token = normalized(env["CLAUDE_CODE_OAUTH_TOKEN"]) { return token }
         if let token = credentialsJsonToken() { return token }
+        if let token = claudeCodeKeychainToken() { return token }
         return try? ClaudeCredentialStore.loadAccessToken()
     }
 
@@ -22,12 +22,67 @@ nonisolated enum ClaudeCredentialResolver {
         return v
     }
 
+    /// Reads ~/.claude/.credentials.json with the claudeAiOauth.accessToken structure
+    /// used by Claude Code CLI on Linux/Windows.
     private static func credentialsJsonToken() -> String? {
         let path = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/.credentials.json")
         guard let data = try? Data(contentsOf: path),
             let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let token = json["access_token"] as? String,
+            let oauth = json["claudeAiOauth"] as? [String: Any],
+            let token = oauth["accessToken"] as? String,
+            !token.isEmpty
+        else { return nil }
+        return token
+    }
+
+    /// Reads Claude Code's macOS Keychain entry via /usr/bin/security subprocess.
+    /// Claude Code stores credentials as JSON under service="Claude Code-credentials" / account="oauth.claude".
+    /// Using the security CLI avoids ACL restrictions that block direct SecItemCopyMatching from other apps.
+    private static func claudeCodeKeychainToken() -> String? {
+        let securityPath = "/usr/bin/security"
+        guard FileManager.default.isExecutableFile(atPath: securityPath) else { return nil }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: securityPath)
+        process.arguments = [
+            "find-generic-password",
+            "-s", "Claude Code-credentials",
+            "-a", "oauth.claude",
+            "-w",
+        ]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+
+        do {
+            try process.run()
+        } catch {
+            return nil
+        }
+
+        let deadline = Date().addingTimeInterval(1.5)
+        while process.isRunning, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        if process.isRunning {
+            process.terminate()
+            return nil
+        }
+        guard process.terminationStatus == 0 else { return nil }
+
+        let raw = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard
+            let trimmed = String(data: raw, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            !trimmed.isEmpty
+        else { return nil }
+
+        // The stored data is JSON: {"claudeAiOauth": {"accessToken": "sk-ant-oat..."}}
+        guard let jsonData = trimmed.data(using: .utf8),
+            let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+            let oauth = json["claudeAiOauth"] as? [String: Any],
+            let token = oauth["accessToken"] as? String,
             !token.isEmpty
         else { return nil }
         return token
