@@ -73,7 +73,7 @@ struct ExpandedIslandView: View {
     }
 
     private let widgetSizeHeights: [WidgetSize: CGFloat] = [
-        .mini: 36, .compact: 52, .standard: 264, .full: 320,
+        .mini: 36, .compact: 52, .standard: 264, .full: 360,
     ]
 
     @ViewBuilder
