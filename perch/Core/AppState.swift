@@ -13,11 +13,12 @@ final class AppState {
     let widgetRegistry = WidgetRegistry()
 
     var expandedWindowHeight: CGFloat {
-        guard let preset = presetStore.activePreset else { return 280 }
+        guard let preset = presetStore.activePreset else { return 300 }
         let sizeHeights: [WidgetSize: CGFloat] = [.mini: 36, .compact: 52, .standard: 264, .full: 320]
         let widgetTotal = preset.widgets.map { sizeHeights[$0.size] ?? 44 }.reduce(0, +)
-        let gaps = CGFloat(max(0, preset.widgets.count - 1)) * 8
-        return 52 + widgetTotal + gaps + 16
+        let hasSidebar = preset.widgets.contains { $0.position != .main }
+        // header(39) + header-divider(1) + widgets + optional-section-divider(1)
+        return 40 + widgetTotal + (hasSidebar ? 1 : 0)
     }
 
     /// Compact window width: 20px wider than pill content to give buffer for scaleEffect (max 1.05×).
