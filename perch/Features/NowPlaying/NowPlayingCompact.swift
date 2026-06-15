@@ -25,6 +25,12 @@ struct NowPlayingCompact: View {
         .padding(.horizontal, 8)
         .task(id: state.artworkID) {
             waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
+            // artwork fetch is async — if nil at artworkID change, re-check after
+            // a brief window so the thumbnail updates once the fetch completes.
+            if state.artwork == nil {
+                try? await Task.sleep(for: .milliseconds(600))
+                waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
+            }
         }
     }
 
