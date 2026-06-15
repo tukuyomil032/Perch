@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Parser
 
-enum ClaudeLocalUsageParser {
+nonisolated enum ClaudeLocalUsageParser {
     static func parseUsage(in dir: URL) throws -> ClaudeLocalUsage {
         let fm = FileManager.default
         guard fm.fileExists(atPath: dir.path) else {

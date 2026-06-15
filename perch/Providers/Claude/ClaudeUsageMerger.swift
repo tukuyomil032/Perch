@@ -1,6 +1,6 @@
 import Foundation
 
-enum ClaudeUsageMerger {
+nonisolated enum ClaudeUsageMerger {
     static func merge(
         remote: Result<ClaudeLimitUsage, ClaudeProviderError>,
         local: Result<ClaudeLocalUsage, ClaudeProviderError>

@@ -3,7 +3,7 @@ import Security
 
 // MARK: - Credential resolution (read-only, priority order)
 
-enum ClaudeCredentialResolver {
+nonisolated enum ClaudeCredentialResolver {
     /// Resolves the OAuth access token using this priority:
     /// 1. CLAUDE_OAUTH_TOKEN env var
     /// 2. ANTHROPIC_OAUTH_TOKEN env var
@@ -36,7 +36,7 @@ enum ClaudeCredentialResolver {
 
 // MARK: - Perch-owned Keychain storage (for manually entered tokens)
 
-enum ClaudeCredentialStore {
+nonisolated enum ClaudeCredentialStore {
     private static let service = "com.tukuyomi032.perch.claude"
     private static let account = "oauth-access-token"
 
@@ -89,7 +89,7 @@ enum ClaudeCredentialStore {
     }
 }
 
-enum CredentialError: LocalizedError {
+nonisolated enum CredentialError: LocalizedError {
     case emptyToken, encodingFailed, decodingFailed
     case keychain(OSStatus)
 

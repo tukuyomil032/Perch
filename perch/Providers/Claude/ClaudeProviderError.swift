@@ -1,6 +1,6 @@
 import Foundation
 
-enum ClaudeProviderError: LocalizedError {
+nonisolated enum ClaudeProviderError: LocalizedError {
     case invalidURL
     case missingCredential
     case unauthorized
