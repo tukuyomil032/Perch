@@ -112,8 +112,8 @@ struct WaveformView: View {
 
     // MARK: - Synthetic fallback
 
-    // Irrational frequency ratios (√2, √3, √5, φ, …) ensure bars never synchronise.
-    private let barFreqs: [Double] = [1.414, 1.732, 2.236, 1.618, 1.931, 2.449]
+    // Higher, fully-irrational frequencies (√6, π, √3, e, √15, √(3.73)) per bar.
+    private let barFreqs: [Double] = [2.414, 3.146, 1.732, 2.718, 3.873, 1.931]
     private let barPhases: [Double] = [0.000, 1.173, 2.427, 0.893, 1.972, 3.217]
 
     private func syntheticLevels(at date: Date) -> [Float] {
@@ -122,13 +122,13 @@ struct WaveformView: View {
         return (0..<barCount).map { i in
             let f = barFreqs[i]
             let p = barPhases[i]
-            // Golden-ratio harmonic cascade: f, f×φ, f×φ² → naturally aperiodic
-            let a1 = 0.28 * sin(t * f + p)
-            let a2 = 0.13 * sin(t * f * 1.618 + p * 0.713)
-            let a3 = 0.07 * sin(t * f * 2.618 + p * 1.291)
+            let a1 = 0.30 * sin(t * f + p)
+            let a2 = 0.14 * sin(t * f * 1.618 + p * 0.713)
+            // Rectified sine → peaks only, flat valleys = organic pulse feel
+            let spike = 0.12 * max(0, sin(t * f * 5.83 + p * 2.71))
             // Slow shared breath (period ≈17 s) ties bars loosely together
             let breath = 0.04 * sin(t * 0.371 + Double(i) * 0.524)
-            return Float(min(0.88, max(0.06, 0.55 + a1 + a2 + a3 + breath)))
+            return Float(min(0.90, max(0.05, 0.50 + a1 + a2 + spike + breath)))
         }
     }
 }
