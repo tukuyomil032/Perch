@@ -14,7 +14,7 @@ final class AppState {
 
     var expandedWindowHeight: CGFloat {
         guard let preset = presetStore.activePreset else { return 280 }
-        let sizeHeights: [WidgetSize: CGFloat] = [.mini: 36, .compact: 52, .standard: 140, .full: 280]
+        let sizeHeights: [WidgetSize: CGFloat] = [.mini: 36, .compact: 52, .standard: 264, .full: 320]
         let widgetTotal = preset.widgets.map { sizeHeights[$0.size] ?? 44 }.reduce(0, +)
         let gaps = CGFloat(max(0, preset.widgets.count - 1)) * 8
         return 52 + widgetTotal + gaps + 16

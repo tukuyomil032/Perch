@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowController: IslandWindowController?
     private var menuBarController: MenuBarController?
     private var mouseMonitor: MouseEventMonitor?
-    private let appState = AppState()
+    let appState = AppState()
     private let logger = Logger(label: "com.tukuyomi032.perch.AppDelegate")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
