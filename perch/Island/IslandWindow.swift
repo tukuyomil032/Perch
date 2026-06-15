@@ -32,7 +32,7 @@ final class IslandWindow: NSWindow {
         tabbingMode = .disallowed
     }
 
-    override var canBecomeKey: Bool { true }
+    override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
     // Prevent SwiftUI's updateAnimatedWindowSize from recursively calling setFrame

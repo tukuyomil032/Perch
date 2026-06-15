@@ -1,6 +1,17 @@
 import Defaults
 import Foundation
 
+enum PillBackgroundStyle: String, CaseIterable, Defaults.Serializable {
+    case glassBlack
+    case glassWhite
+    var displayName: String {
+        switch self {
+        case .glassBlack: return "Glass Black"
+        case .glassWhite: return "Glass White"
+        }
+    }
+}
+
 enum PillSizePreset: String, CaseIterable, Defaults.Serializable {
     case small, medium, large
     var pillWidth: CGFloat {
@@ -44,4 +55,8 @@ extension Defaults.Keys {
     static let notchSimulationMode = Key<NotchSimulationMode>("notchSimulationMode", default: .auto)
     static let pillSize = Key<PillSizePreset>("pillSize", default: .medium)
     static let showSatelliteCircle = Key<Bool>("showSatelliteCircle", default: false)
+    static let pillBackgroundStyle = Key<PillBackgroundStyle>("pillBackgroundStyle", default: .glassBlack)
+    static let claudeSessionTokenLimit = Key<Int>("claudeSessionTokenLimit", default: 88_000)
+    static let claudeWeeklyTokenLimit = Key<Int>("claudeWeeklyTokenLimit", default: 500_000)
+    static let claudeDailyTokenLimit = Key<Int>("claudeDailyTokenLimit", default: 88_000)
 }

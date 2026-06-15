@@ -51,11 +51,19 @@ private struct IslandTab: View {
     @Binding var animationSpeed: Double
     @Binding var autoCollapseDelay: Double
     @Default(.pillSize) private var pillSize
+    @Default(.pillBackgroundStyle) private var pillBgStyle
 
     var body: some View {
         Form {
             Picker(L10n.string("settings.pill_size"), selection: $pillSize) {
                 ForEach(PillSizePreset.allCases, id: \.self) {
+                    Text($0.displayName).tag($0)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Picker("Pill Background", selection: $pillBgStyle) {
+                ForEach(PillBackgroundStyle.allCases, id: \.self) {
                     Text($0.displayName).tag($0)
                 }
             }
