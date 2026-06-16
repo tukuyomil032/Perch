@@ -40,17 +40,20 @@ nonisolated enum ClaudeUsageMerger {
         let session = limits?.session.map { window in
             UsageTier(
                 usedFraction: window.usedFraction, resetsAt: window.resetsAt,
-                label: "セッション", source: .anthropicOAuth)
+                label: "セッション", source: .anthropicOAuth,
+                periodDuration: 5 * 3600)
         }
         let weekly = limits?.weekly.map { window in
             UsageTier(
                 usedFraction: window.usedFraction, resetsAt: window.resetsAt,
-                label: "週間", source: .anthropicOAuth)
+                label: "週間", source: .anthropicOAuth,
+                periodDuration: 7 * 24 * 3600)
         }
         let routines = limits?.routines.map { window in
             UsageTier(
                 usedFraction: window.usedFraction, resetsAt: window.resetsAt,
-                label: "Daily Routines", source: .anthropicOAuth)
+                label: "Daily Routines", source: .anthropicOAuth,
+                periodDuration: 7 * 24 * 3600)
         }
 
         let cost = local.map { l in
