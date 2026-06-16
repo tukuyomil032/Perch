@@ -133,8 +133,49 @@ private struct AIUsageTab: View {
     @State private var openRouterKey = ""
     @State private var openRouterMgmtKey = ""
 
+    @Default(.aiUsageShowRemaining) private var showRemaining
+    @Default(.aiUsageAbsoluteResetTime) private var absoluteResetTime
+    @Default(.aiUsageShowPace) private var showPace
+    @Default(.aiUsagePaceAbsoluteTime) private var paceAbsoluteTime
+
     var body: some View {
         Form {
+            Section("使用量 表示オプション") {
+                Toggle(isOn: $showRemaining) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("残り%で表示")
+                        Text("オフ: \"20% 使用\" / オン: \"80% 残り\"")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Toggle(isOn: $absoluteResetTime) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("リセット時刻を絶対表示")
+                        Text("オフ: \"リセット 2時間後\" / オン: \"10:50 にリセット\"")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Toggle(isOn: $showPace) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("消費ペースを表示")
+                        Text("余裕% / リセットまで持続 / 枯渇予測を表示")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if showPace {
+                    Toggle(isOn: $paceAbsoluteTime) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("枯渇予測を絶対時刻で表示")
+                            Text("オフ: \"あと 3h で枯渇\" / オン: \"13:00 に枯渇\"")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
             Section("OpenAI") {
                 SecureField("Admin API Key (required for usage data)", text: $openAIKey)
                     .onSubmit { saveOpenAIKey() }
