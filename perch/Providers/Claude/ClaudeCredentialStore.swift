@@ -48,7 +48,6 @@ nonisolated enum ClaudeCredentialResolver {
         process.arguments = [
             "find-generic-password",
             "-s", "Claude Code-credentials",
-            "-a", "oauth.claude",
             "-w",
         ]
         let pipe = Pipe()
