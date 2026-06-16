@@ -37,16 +37,18 @@ nonisolated enum CostCalculator {
             inputPerMillion: 1.0, outputPerMillion: 5.0, cacheReadPerMillion: 0.10, cacheWritePerMillion: 1.25),
         "claude-haiku-4-5-20251001": ModelPricing(
             inputPerMillion: 1.0, outputPerMillion: 5.0, cacheReadPerMillion: 0.10, cacheWritePerMillion: 1.25),
-        // ── OpenAI (GPT-5 / Codex) ──────────────────────────────────────────
+        // ── OpenAI (GPT-5 / Codex) ── Updated 2026-06-16 ───────────────────
         "gpt-5.5": ModelPricing(inputPerMillion: 5.0, outputPerMillion: 30.0, cacheReadPerMillion: 0.50),
-        "gpt-5.4": ModelPricing(inputPerMillion: 2.5, outputPerMillion: 15.0, cacheReadPerMillion: nil),
-        "gpt-5.3-codex": ModelPricing(inputPerMillion: 1.75, outputPerMillion: 14.0, cacheReadPerMillion: nil),
-        "gpt-5.1-codex-max": ModelPricing(inputPerMillion: 1.25, outputPerMillion: 10.0, cacheReadPerMillion: nil),
-        "gpt-5.1-codex-mini": ModelPricing(inputPerMillion: 0.25, outputPerMillion: 2.0, cacheReadPerMillion: nil),
+        "gpt-5.4": ModelPricing(inputPerMillion: 2.5, outputPerMillion: 15.0, cacheReadPerMillion: 0.25),
+        "gpt-5.4-mini": ModelPricing(inputPerMillion: 0.75, outputPerMillion: 4.50, cacheReadPerMillion: 0.075),
+        "gpt-5.3-codex": ModelPricing(inputPerMillion: 1.75, outputPerMillion: 14.0, cacheReadPerMillion: 0.175),
+        "gpt-5.2": ModelPricing(inputPerMillion: 1.75, outputPerMillion: 14.0, cacheReadPerMillion: 0.175),
+        "gpt-5.1-codex-max": ModelPricing(inputPerMillion: 1.25, outputPerMillion: 10.0, cacheReadPerMillion: 0.125),
+        "gpt-5.1-codex-mini": ModelPricing(inputPerMillion: 0.25, outputPerMillion: 2.0, cacheReadPerMillion: 0.025),
         "codex-mini": ModelPricing(inputPerMillion: 1.50, outputPerMillion: 6.0, cacheReadPerMillion: nil),
         "gpt-4.1": ModelPricing(inputPerMillion: 2.0, outputPerMillion: 8.0, cacheReadPerMillion: 0.50),
         "gpt-4.1-mini": ModelPricing(inputPerMillion: 0.40, outputPerMillion: 1.60, cacheReadPerMillion: 0.10),
-        "o3": ModelPricing(inputPerMillion: 2.0, outputPerMillion: 8.0, cacheReadPerMillion: nil),
+        "o3": ModelPricing(inputPerMillion: 2.0, outputPerMillion: 8.0, cacheReadPerMillion: 0.50),
         "o4-mini": ModelPricing(inputPerMillion: 0.55, outputPerMillion: 2.20, cacheReadPerMillion: nil),
         // ── Google Gemini ────────────────────────────────────────────────────
         "gemini-3.5-flash": ModelPricing(inputPerMillion: 1.50, outputPerMillion: 9.0, cacheReadPerMillion: 0.15),
