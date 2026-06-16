@@ -341,15 +341,16 @@ private struct UsageLimitsSection: View {
 
             // プログレスバー
             GeometryReader { geo in
+                let barFraction = showRemaining ? tier.remainingFraction : tier.usedFraction
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(.white.opacity(0.12))
                         .frame(height: 5)
-                    if tier.usedFraction > 0 {
+                    if barFraction > 0 {
                         Capsule()
-                            .fill(progressColor(used: tier.usedFraction))
+                            .fill(progressColor(used: tier.usedFraction, showRemaining: showRemaining))
                             .frame(
-                                width: geo.size.width * CGFloat(min(1, max(0, tier.usedFraction))),
+                                width: geo.size.width * CGFloat(min(1, max(0, barFraction))),
                                 height: 5
                             )
                     }
@@ -404,10 +405,18 @@ private struct UsageLimitsSection: View {
         }
     }
 
-    private func progressColor(used: Double) -> Color {
-        if used > 0.9 { return .red }
-        if used > 0.7 { return .orange }
-        return DesignSystem.claudeAmber
+    private func progressColor(used: Double, showRemaining: Bool) -> Color {
+        if showRemaining {
+            // 残り%モード: バーは残量を表す → 残りが少ないほど危険色
+            let remaining = 1.0 - used
+            if remaining < 0.1 { return .red }
+            if remaining < 0.3 { return .orange }
+            return DesignSystem.claudeAmber
+        } else {
+            if used > 0.9 { return .red }
+            if used > 0.7 { return .orange }
+            return DesignSystem.claudeAmber
+        }
     }
 
     private func resetText(_ date: Date, absolute: Bool) -> String {
