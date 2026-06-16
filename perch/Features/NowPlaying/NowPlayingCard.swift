@@ -9,9 +9,11 @@ struct NowPlayingCard: View {
     @State private var displayedArtwork: NSImage? = nil
     @State private var displayedArtworkID: UUID? = nil
     @State private var lyrics: [LyricsLine] = []
+    @State private var isLyricsLoading: Bool = false
     @State private var showLyricsFullView: Bool = false
     @State private var isScrubbing: Bool = false
     @State private var scrubProgress: Double = 0
+    @State private var waveformPalette = ArtworkPalette.fallback
 
     var body: some View {
         Group {
@@ -21,128 +23,149 @@ struct NowPlayingCard: View {
                 twoColumnView
             }
         }
+        .task(id: state.artworkID) {
+            waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
+        }
         .task(id: state.title + state.artist) {
             guard state.source != .mrMediaRemote, !state.isAd else {
                 lyrics = []
+                isLyricsLoading = false
                 return
             }
+            isLyricsLoading = true
             lyrics =
                 await LyricsStore.shared.fetchLyrics(
                     title: state.title,
                     artist: state.artist,
                     album: state.album
                 ) ?? []
+            isLyricsLoading = false
         }
     }
 
     // MARK: - Two Column View (Pattern 1: default)
 
     private var twoColumnView: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
-                artworkView
-                if !lyrics.isEmpty {
-                    TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
-                        LyricsView(
-                            lines: lyrics,
-                            elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
-                            fontSize: 12
-                        )
-                    }
-                } else {
-                    trackInfo
-                }
-            }
-            .frame(maxHeight: .infinity)
-            HStack(spacing: 0) {
-                WaveformView(
-                    isPlaying: state.isPlaying,
-                    color: state.artwork?.dominantColor() ?? .white.opacity(0.8)
-                )
-                .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
-                .padding(.trailing, 6)
-                Text(state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Spacer(minLength: 8)
-                if !lyrics.isEmpty {
-                    Button {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                            showLyricsFullView = true
+        ZStack(alignment: .topLeading) {
+            BackgroundVisualizerView(
+                isPlaying: state.isPlaying,
+                color: waveformPalette.primary
+            )
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 12) {
+                    artworkView
+                    if !lyrics.isEmpty {
+                        TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
+                            LyricsView(
+                                lines: lyrics,
+                                elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
+                                fontSize: 12
+                            )
                         }
-                    } label: {
-                        Image(systemName: "music.note.list")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.55))
-                            .frame(width: 28, height: 28)
-                            .contentShape(Rectangle())
+                    } else if isLyricsLoading {
+                        LyricsLoadingView()
+                    } else {
+                        trackInfo
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Show lyrics")
                 }
+                .frame(height: 100)
+                HStack(spacing: 0) {
+                    WaveformView(
+                        isPlaying: state.isPlaying,
+                        colors: waveformPalette.gradientColors,
+                        externalLevels: manager.audioCaptureService.isCaptureActive
+                            ? manager.audioCaptureService.rmsLevels
+                            : nil,
+                        usesSyntheticFallback: !manager.audioCaptureService.isCaptureActive
+                    )
+                    .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
+                    .padding(.trailing, 6)
+                    Text(state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 8)
+                    if !lyrics.isEmpty {
+                        Button {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                                showLyricsFullView = true
+                            }
+                        } label: {
+                            Image(systemName: "music.note.list")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.55))
+                                .frame(width: 28, height: 28)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Show lyrics")
+                    }
+                }
+                progressSection
+                controlsSection
             }
-            progressSection
-            controlsSection
+            .padding(16)
         }
-        .padding(16)
     }
 
     // MARK: - Lyrics Full View (Pattern 2)
 
     private var lyricsFullView: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                if let img = displayedArtwork {
-                    Image(nsImage: img)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 44, height: 44)
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(state.title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                    Text(state.artist)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.6))
-                        .lineLimit(1)
-                }
-                Spacer()
-                controlButton(systemName: "backward.fill", action: manager.previousTrack, size: 12)
-                controlButton(
-                    systemName: state.isPlaying ? "pause.fill" : "play.fill",
-                    action: manager.togglePlayPause, size: 14
-                )
-                controlButton(systemName: "forward.fill", action: manager.nextTrack, size: 12)
-                Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                        showLyricsFullView = false
+        ZStack(alignment: .topLeading) {
+            BackgroundVisualizerView(isPlaying: state.isPlaying, color: waveformPalette.primary)
+            VStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    if let img = displayedArtwork {
+                        Image(nsImage: img)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 44, height: 44)
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.white.opacity(0.4))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(state.title)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Text(state.artist)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    controlButton(systemName: "backward.fill", action: manager.previousTrack, size: 12)
+                    controlButton(
+                        systemName: state.isPlaying ? "pause.fill" : "play.fill",
+                        action: manager.togglePlayPause, size: 14
+                    )
+                    controlButton(systemName: "forward.fill", action: manager.nextTrack, size: 12)
+                    Button {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                            showLyricsFullView = false
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close lyrics")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close lyrics")
+                Divider().background(.white.opacity(0.15))
+                TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
+                    LyricsView(
+                        lines: lyrics,
+                        elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
+                        fontSize: 14
+                    )
+                }
+                .frame(maxHeight: 200)
+                Divider().background(.white.opacity(0.15))
+                progressSection
             }
-            Divider().background(.white.opacity(0.15))
-            TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
-                LyricsView(
-                    lines: lyrics,
-                    elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
-                    fontSize: 14
-                )
-            }
-            .frame(maxHeight: 200)
-            Divider().background(.white.opacity(0.15))
-            progressSection
+            .padding(16)
         }
-        .padding(16)
     }
 
     // MARK: - Artwork
@@ -314,5 +337,33 @@ struct NowPlayingCard: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct BackgroundVisualizerView: View {
+    let isPlaying: Bool
+    let color: Color
+
+    private let barCount = 24
+    private let frequencies: [Double] = (0..<24).map { 1.5 + Double($0 % 7) * 0.3 }
+    private let phases: [Double] = (0..<24).map { Double($0) * 0.42 }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isPlaying)) { ctx in
+            Canvas { context, size in
+                let t = ctx.date.timeIntervalSince1970
+                let barW = size.width / CGFloat(barCount)
+                for i in 0..<barCount {
+                    let raw = sin(t * frequencies[i] + phases[i])
+                    let normalized = raw * 0.5 + 0.5
+                    let h = size.height * (0.05 + 0.60 * normalized)
+                    let x = barW * CGFloat(i) + barW * 0.2
+                    let w = barW * 0.6
+                    let rect = CGRect(x: x, y: size.height - h, width: w, height: h)
+                    let path = Path(roundedRect: rect, cornerRadius: w / 2)
+                    context.fill(path, with: .color(color.opacity(0.08)))
+                }
+            }
+        }
     }
 }

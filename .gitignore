@@ -51,5 +51,8 @@ sparkle_private_key
 # Nix / direnv
 .direnv/
 
+# Superpowers brainstorming sessions
+.superpowers/
+
 
 docs/img/**

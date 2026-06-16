@@ -4,14 +4,31 @@
 "nowplaying.no_artwork" = "No artwork";
 "nowplaying.no_album_art" = "No album art";
 
-/* Settings */
+/* Settings — Tab labels */
 "settings.general" = "General";
 "settings.island" = "Island";
 "settings.nowplaying" = "Now Playing";
 "settings.language" = "Language";
-"settings.show_source" = "Show music source in pill";
-"settings.language_picker" = "Language";
+"settings.ai_usage" = "AI Usage";
+"settings.debug" = "Debug";
+
+/* Settings — General */
 "settings.launch_at_login" = "Launch at login";
 "settings.show_all_spaces" = "Show on all Spaces";
+
+/* Settings — Island */
+"settings.pill_size" = "Pill size";
 "settings.animation_speed" = "Animation speed";
+"settings.animation_slow" = "Slow";
+"settings.animation_fast" = "Fast";
 "settings.auto_collapse" = "Auto-collapse delay";
+
+/* Settings — Now Playing */
+"settings.sources" = "Sources";
+"settings.spotify" = "Spotify";
+"settings.apple_music" = "Apple Music";
+"settings.youtube_music" = "YouTube Music";
+"settings.show_source" = "Show music source in pill";
+
+/* Settings — Language */
+"settings.language_picker" = "Language";

@@ -4,14 +4,31 @@
 "nowplaying.no_artwork" = "アートワークなし";
 "nowplaying.no_album_art" = "アルバムアートなし";
 
-/* Settings */
+/* Settings — Tab labels */
 "settings.general" = "一般";
 "settings.island" = "アイランド";
 "settings.nowplaying" = "Now Playing";
 "settings.language" = "言語";
-"settings.show_source" = "ピルに音楽ソースを表示";
-"settings.language_picker" = "言語設定";
+"settings.ai_usage" = "AI使用状況";
+"settings.debug" = "デバッグ";
+
+/* Settings — General */
 "settings.launch_at_login" = "ログイン時に起動";
 "settings.show_all_spaces" = "全スペースに表示";
+
+/* Settings — Island */
+"settings.pill_size" = "ピルサイズ";
 "settings.animation_speed" = "アニメーション速度";
+"settings.animation_slow" = "遅";
+"settings.animation_fast" = "速";
 "settings.auto_collapse" = "自動折りたたみ";
+
+/* Settings — Now Playing */
+"settings.sources" = "ソース";
+"settings.spotify" = "Spotify";
+"settings.apple_music" = "Apple Music";
+"settings.youtube_music" = "YouTube Music";
+"settings.show_source" = "ピルに音楽ソースを表示";
+
+/* Settings — Language */
+"settings.language_picker" = "言語設定";

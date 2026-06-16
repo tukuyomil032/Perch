@@ -306,3 +306,88 @@ final class NowPlayingManager {
 ```
 
 **ルール**: `deinit` は nonisolated のため `@MainActor` プロパティへのアクセス不可。Observer配列は `nonisolated(unsafe)` にして init 後は読み取り専用とし、安全性のコメントを必ず添える。
+
+---
+
+## 既知パターン集（Perch プロジェクト）
+
+### nonisolated の正しい使用場面
+
+`nonisolated` は「不要なもの」ではなく、特定のケースで**必須**になる。削除前に必ずビルドで検証すること。
+
+#### Defaults.Serializable conformance での nonisolated 必須パターン
+
+`Defaults.Serializable` に準拠した型が `encode(to:)` / `init(from:)` を持つ場合、これらのメソッドは `actor` または他のアクター非隔離コンテキストから呼ばれる可能性がある。型が `@MainActor` isolation を暗黙的に引き込んでいると Swift 6 でコンパイルエラーになるため、`nonisolated` が必要になる。
+
+```swift
+// ✅ enum が Defaults.Serializable に準拠 — encode/decode は nonisolated が必要
+enum RefreshInterval: String, Defaults.Serializable {
+    case thirtySeconds = "30s"
+    case oneMinute = "1m"
+
+    // actor 内部から呼ばれるため nonisolated が必須
+    nonisolated var timeInterval: TimeInterval {
+        switch self {
+        case .thirtySeconds: return 30
+        case .oneMinute: return 60
+        }
+    }
+}
+
+// ❌ PR レビューが「struct の nonisolated は無効。削除すべき」と指摘してきたケース
+// → 実際はビルドエラーになる。削除不可。
+```
+
+**教訓**: Copilot / AI レビューの「`nonisolated` 削除」指摘は**必ずビルドで検証してから適用**すること。struct / enum のメソッドに `nonisolated` が付いている場合、`Defaults.Serializable` などのプロトコル適合やアクター境界越えが背景にある可能性が高い。
+
+#### actor 内から @MainActor 伝播を受けた型へのアクセス
+
+`actor` の内部から、`@MainActor` isolation が暗黙的に引き込まれたプロパティへアクセスしようとすると Swift 6 エラーになる。
+
+```swift
+// ❌ actor 内で @MainActor な値に直接アクセス
+actor RefreshScheduler {
+    func start() {
+        let interval = Defaults[.refreshInterval].timeInterval // Swift 6 エラー
+    }
+}
+
+// ✅ timeInterval を nonisolated にして解決
+// (上記の nonisolated var timeInterval が解決策になる)
+actor RefreshScheduler {
+    func start() {
+        let interval = Defaults[.refreshInterval].timeInterval // OK
+    }
+}
+```
+
+---
+
+### AppKit + SwiftUI ウィンドウサイズ競合（NSWindow constraint loop）
+
+AppKit の `NSWindow` サブクラスに SwiftUI を `NSHostingController` で統合する場合、`setFrame` が再帰的に呼ばれてクラッシュすることがある。
+
+**症状**: `_NSViewGeometryInWindowDidChangeObserver` → SwiftUI property 無効化 → `_postWindowNeedsUpdateConstraints` 例外でクラッシュ
+
+**根本原因**: `setFrame` 実行中に SwiftUI の `updateAnimatedWindowSize` が再度 `setFrame` を呼ぶ再帰ループ
+
+**修正パターン**: `NSWindow` サブクラスで `isUpdatingFrame` ガードをオーバーライド
+
+```swift
+// IslandWindow.swift
+class IslandWindow: NSPanel {
+    private var isUpdatingFrame = false
+
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        guard !isUpdatingFrame else { return }
+        isUpdatingFrame = true
+        defer { isUpdatingFrame = false }
+        super.setFrame(frameRect, display: flag)
+    }
+}
+```
+
+**注意点**:
+- このパターンは AppKit の concurrency 問題ではなく SwiftUI レイアウトエンジンの再帰呼び出し問題だが、`@MainActor` コンテキストで発生するため SwiftUI/AppKit 混在プロジェクトでは必須知識
+- `NSPanel` でも `NSWindow` でも同様に発生する
+- `IslandWindow` のように常駐するウィンドウで展開/縮小アニメーション中に特に顕在化しやすい

@@ -1,59 +1,88 @@
+import Defaults
 import SwiftUI
 
 struct CompactPillView: View {
     @Environment(AppState.self) private var appState
     @State private var isHovered = false
     @State private var isBouncing = false
+    @Default(.pillSize) private var pillSize
+    @Default(.pillBackgroundStyle) private var pillBgStyle
+
+    private var isMusicActive: Bool { appState.nowPlayingManager.currentState != nil }
+    private var isIdle: Bool { !isMusicActive }
+    private var pillW: CGFloat { pillSize.pillWidth }
+    private var pillH: CGFloat { pillSize.pillHeight }
+    // Satellite reserved for future timer/focus mode — always hidden for now
+    private var isSatelliteVisible: Bool { false }
 
     var body: some View {
-        ZStack {
-            VibrancyBackground()
-            pillContent
-        }
-        .clipShape(Capsule())
-        .frame(width: 150, height: 34)
-        .scaleEffect(isBouncing ? 1.05 : (isHovered ? 1.03 : 1.0))
-        .animation(.spring(response: 0.2, dampingFraction: 0.5), value: isBouncing)
-        .animation(DesignSystem.springAnimation, value: isHovered)
-        .onHover { isHovered = $0 }
-        .onChange(of: appState.nowPlayingManager.currentState?.title) { _, newTitle in
-            guard newTitle != nil else { return }
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) {
-                isBouncing = true
+        singlePillView
+            .scaleEffect(isBouncing ? 1.05 : (isHovered ? 1.03 : 1.0))
+            .animation(.spring(response: 0.2, dampingFraction: 0.5), value: isBouncing)
+            .animation(DesignSystem.springAnimation, value: isHovered)
+            .onHover { isHovered = $0 }
+            .onChange(of: appState.nowPlayingManager.currentState?.title) { _, newTitle in
+                guard newTitle != nil else { return }
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) { isBouncing = true }
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.8).delay(0.15)) { isBouncing = false }
             }
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.8).delay(0.15)) {
-                isBouncing = false
+            .opacity(isIdle && !isHovered ? 0.12 : 1.0)
+            .animation(.easeInOut(duration: 0.25), value: isIdle)
+            .animation(.easeInOut(duration: 0.25), value: isHovered)
+            .contentShape(Capsule())
+            .onTapGesture { handleTap() }
+    }
+
+    // MARK: - Single pill
+
+    private var singlePillView: some View {
+        pillContent
+            .frame(width: pillW, height: pillH)
+            .background {
+                if #available(macOS 26, *) {
+                    let tint: Color = pillBgStyle == .glassWhite ? .clear : .black
+                    Capsule().fill(.clear).glassEffect(.regular.tint(tint), in: .capsule)
+                } else {
+                    Capsule().fill(Color.black)
+                    VibrancyBackground()
+                        .opacity(0.35)
+                        .clipShape(Capsule())
+                }
             }
-        }
-        .onTapGesture {
-            let card: IslandCard = appState.nowPlayingManager.currentState != nil ? .nowPlaying : .idle
-            appState.expand(to: card)
-        }
+            .overlay {
+                Capsule()
+                    .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
+            }
     }
 
     @ViewBuilder
     private var pillContent: some View {
         Group {
             if let state = appState.nowPlayingManager.currentState {
-                NowPlayingCompact(state: state)
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            } else {
-                defaultContent
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                let capture = appState.nowPlayingManager.audioCaptureService
+                NowPlayingCompact(
+                    state: state,
+                    waveformLevels: capture.isCaptureActive ? capture.rmsLevels : nil,
+                    usesSyntheticFallback: !capture.isCaptureActive
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
         }
-        .animation(DesignSystem.springAnimation, value: appState.nowPlayingManager.currentState != nil)
+        .animation(DesignSystem.springAnimation, value: isMusicActive)
     }
 
-    private var defaultContent: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(.green)
-                .frame(width: 6, height: 6)
-            Text("Perch")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary)
-        }
-        .padding(.horizontal, 12)
+    // MARK: - Tap handler
+
+    private func handleTap() {
+        guard !isIdle else { return }
+        appState.expand(to: .nowPlaying)
     }
+}
+
+// MARK: - Helpers
+
+private func formatCost(_ usd: Double) -> String {
+    if usd == 0 { return "$0.00" }
+    if usd < 0.01 { return "<$0.01" }
+    return String(format: "$%.2f", usd)
 }

@@ -1,7 +1,7 @@
 # Perch Development Progress
 
-**Current Phase**: Phase 2e 完了 → Phase 3 へ
-**Last Updated**: 2026-06-04
+**Current Phase**: Phase 3 完了 → Phase UI（展開Island強化 + プリセットカスタマイズ）
+**Last Updated**: 2026-06-14
 
 ---
 
@@ -202,13 +202,121 @@
 
 ## Phase 3: AI Usage (v0.3)
 
-- [ ] T3-1: AIProvider protocol
-- [ ] T3-2: 認証フロー（Keychain, CLI config, env）
-- [ ] T3-3: Claude Provider
-- [ ] T3-4: Codex Provider
-- [ ] T3-5: AIUsageStore + RefreshScheduler
-- [ ] T3-6: AIUsageCard
-- [ ] T3-7: Settings UI（Provider設定）
+**Last Updated**: 2026-06-14
+
+### 実装済み
+
+- [x] T3-1: AIProvider protocol (`perch/Providers/AIProvider.swift`)
+- [x] T3-2: 認証フロー — CLAUDE_CONFIG_DIR env + ~/.claude/projects/ + ~/.config/claude/projects/ フォールバック
+- [x] T3-3: Claude Provider (`perch/Providers/Claude/ClaudeProvider.swift`)
+  - JSONL パース (ccusage 準拠): composite (messageId:requestId) dedup key
+  - isApiErrorMessage フィルタ、ephemeral_1h 2.0x、ephemeral_5m 1.25x
+  - CostCalculator.swift: モデル別単価テーブル、cache tiering (5m/1h)
+- [x] T3-4: Codex Provider (`perch/Providers/Codex/CodexProvider.swift`)
+  - `~/.codex/sessions/YYYY/MM/DD/*.jsonl` を解析（ccusage準拠）
+  - `turn_context.model` でモデル名取得、最後の `token_count` イベントを累積トークンとして使用
+  - `cached_input_tokens` → cacheReadTokens として CostCalculator に渡す
+  - 制限: Codex Desktop（GUI）はJSONL未出力のためトラッキング不可
+- [x] T3-5: AIUsageStore + RefreshScheduler (`perch/Features/AIUsage/AIUsageStore.swift`)
+- [x] T3-6: AIUsageCard / AIUsageWidget (`perch/Features/AIUsage/`)
+- [x] T3-7: Settings UI — Provider切り替えタブ
+- [x] T3-8: CompactPillView — AIUsageWidget プロバイダロゴ + コスト表示
+- [x] T3-9: IslandWindowController クラッシュ修正 — `observeExpanded()` state-scoped tracking（展開中は `compactWindowWidth` を監視しない）
+- [x] T3-10: コスト計算 ccusage 完全準拠修正 (Phase 3.2/3.3)
+  - `costUSD` JSONキー修正 (旧: `"cost_usd"` → 正: `"costUSD"`)
+  - `isSidechain` フィルタ削除（サブエージェント呼び出しも課金対象）
+  - 30日間コスト実測: ccusage Claude分 $528.83 に対して±5%以内
+- [x] T3-11: OpenAI Provider (`perch/Providers/OpenAI/OpenAIProvider.swift`)
+  - 公式 Usage API (2024年12月発表) — `/v1/organization/costs` + `/v1/organization/usage/completions`
+  - **Organization Admin Key 必須**（通常の sk-... 不可）。`platform.openai.com/settings/organization/admin-keys` で発行
+  - コスト (USD) + トークン数を30日分・日別・モデル別に取得
+  - `amount.value` の String/Double 混在に対応（CodexBar 知見）
+- [x] T3-12: OpenRouter Provider (`perch/Providers/OpenRouter/OpenRouterProvider.swift`)
+  - Regular Key (`sk-or-v1-...`): `/api/v1/key` で today/weekly/monthly 合計値取得
+  - Management Key: `/api/v1/activity` で30日分の日別・モデル別データ取得（チャート表示対応）
+  - 両キーを Keychain に個別保存。Management Key があれば自動的にフル機能
+- [x] T3-13: Settings UI — OpenAI/OpenRouter API Key 入力フォーム
+  - `perch/UI/SettingsView.swift` に "AI Usage" タブを追加
+  - SecureField + onSubmit + 削除ボタン
+  - `KeychainHelper.swift`: `nonisolated` 追加（Swift 6 で nonisolated context から呼び出し可能に）
+
+### 既知の制限
+- Codex/OpenRouter/OpenAI Provider: プロバイダロゴ未実装（Phase 6 対応予定）
+- OpenAI Admin Key: Organization 管理者でない個人アカウントでは発行不可の場合あり
+- OpenRouter `/api/v1/activity`: 30日上限、約 UTC+30分の集計遅延あり
+- Codex Desktop（GUI）セッション: JSONL未出力のため CodexProvider でトラッキング不可
+- Gemini / Cursor Provider: Phase 6 以降
+- プリセットカスタマイズUI（ウィジェット追加/削除/並び替え）: 次フェーズ（展開UI強化）で実装
+
+---
+
+## Phase 3.5: Visual Polish + NowPlaying Fixes
+
+**Branch**: `phase-3/ai-usage-widget-system`  
+**Last Updated**: 2026-06-14
+
+### 目標
+16項目の視覚・バグ・機能修正。Dynamic Island黒への統一、アイドルUX改善、衛星サークルのMetal SDF実装、NowPlayingバグ修正、ScreenCaptureKit波形、macOS 26 Liquid Glass対応。
+
+### タスク
+
+#### Group A: CompactPillView / DesignSystem (Claude)
+- [x] A1: 背景色を Dynamic Island 黒に統一（.regularMaterial → Color.black）
+- [x] A2: アイドル状態UX — "Perch" テキスト削除 + ghost opacity 0.12
+- [x] A3: 衛星サークル（デフォルトOFF、右スワイプ、Metal SDF metaball）+ ピルサイズ3段階設定
+
+#### Group B: NowPlaying バグ修正
+- [x] B1: YTM アートワーク更新バグ修正（carry-forward guard 除去）
+- [x] B2: 波形アニメーション改善（barCount 6→8, maxHeight 14→18, fps 15→60）
+- [x] B3: 歌詞ローディングアニメーション（LyricsLoadingView.swift 新規作成）
+- [x] B4: 展開音楽カード背景オーディオヴィジュアライザー
+
+#### Group C: 展開ビュー空状態クリーンアップ
+- [x] C1: "Not playing" / "No usage data" プレースホルダーテキスト全削除
+
+#### Group D: Codex SVG + i18n
+- [x] D1: Codex SVG 白背景除去 + .renderingMode(.original) でグラデーション表示
+- [x] D2: i18n 修正 — Settings ラベルを L10n.string() に接続
+
+#### Group E: ScreenCaptureKit
+- [x] E1: AudioCaptureService — 8バンド RMS → WaveformView.externalLevels
+
+#### Group F: Liquid Glass (macOS 26)
+- [x] F1: GlassEffectContainer — ピル・展開カード・衛星サークルの液体モーフィング
+
+### 既知の制限
+- Task F1 (.glassEffect) は macOS 26 Tahoe 以降のみ有効。macOS 14/15 は Metal metaball にフォールバック
+- Task E1 ScreenCaptureKit: YTM はブラウザアプリ単位（タブ単位キャプチャはSCK制限により不可）
+- Task E1: ScreenCapture権限拒否時は疑似波形にフォールバック
+
+### Phase 3.5 バグ修正タスク（Codexレビュー + ユーザー報告）
+
+- [ ] BF1: AudioCaptureService — vDSP_measqv クラッシュ修正（start >= floatCount guard追加）
+- [ ] BF2: MediaRemoteBridge — assumeIsolated → Task { @MainActor in } に変更
+- [ ] BF3: YTM stale artwork — fetchAndApplyArtwork 照合条件を track identity のみに限定
+- [ ] BF4: ScreenCapture 権限 — 起動時に SCShareableContent アクセスで権限ダイアログ表示
+- [ ] BF5: CompactPillView — .contentShape(Capsule()) でタップ/ドラッグヒットエリアを全体に拡張
+- [ ] BF6: macOS 26 dualActivityView — providerLogoView を .glassEffect() の外に出してぼかし除去
+- [ ] BF7: BackgroundVisualizerView — CSS波 → WaveformView同様の縦バースタイルに変更（24バー、カード全体）
+
+---
+
+## Phase UI: 展開Island強化 + プリセットカスタマイズ（Phase 3 完了後）
+
+詳細仕様: `docs/superpowers/specs/phase-ui-expanded-island-and-preset.md`
+
+### 目標
+- `ExpandedIslandView` ハードコードを廃止 → `WidgetRegistry + PresetStore` 動的レンダリングに完全移行
+- ユーザーが Settings 内でプリセット追加/削除/リネーム、ウィジェット並び替えができる
+- 展開アニメーションを BoringNotch レベルに強化（`matchedGeometryEffect`）
+
+### タスク
+- [ ] T-UI-1: `ExpandedIslandView.swift` — ハードコード廃止、`ForEach + WidgetRegistry` に移行
+- [ ] T-UI-2: `PresetTabBar.swift` — `presetStore.presets` から動的タブ生成
+- [ ] T-UI-3: `AppState.swift` — `IslandPreset` enum 廃止、`PresetStore` に一本化
+- [ ] T-UI-4: Settings — プリセット CRUD UI（追加/削除/リネーム）
+- [ ] T-UI-5: Settings — ウィジェット並び替え/追加/削除/サイズ変更 UI
+- [ ] T-UI-6: 展開アニメーション強化（`matchedGeometryEffect` + spring 同期）
 
 ---
 
@@ -232,6 +340,17 @@
 - [ ] T5-4: ProcessWatcher（Claude Code / Codex CLI状態）
 - [ ] T5-5: DevStatusCard
 - [ ] T5-6: ピル通知 + macOS通知センター連携
+
+### 将来機能: サテライトサークル（将来フェーズで実装予定）
+
+`CompactPillView.isSatelliteVisible` は現在 `false` で固定。
+将来、以下のコンテンツを表示するために実装を再開する:
+- タイマー（集中モード残り時間表示）
+- 集中モード ON/OFF トグル
+- **Claude Code / Codex CLI のリアルタイム実行ステータス**（BoringNotch "activity" スタイル）
+  - キャラクターアニメーション（ASCII art が動く既存アプリ参考）
+  - ツール実行中インジケータ
+  - [参考アプリ調査必要: Claude Code status display apps]
 
 ---
 

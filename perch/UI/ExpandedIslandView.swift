@@ -5,26 +5,36 @@ struct ExpandedIslandView: View {
 
     var body: some View {
         ZStack {
-            VibrancyBackground()
-                .clipShape(
-                    RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
-                )
-
+            if #available(macOS 26, *) {
+                RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
+                    .fill(.clear)
+                    .glassEffect(
+                        .regular.tint(.black.opacity(0.7)), in: .rect(cornerRadius: DesignSystem.cardCornerRadius))
+            } else {
+                Color.black
+                    .clipShape(RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous))
+                VibrancyBackground()
+                    .opacity(0.35)
+                    .clipShape(RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous))
+            }
             VStack(spacing: 0) {
                 header
-                Divider().opacity(0.3)
-                cardContent
+                Divider().opacity(0.15)
+                presetContent
+                    .animation(DesignSystem.springAnimation, value: appState.presetStore.activePresetID)
             }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
+                .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
         }
         .frame(width: 420)
     }
 
+    // MARK: - Header
+
     private var header: some View {
         HStack {
-            Text("Perch")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Spacer()
             Button {
                 appState.collapse()
             } label: {
@@ -33,39 +43,47 @@ struct ExpandedIslandView: View {
                     .imageScale(.medium)
             }
             .buttonStyle(.plain)
+            Spacer()
+            PresetTabBar()
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
         .padding(.bottom, 8)
     }
 
+    // MARK: - Preset Content (dynamic from WidgetRegistry)
+
     @ViewBuilder
-    private var cardContent: some View {
-        let manager = appState.nowPlayingManager
-        switch appState.activeCard {
-        case .nowPlaying:
-            if let state = manager.currentState {
-                NowPlayingCard(state: state, manager: manager)
-            } else {
-                emptyState(icon: "music.note", message: "Play some music")
+    private var presetContent: some View {
+        let placements = appState.presetStore.activePreset?.widgets ?? []
+        let mainWidgets = placements.filter { $0.position == .main }
+        let secondaryWidgets = placements.filter { $0.position != .main }
+
+        VStack(spacing: 0) {
+            ForEach(mainWidgets) { placement in
+                widgetView(for: placement)
             }
-        case .idle:
-            emptyState(icon: "bird", message: "Nothing here yet")
-        default:
-            emptyState(icon: "questionmark", message: "Coming soon")
+            if !secondaryWidgets.isEmpty {
+                Divider().opacity(0.08).padding(.horizontal, 12)
+                ForEach(secondaryWidgets) { placement in
+                    widgetView(for: placement)
+                }
+            }
         }
     }
 
-    private func emptyState(icon: String, message: String) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 32))
-                .foregroundStyle(.secondary)
-            Text(message)
-                .font(.system(size: 13))
-                .foregroundStyle(.tertiary)
+    private let widgetSizeHeights: [WidgetSize: CGFloat] = [
+        .mini: 36, .compact: 52, .standard: 264, .full: 360,
+    ]
+
+    @ViewBuilder
+    private func widgetView(for placement: WidgetPlacement) -> some View {
+        if let widget = appState.widgetRegistry.widget(forId: placement.widgetId),
+            let h = widgetSizeHeights[placement.size]
+        {
+            widget.body(size: placement.size)
+                .frame(height: h)
+                .clipped()
         }
-        .frame(height: 100)
-        .padding(16)
     }
 }

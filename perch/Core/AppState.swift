@@ -9,9 +9,35 @@ final class AppState {
     var latestError: String?
     var isPhysicalNotch: Bool = false
 
+    let presetStore = PresetStore()
+    let widgetRegistry = WidgetRegistry()
+
+    var expandedWindowHeight: CGFloat {
+        guard let preset = presetStore.activePreset else { return 300 }
+        let sizeHeights: [WidgetSize: CGFloat] = [.mini: 36, .compact: 52, .standard: 264, .full: 360]
+        let widgetTotal = preset.widgets.map { sizeHeights[$0.size] ?? 44 }.reduce(0, +)
+        let hasSidebar = preset.widgets.contains { $0.position != .main }
+        // header(39) + header-divider(1) + widgets + optional-section-divider(1)
+        return 40 + widgetTotal + (hasSidebar ? 1 : 0)
+    }
+
+    /// Compact window width: 20px wider than pill content to give buffer for scaleEffect (max 1.05×).
+    /// single: content 150px → window 170px (150×1.05=157.5 < 170 ✓)
+    /// dual:   content ~158px → window 190px (158×1.05=165.9 < 190 ✓)
+    var compactWindowWidth: CGFloat {
+        let isMusicActive = nowPlayingManager.currentState != nil
+        let isAIActive = aiUsageStore.activeUsage != nil
+        return (isMusicActive && isAIActive) ? 190 : 170
+    }
+
+    /// Compact window height: 10px taller than pill content for scaleEffect buffer.
+    /// pill content 34px → window 44px (34×1.05=35.7 < 44 ✓)
+    var compactWindowHeight: CGFloat { 44 }
+
     var openSettingsAction: (() -> Void)?
 
     let nowPlayingManager = NowPlayingManager()
+    let aiUsageStore = AIUsageStore()
 
     private let logger = Logger(label: "com.tukuyomi032.perch.AppState")
 
