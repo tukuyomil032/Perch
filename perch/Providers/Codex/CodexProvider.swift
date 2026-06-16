@@ -20,9 +20,128 @@ nonisolated struct CodexProvider: AIProvider {
 
     nonisolated func fetchUsage() async throws -> AIUsageData {
         let dir = sessionsDir
-        return try await Task.detached(priority: .utility) {
-            try Self.parseSessions(in: dir)
+
+        // ローカル解析と WHAM 取得を並列実行
+        async let localResult: AIUsageData? = Task.detached(priority: .utility) {
+            try? Self.parseSessions(in: dir)
         }.value
+
+        var whamTiers: (session: UsageTier, weekly: UsageTier)?
+        var warningMsg: String?
+
+        if let creds = Self.resolveCredentials() {
+            whamTiers = try? await Self.fetchWhamLimits(
+                accessToken: creds.accessToken, accountId: creds.accountId)
+            if whamTiers == nil {
+                warningMsg = "公式使用量取得失敗: WHAM API エラー"
+            }
+        } else {
+            warningMsg = "公式使用量取得失敗: ~/.codex/auth.json が見つかりません"
+        }
+
+        var data = await localResult ?? AIUsageData(planName: "Codex", lastUpdated: Date())
+        data.session = whamTiers?.session
+        data.weekly = whamTiers?.weekly
+        data.warningMessage = warningMsg
+        return data
+    }
+
+    // MARK: - Credential Resolution
+
+    private nonisolated static func resolveCredentials() -> (accessToken: String, accountId: String)? {
+        if let creds = credentialsFromFile() { return creds }
+        if let creds = credentialsFromKeychain() { return creds }
+        return nil
+    }
+
+    private nonisolated static func credentialsFromFile() -> (String, String)? {
+        let path = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".codex/auth.json")
+        guard let data = try? Data(contentsOf: path),
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let tokens = json["tokens"] as? [String: Any],
+            let accessToken = tokens["access_token"] as? String, !accessToken.isEmpty,
+            let accountId = tokens["account_id"] as? String, !accountId.isEmpty
+        else { return nil }
+        return (accessToken, accountId)
+    }
+
+    private nonisolated static func credentialsFromKeychain() -> (String, String)? {
+        let securityPath = "/usr/bin/security"
+        guard FileManager.default.isExecutableFile(atPath: securityPath) else { return nil }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: securityPath)
+        process.arguments = ["find-generic-password", "-s", "Codex Auth", "-w"]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+
+        let sema = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in sema.signal() }
+
+        do { try process.run() } catch { return nil }
+
+        if sema.wait(timeout: .now() + 1.5) == .timedOut {
+            process.terminate()
+            return nil
+        }
+        guard process.terminationStatus == 0 else { return nil }
+
+        let raw = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard let trimmed = String(data: raw, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !trimmed.isEmpty,
+            let jsonData = trimmed.data(using: .utf8),
+            let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+            let tokens = json["tokens"] as? [String: Any],
+            let accessToken = tokens["access_token"] as? String, !accessToken.isEmpty,
+            let accountId = tokens["account_id"] as? String, !accountId.isEmpty
+        else { return nil }
+
+        return (accessToken, accountId)
+    }
+
+    // MARK: - WHAM API
+
+    private nonisolated static func fetchWhamLimits(
+        accessToken: String, accountId: String
+    ) async throws -> (session: UsageTier, weekly: UsageTier)? {
+        guard let url = URL(string: "https://chatgpt.com/backend-api/wham/usage") else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue(accountId, forHTTPHeaderField: "ChatGPT-Account-Id")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 10
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let rateLimit = root["rate_limit"] as? [String: Any]
+        else { return nil }
+
+        func parseTier(_ window: [String: Any], label: String, defaultPeriod: TimeInterval) -> UsageTier? {
+            let percentLeft =
+                (window["percent_left"] as? Double)
+                ?? (window["remaining_percent"] as? Double)
+                ?? 100.0
+            let usedFraction = max(0, min(1, 1.0 - percentLeft / 100.0))
+            let resetMs = (window["reset_time_ms"] as? Double) ?? (window["reset_at"] as? Double)
+            let resetsAt = resetMs.map { Date(timeIntervalSince1970: $0 / 1000.0) }
+            let period = (window["limit_window_seconds"] as? Double) ?? defaultPeriod
+            return UsageTier(
+                usedFraction: usedFraction, resetsAt: resetsAt,
+                label: label, source: .chatgptOAuth, periodDuration: period)
+        }
+
+        let sessionTier = (rateLimit["primary_window"] as? [String: Any])
+            .flatMap { parseTier($0, label: "セッション", defaultPeriod: 5 * 3600) }
+        let weeklyTier = (rateLimit["secondary_window"] as? [String: Any])
+            .flatMap { parseTier($0, label: "週間", defaultPeriod: 7 * 24 * 3600) }
+
+        guard let s = sessionTier, let w = weeklyTier else { return nil }
+        return (s, w)
     }
 
     // MARK: - Parsing
