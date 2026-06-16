@@ -14,6 +14,20 @@ enum DesignSystem {
     static let claudeAmber = Color(red: 0.851, green: 0.467, blue: 0.024)  // #d97706
 }
 
+// MARK: - Color Utilities
+
+extension Color {
+    init?(hex: String) {
+        let cleaned = hex.trimmingCharacters(in: .alphanumerics.inverted)
+        guard cleaned.count == 6, let value = UInt64(cleaned, radix: 16) else { return nil }
+        self.init(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
+    }
+}
+
 // MARK: - Shared UI Components
 
 struct VibrancyBackground: NSViewRepresentable {

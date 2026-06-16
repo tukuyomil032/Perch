@@ -6,7 +6,7 @@ import Foundation
 nonisolated struct CodexProvider: AIProvider {
     let id = "codex"
     let displayName = "Codex"
-    let brandColorHex = "#000000"
+    let brandColorHex = "#22D3EE"  // cyan-400
     let icon = "terminal"
 
     nonisolated var isConfigured: Bool {

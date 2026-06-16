@@ -12,7 +12,7 @@ nonisolated enum ClaudeUsageMerger {
         case (.success(let limits), .failure(let localErr)):
             return makeData(
                 limits: limits, local: nil,
-                warning: "ローカルログ読み取り失敗: \(localErr.localizedDescription ?? "")"
+                warning: "ローカルログ読み取り失敗: \(localErr.localizedDescription)"
             )
 
         case (.failure(let remoteErr), .success(let localUsage)):
