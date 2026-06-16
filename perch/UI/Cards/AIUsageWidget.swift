@@ -133,13 +133,20 @@ struct AIUsageCompactView: View {
 struct AIUsageStandardView: View {
     @Environment(AppState.self) private var appState
 
+    private var brandColor: Color {
+        guard let id = appState.aiUsageStore.activeProviderId,
+            let provider = appState.aiUsageStore.configuredProviders.first(where: { $0.id == id })
+        else { return DesignSystem.claudeAmber }
+        return Color(hex: provider.brandColorHex) ?? DesignSystem.claudeAmber
+    }
+
     var body: some View {
         let store = appState.aiUsageStore
         let usage = store.activeUsage
         let chartData = Array((usage?.chartData ?? []).suffix(30))
 
         ZStack(alignment: .topLeading) {
-            BackgroundVisualizerView(isPlaying: true, color: DesignSystem.claudeAmber)
+            BackgroundVisualizerView(isPlaying: true, color: brandColor)
             VStack(alignment: .leading, spacing: 0) {
                 // Provider header
                 HStack {
@@ -204,7 +211,8 @@ struct AIUsageStandardView: View {
                     UsageLimitsSection(
                         session: usage?.session,
                         weekly: usage?.weekly,
-                        daily: usage?.daily
+                        daily: usage?.daily,
+                        accentColor: brandColor
                     )
                 }
 
@@ -231,7 +239,7 @@ struct AIUsageStandardView: View {
 
                 // Bar chart (30 days)
                 if !chartData.isEmpty {
-                    MiniBarChart(data: chartData)
+                    MiniBarChart(data: chartData, brandColor: brandColor)
                     if let top = usage?.modelBreakdown?.first {
                         Text("Top model: \(top.modelName) · Est. from local logs")
                             .font(.system(size: 9))
@@ -310,6 +318,7 @@ private struct UsageLimitsSection: View {
     let session: UsageTier?
     let weekly: UsageTier?
     let daily: UsageTier?
+    var accentColor: Color = DesignSystem.claudeAmber
 
     @Default(.aiUsageShowRemaining) private var showRemaining
     @Default(.aiUsageAbsoluteResetTime) private var absoluteResetTime
@@ -407,15 +416,14 @@ private struct UsageLimitsSection: View {
 
     private func progressColor(used: Double, showRemaining: Bool) -> Color {
         if showRemaining {
-            // 残り%モード: バーは残量を表す → 残りが少ないほど危険色
             let remaining = 1.0 - used
             if remaining < 0.1 { return .red }
             if remaining < 0.3 { return .orange }
-            return DesignSystem.claudeAmber
+            return accentColor
         } else {
             if used > 0.9 { return .red }
             if used > 0.7 { return .orange }
-            return DesignSystem.claudeAmber
+            return accentColor
         }
     }
 
@@ -455,6 +463,7 @@ private struct UsageLimitsSection: View {
 
 private struct MiniBarChart: View {
     let data: [DailyUsage]
+    var brandColor: Color = DesignSystem.claudeAmber
 
     var body: some View {
         let maxVal = data.map(\.costUSD).max() ?? 1
@@ -466,7 +475,7 @@ private struct MiniBarChart: View {
                 let frac = maxVal > 0 ? CGFloat(pow(day.costUSD / maxVal, 0.7)) : 0
                 let isToday = Calendar.current.startOfDay(for: day.date) == today
                 RoundedRectangle(cornerRadius: 1.5)
-                    .fill(DesignSystem.claudeAmber.opacity(isToday ? 1.0 : 0.45 + 0.4 * frac))
+                    .fill(brandColor.opacity(isToday ? 1.0 : 0.45 + 0.4 * frac))
                     .frame(maxWidth: .infinity)
                     .frame(height: max(2, 40 * frac))
             }
