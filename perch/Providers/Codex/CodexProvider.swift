@@ -122,13 +122,17 @@ nonisolated struct CodexProvider: AIProvider {
         else { return nil }
 
         func parseTier(_ window: [String: Any], label: String, defaultPeriod: TimeInterval) -> UsageTier? {
-            let percentLeft =
-                (window["percent_left"] as? Double)
-                ?? (window["remaining_percent"] as? Double)
-                ?? 100.0
-            let usedFraction = max(0, min(1, 1.0 - percentLeft / 100.0))
-            let resetMs = (window["reset_time_ms"] as? Double) ?? (window["reset_at"] as? Double)
-            let resetsAt = resetMs.map { Date(timeIntervalSince1970: $0 / 1000.0) }
+            let usedPercent = (window["used_percent"] as? Double) ?? 0.0
+            let usedFraction = max(0, min(1, usedPercent / 100.0))
+            let resetSec: Double?
+            if let r = window["reset_at"] as? Double {
+                resetSec = r
+            } else if let secs = window["reset_after_seconds"] as? Double {
+                resetSec = Date().timeIntervalSince1970 + secs
+            } else {
+                resetSec = nil
+            }
+            let resetsAt = resetSec.map { Date(timeIntervalSince1970: $0) }
             let period = (window["limit_window_seconds"] as? Double) ?? defaultPeriod
             return UsageTier(
                 usedFraction: usedFraction, resetsAt: resetsAt,
@@ -280,9 +284,13 @@ nonisolated struct CodexProvider: AIProvider {
 
     private nonisolated static func normalizeModel(_ raw: String) -> String {
         let lower = raw.lowercased()
+        if lower.contains("5.5") { return "GPT 5.5" }
         if lower.contains("5.4") { return lower.contains("mini") ? "GPT 5.4 mini" : "GPT 5.4" }
         if lower.contains("5.3") && lower.contains("codex") { return "GPT 5.3 Codex" }
         if lower.contains("5.3") { return "GPT 5.3" }
+        if lower.contains("5.2") { return "GPT 5.2" }
+        if lower.contains("5.1") && lower.contains("max") { return "GPT 5.1 Codex Max" }
+        if lower.contains("5.1") { return "GPT 5.1 Codex Mini" }
         if lower.contains("gpt-5") { return lower.contains("mini") ? "GPT 5 mini" : "GPT 5" }
         if lower.contains("o4-mini") { return "o4 mini" }
         if lower.contains("o4") { return "o4" }
