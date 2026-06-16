@@ -1,3 +1,4 @@
+import Defaults
 import SwiftUI
 
 // MARK: - PerchWidget Conformance
@@ -310,27 +311,35 @@ private struct UsageLimitsSection: View {
     let weekly: UsageTier?
     let daily: UsageTier?
 
+    @Default(.aiUsageShowRemaining) private var showRemaining
+    @Default(.aiUsageAbsoluteResetTime) private var absoluteResetTime
+    @Default(.aiUsageShowPace) private var showPace
+    @Default(.aiUsagePaceAbsoluteTime) private var paceAbsoluteTime
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             if let session {
-                tierRow(label: "セッション", tier: session)
+                tierRow(tier: session)
             }
             if let weekly {
-                tierRow(label: "週間", tier: weekly)
+                tierRow(tier: weekly)
             }
             if let daily {
-                tierRow(label: "Daily Routines", tier: daily)
+                tierRow(tier: daily)
             }
         }
         .padding(8)
         .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 
-    private func tierRow(label: String, tier: UsageTier) -> some View {
+    private func tierRow(tier: UsageTier) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(label)
+            // ラベル
+            Text(tier.label)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.75))
+
+            // プログレスバー
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
@@ -347,22 +356,49 @@ private struct UsageLimitsSection: View {
                 }
             }
             .frame(height: 5)
+
+            // 使用量/残り% + リセット時刻
             HStack {
                 HStack(spacing: 4) {
-                    Text("\(tier.usedPercent)% 使用")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.tertiary)
+                    Text(
+                        showRemaining
+                            ? "\(tier.remainingPercent)% 残り"
+                            : "\(tier.usedPercent)% 使用"
+                    )
+                    .font(.system(size: 9))
+                    .foregroundStyle(.white.opacity(0.55))
                     if tier.source == .localEstimate {
                         Text("(推定)")
                             .font(.system(size: 8))
-                            .foregroundStyle(.quaternary)
+                            .foregroundStyle(.white.opacity(0.35))
                     }
                 }
                 if let resetAt = tier.resetsAt {
                     Spacer()
-                    Text(resetText(resetAt))
+                    Text(resetText(resetAt, absolute: absoluteResetTime))
                         .font(.system(size: 9))
-                        .foregroundStyle(.quaternary)
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+            }
+
+            // ペース行（余裕 / 枯渇予測）
+            if showPace, let pace = tier.paceInfo() {
+                HStack {
+                    if pace.willSurvive {
+                        Text("\(pace.surplusPercent)% 余裕")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(Color.green.opacity(0.85))
+                    } else if let exhaustDate = pace.exhaustionDate {
+                        Text(exhaustionText(exhaustDate, absolute: paceAbsoluteTime))
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(Color.orange.opacity(0.9))
+                    }
+                    Spacer()
+                    if pace.willSurvive {
+                        Text("リセットまで持続")
+                            .font(.system(size: 9))
+                            .foregroundStyle(Color.green.opacity(0.65))
+                    }
                 }
             }
         }
@@ -374,12 +410,35 @@ private struct UsageLimitsSection: View {
         return DesignSystem.claudeAmber
     }
 
-    private func resetText(_ date: Date) -> String {
+    private func resetText(_ date: Date, absolute: Bool) -> String {
         guard date > Date() else { return "リセット間近" }
-        let fmt = RelativeDateTimeFormatter()
-        fmt.unitsStyle = .abbreviated
-        fmt.locale = Locale(identifier: "ja_JP")
-        return "リセット \(fmt.localizedString(for: date, relativeTo: Date()))"
+        if absolute {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "ja_JP")
+            formatter.dateFormat = Calendar.current.isDateInToday(date) ? "H:mm" : "M月d日 H:mm"
+            return "\(formatter.string(from: date)) にリセット"
+        } else {
+            let fmt = RelativeDateTimeFormatter()
+            fmt.unitsStyle = .abbreviated
+            fmt.locale = Locale(identifier: "ja_JP")
+            return "リセット \(fmt.localizedString(for: date, relativeTo: Date()))"
+        }
+    }
+
+    private func exhaustionText(_ date: Date, absolute: Bool) -> String {
+        if absolute {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "ja_JP")
+            formatter.dateFormat = Calendar.current.isDateInToday(date) ? "H:mm" : "M月d日 H:mm"
+            return "\(formatter.string(from: date)) に枯渇"
+        } else {
+            let secs = date.timeIntervalSinceNow
+            if secs < 3600 {
+                return "あと \(Int(secs / 60))分で枯渇"
+            } else {
+                return "あと \(String(format: "%.1f", secs / 3600))h で枯渇"
+            }
+        }
     }
 }
 
