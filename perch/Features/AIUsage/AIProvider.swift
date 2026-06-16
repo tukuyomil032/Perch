@@ -12,6 +12,7 @@ protocol AIProvider: Identifiable, Sendable {
 
 enum UsageSource: String, Sendable {
     case anthropicOAuth
+    case chatgptOAuth
     case localEstimate
     case cachedOAuth
 }
