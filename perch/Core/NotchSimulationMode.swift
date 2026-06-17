@@ -8,8 +8,8 @@ enum NotchSimulationMode: String, CaseIterable, Defaults.Serializable {
     var displayName: String {
         switch self {
         case .auto: return "Auto"
-        case .forceNotched: return "Force Notch"
-        case .forceNonNotched: return "Force No Notch"
+        case .forceNotched: return "Notch"
+        case .forceNonNotched: return "Floating"
         }
     }
 }

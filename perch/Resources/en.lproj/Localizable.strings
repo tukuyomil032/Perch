@@ -32,3 +32,6 @@
 
 /* Settings — Language */
 "settings.language_picker" = "Language";
+
+/* Settings — Island Position */
+"settings.island_position" = "Island Position";
