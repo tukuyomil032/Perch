@@ -35,3 +35,23 @@
 
 /* Settings — Island Position */
 "settings.island_position" = "Island Position";
+"settings.island_position.auto" = "Auto";
+"settings.island_position.notch" = "Notch";
+"settings.island_position.floating" = "Floating";
+
+/* Settings — AI Usage */
+"settings.ai_usage.display_options" = "Display Options";
+"settings.ai_usage.show_remaining" = "Show as remaining %";
+"settings.ai_usage.show_remaining_hint" = "Off: \"20% used\" / On: \"80% remaining\"";
+"settings.ai_usage.absolute_reset_time" = "Show absolute reset time";
+"settings.ai_usage.absolute_reset_time_hint" = "Off: \"Resets in 2h\" / On: \"Resets at 10:50\"";
+"settings.ai_usage.show_pace" = "Show consumption pace";
+"settings.ai_usage.show_pace_hint" = "Shows headroom % / until reset / depletion estimate";
+"settings.ai_usage.pace_absolute_time" = "Show depletion as absolute time";
+"settings.ai_usage.pace_absolute_time_hint" = "Off: \"Depletes in 3h\" / On: \"Depletes at 13:00\"";
+"settings.ai_usage.openai_key_placeholder" = "Admin API Key (required for usage data)";
+"settings.ai_usage.openai_delete_key" = "Delete Key";
+"settings.ai_usage.openai_key_note" = "Requires Organization Admin Key — not a regular project key.";
+"settings.ai_usage.openrouter_key_placeholder" = "API Key (sk-or-v1-...)";
+"settings.ai_usage.openrouter_mgmt_placeholder" = "Management Key (optional, enables chart data)";
+"settings.ai_usage.openrouter_delete_keys" = "Delete Keys";

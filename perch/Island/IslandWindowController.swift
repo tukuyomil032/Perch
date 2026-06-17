@@ -9,6 +9,8 @@ private let logger = Logger(label: "com.tukuyomi032.perch.IslandWindowController
 final class IslandWindowController: NSWindowController {
     private let appState: AppState
     private var pendingLayoutTask: Task<Void, Never>?
+    // nonisolated(unsafe): written once on @MainActor (startObserving) and
+    // read only in deinit (nonisolated). No concurrent access occurs.
     nonisolated(unsafe) private var notchModeObservation: (any Defaults.Observation)?
 
     private var islandWindow: IslandWindow? { window as? IslandWindow }

@@ -35,3 +35,23 @@
 
 /* Settings — Island Position */
 "settings.island_position" = "アイランド位置";
+"settings.island_position.auto" = "自動";
+"settings.island_position.notch" = "ノッチ";
+"settings.island_position.floating" = "フローティング";
+
+/* Settings — AI Usage */
+"settings.ai_usage.display_options" = "使用量 表示オプション";
+"settings.ai_usage.show_remaining" = "残り%で表示";
+"settings.ai_usage.show_remaining_hint" = "オフ: \"20% 使用\" / オン: \"80% 残り\"";
+"settings.ai_usage.absolute_reset_time" = "リセット時刻を絶対表示";
+"settings.ai_usage.absolute_reset_time_hint" = "オフ: \"リセット 2時間後\" / オン: \"10:50 にリセット\"";
+"settings.ai_usage.show_pace" = "消費ペースを表示";
+"settings.ai_usage.show_pace_hint" = "余裕% / リセットまで持続 / 枯渇予測を表示";
+"settings.ai_usage.pace_absolute_time" = "枯渇予測を絶対時刻で表示";
+"settings.ai_usage.pace_absolute_time_hint" = "オフ: \"あと 3h で枯渇\" / オン: \"13:00 に枯渇\"";
+"settings.ai_usage.openai_key_placeholder" = "Admin API Key（使用量データに必要）";
+"settings.ai_usage.openai_delete_key" = "キーを削除";
+"settings.ai_usage.openai_key_note" = "組織のAdmin Keyが必要です — 通常のプロジェクトキーは不可。";
+"settings.ai_usage.openrouter_key_placeholder" = "API Key (sk-or-v1-...)";
+"settings.ai_usage.openrouter_mgmt_placeholder" = "Management Key（任意、グラフデータを有効化）";
+"settings.ai_usage.openrouter_delete_keys" = "キーを削除";

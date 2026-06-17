@@ -69,10 +69,11 @@ private struct IslandTab: View {
             Section(L10n.string("settings.island_position")) {
                 Picker(L10n.string("settings.island_position"), selection: $notchSimulationMode) {
                     ForEach(NotchSimulationMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
+                        Text(L10n.string(mode.displayNameKey)).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
             }
 
             Slider(value: $animationSpeed, in: 0.5...2.0, step: 0.1) {
@@ -146,27 +147,27 @@ private struct AIUsageTab: View {
 
     var body: some View {
         Form {
-            Section("使用量 表示オプション") {
+            Section(L10n.string("settings.ai_usage.display_options")) {
                 Toggle(isOn: $showRemaining) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("残り%で表示")
-                        Text("オフ: \"20% 使用\" / オン: \"80% 残り\"")
+                        Text(L10n.string("settings.ai_usage.show_remaining"))
+                        Text(L10n.string("settings.ai_usage.show_remaining_hint"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
                 Toggle(isOn: $absoluteResetTime) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("リセット時刻を絶対表示")
-                        Text("オフ: \"リセット 2時間後\" / オン: \"10:50 にリセット\"")
+                        Text(L10n.string("settings.ai_usage.absolute_reset_time"))
+                        Text(L10n.string("settings.ai_usage.absolute_reset_time_hint"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
                 Toggle(isOn: $showPace) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("消費ペースを表示")
-                        Text("余裕% / リセットまで持続 / 枯渇予測を表示")
+                        Text(L10n.string("settings.ai_usage.show_pace"))
+                        Text(L10n.string("settings.ai_usage.show_pace_hint"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -174,8 +175,8 @@ private struct AIUsageTab: View {
                 if showPace {
                     Toggle(isOn: $paceAbsoluteTime) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("枯渇予測を絶対時刻で表示")
-                            Text("オフ: \"あと 3h で枯渇\" / オン: \"13:00 に枯渇\"")
+                            Text(L10n.string("settings.ai_usage.pace_absolute_time"))
+                            Text(L10n.string("settings.ai_usage.pace_absolute_time_hint"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -183,25 +184,25 @@ private struct AIUsageTab: View {
                 }
             }
             Section("OpenAI") {
-                SecureField("Admin API Key (required for usage data)", text: $openAIKey)
+                SecureField(L10n.string("settings.ai_usage.openai_key_placeholder"), text: $openAIKey)
                     .onSubmit { saveOpenAIKey() }
                 if OpenAIProvider().isConfigured {
-                    Button("Delete Key", role: .destructive) {
+                    Button(L10n.string("settings.ai_usage.openai_delete_key"), role: .destructive) {
                         OpenAIProvider.deleteAPIKey()
                         openAIKey = ""
                     }
                 }
-                Text("Requires Organization Admin Key — not a regular project key.")
+                Text(L10n.string("settings.ai_usage.openai_key_note"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Section("OpenRouter") {
-                SecureField("API Key (sk-or-v1-...)", text: $openRouterKey)
+                SecureField(L10n.string("settings.ai_usage.openrouter_key_placeholder"), text: $openRouterKey)
                     .onSubmit { saveOpenRouterKey() }
-                SecureField("Management Key (optional, enables chart data)", text: $openRouterMgmtKey)
+                SecureField(L10n.string("settings.ai_usage.openrouter_mgmt_placeholder"), text: $openRouterMgmtKey)
                     .onSubmit { saveOpenRouterMgmtKey() }
                 if OpenRouterProvider().isConfigured {
-                    Button("Delete Keys", role: .destructive) {
+                    Button(L10n.string("settings.ai_usage.openrouter_delete_keys"), role: .destructive) {
                         OpenRouterProvider.deleteRegularKey()
                         OpenRouterProvider.deleteManagementKey()
                         openRouterKey = ""
