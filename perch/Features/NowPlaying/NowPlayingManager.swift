@@ -329,13 +329,13 @@ final class NowPlayingManager {
         if runningIds.contains("com.apple.Safari") {
             let result = await runAppleScript(
                 """
+                if application "Safari" is not running then return "false"
                 tell application "Safari"
-                    if not running then return "false"
                     try
-                        set allTabs to every tab of every window
-                        repeat with windowTabs in allTabs
-                            repeat with t in windowTabs
-                                if URL of t contains "music.youtube.com" then
+                        repeat with w in windows
+                            repeat with t in tabs of w
+                                set tabURL to URL of t
+                                if tabURL is not missing value and tabURL contains "music.youtube.com" then
                                     return "true"
                                 end if
                             end repeat
