@@ -17,7 +17,7 @@ final class NowPlayingManager {
         ("com.operasoftware.Opera", "Opera"),
         ("com.vivaldi.Vivaldi", "Vivaldi"),
         ("com.pushplaylabs.sidekick", "Sidekick"),
-        ("org.mozilla.firefox, Firefox"),
+        ("org.mozilla.firefox", "Firefox"),
         ("org.mozilla.firefoxdeveloperedition", "Firefox Developer Edition"),
         ("org.mozilla.nightly", "Firefox Nightly"),
         ("app.zen-browser.zen", "Zen"),
