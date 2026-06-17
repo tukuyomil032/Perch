@@ -7,7 +7,7 @@ import Logging
 @Observable
 @MainActor
 final class NowPlayingManager {
-    private static let chromiumBrowsers: [(bundleId: String, appName: String)] = [
+    private static let supportedBrowsers: [(bundleId: String, appName: String)] = [
         ("com.google.Chrome", "Google Chrome"),
         ("com.google.Chrome.beta", "Google Chrome Beta"),
         ("com.google.Chrome.canary", "Google Chrome Canary"),
@@ -15,8 +15,10 @@ final class NowPlayingManager {
         ("com.brave.Browser", "Brave Browser"),
         ("com.microsoft.edgemac", "Microsoft Edge"),
         ("com.operasoftware.Opera", "Opera"),
+        ("com.operasoftware.OperaGX", "Opera GX"),
         ("com.vivaldi.Vivaldi", "Vivaldi"),
         ("com.pushplaylabs.sidekick", "Sidekick"),
+        ("com.duckduckgo.macos.browser", "DuckDuckGo"),
         ("org.mozilla.firefox", "Firefox"),
         ("org.mozilla.firefoxdeveloperedition", "Firefox Developer Edition"),
         ("org.mozilla.nightly", "Firefox Nightly"),
@@ -42,6 +44,11 @@ final class NowPlayingManager {
     private nonisolated(unsafe) var mediaRemoteStateTask: Task<Void, Never>?
     private var isYTMPolling: Bool = false
     private var wasYTMPolling: Bool = false
+    // nonisolated(unsafe): written on MainActor (pollYouTubeMusic), read in the
+    // MediaRemote filter closure which may run on any thread. Safe: Bool is
+    // written atomically on Apple platforms and the filter only needs best-effort
+    // freshness (3-second poll cadence makes stale reads inconsequential).
+    private nonisolated(unsafe) var safariHasYTMTab: Bool = false
     private let logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
 
     init() {
@@ -50,11 +57,21 @@ final class NowPlayingManager {
         setupLifecycleObservers()
         startYouTubeMusicPolling()
         Task { @MainActor in await attemptMRFetch() }
-        // Only accept MediaRemote events from Chromium browsers (YTM source)
-        let chromiumBundleIds = Set(Self.chromiumBrowsers.map(\.bundleId))
-        MediaRemoteBridge.shared.bundleIdentifierFilter = { bundleId in
+        // Accept MediaRemote events only from supported browsers.
+        // Safari is a special case: its media runs inside the WebKit WebContent
+        // process (com.apple.WebKit.WebContent), not the main Safari process.
+        // We accept WebContent events only when AppleScript polling has confirmed
+        // a music.youtube.com tab is open in Safari.
+        let supportedBundleIds = Set(Self.supportedBrowsers.map(\.bundleId))
+        MediaRemoteBridge.shared.bundleIdentifierFilter = { [weak self] bundleId in
             guard let bundleId else { return false }
-            guard chromiumBundleIds.contains(bundleId) else { return false }
+            if bundleId == "com.apple.WebKit.WebContent" {
+                guard self?.safariHasYTMTab == true else { return false }
+                return NSWorkspace.shared.runningApplications.contains {
+                    $0.bundleIdentifier == "com.apple.Safari"
+                }
+            }
+            guard supportedBundleIds.contains(bundleId) else { return false }
             return NSWorkspace.shared.runningApplications.contains { app in
                 app.bundleIdentifier == bundleId
             }
@@ -282,7 +299,9 @@ final class NowPlayingManager {
         switch state.source {
         case .spotify: matches = bundleID == "com.spotify.client"
         case .appleMusic: matches = bundleID == "com.apple.Music"
-        case .youTubeMusic: matches = Self.chromiumBrowsers.contains { $0.bundleId == bundleID }
+        case .youTubeMusic:
+            matches = Self.supportedBrowsers.contains { $0.bundleId == bundleID }
+            if bundleID == "com.apple.Safari" { safariHasYTMTab = false }
         default: matches = false
         }
         if matches { currentState = nil }
@@ -303,9 +322,40 @@ final class NowPlayingManager {
         let runningIds = Set(
             NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier }
         )
-        let activeBrowsers = Self.chromiumBrowsers.filter { runningIds.contains($0.bundleId) }
-        let nowPolling = !activeBrowsers.isEmpty
-        // Browser(s) just quit → clear YTM state immediately
+        // Safari: verify a music.youtube.com tab is open before accepting its
+        // WebContent MediaRemote events. All other supported browsers (Chromium,
+        // Firefox, Zen) expose Now Playing via their main-process bundle ID and
+        // don't require URL verification.
+        if runningIds.contains("com.apple.Safari") {
+            let result = await runAppleScript(
+                """
+                tell application "Safari"
+                    if not running then return "false"
+                    try
+                        set allTabs to every tab of every window
+                        repeat with windowTabs in allTabs
+                            repeat with t in windowTabs
+                                if URL of t contains "music.youtube.com" then
+                                    return "true"
+                                end if
+                            end repeat
+                        end repeat
+                        return "false"
+                    on error
+                        return "false"
+                    end try
+                end tell
+                """)
+            safariHasYTMTab = result == "true"
+        } else {
+            safariHasYTMTab = false
+        }
+        // Exclude Safari from the running-browser check: Safari requires YTM tab
+        // confirmation (safariHasYTMTab) rather than mere process presence.
+        let nonSafariBrowsers = Self.supportedBrowsers.filter { $0.bundleId != "com.apple.Safari" }
+        let activeBrowsers = nonSafariBrowsers.filter { runningIds.contains($0.bundleId) }
+        let nowPolling = !activeBrowsers.isEmpty || safariHasYTMTab
+        // Browser(s) just quit / Safari left YTM → clear state immediately
         if wasYTMPolling && !nowPolling && currentState?.source == .youTubeMusic {
             currentState = nil
         }
@@ -414,7 +464,7 @@ final class NowPlayingManager {
 
     private var ytmBrowserBundleId: String? {
         NSWorkspace.shared.runningApplications.first { app in
-            Self.chromiumBrowsers.contains { $0.bundleId == (app.bundleIdentifier ?? "") }
+            Self.supportedBrowsers.contains { $0.bundleId == (app.bundleIdentifier ?? "") }
         }?.bundleIdentifier
     }
 

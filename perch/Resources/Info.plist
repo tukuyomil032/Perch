@@ -4,6 +4,8 @@
 <dict>
     <key>LSUIElement</key>
     <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Perch checks Safari for open YouTube Music tabs to detect what you're listening to.</string>
     <key>NSScreenCaptureUsageDescription</key>
     <string>Perch uses audio capture to animate the waveform visualizer in sync with your music.</string>
     <key>NSAppTransportSecurity</key>
