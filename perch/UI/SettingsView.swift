@@ -20,10 +20,6 @@ struct SettingsView: View {
                 .tabItem { Label(L10n.string("settings.language"), systemImage: "globe") }
             AIUsageTab()
                 .tabItem { Label(L10n.string("settings.ai_usage"), systemImage: "cpu") }
-            #if DEBUG
-            DebugTab()
-                .tabItem { Label(L10n.string("settings.debug"), systemImage: "ladybug") }
-            #endif
         }
         .frame(width: 420, height: 360)
         .id(languageCode)
@@ -52,6 +48,7 @@ private struct IslandTab: View {
     @Binding var autoCollapseDelay: Double
     @Default(.pillSize) private var pillSize
     @Default(.pillBackgroundStyle) private var pillBgStyle
+    @Default(.notchSimulationMode) private var notchSimulationMode
 
     var body: some View {
         Form {
@@ -68,6 +65,15 @@ private struct IslandTab: View {
                 }
             }
             .pickerStyle(.segmented)
+
+            Section(L10n.string("settings.island_position")) {
+                Picker(L10n.string("settings.island_position"), selection: $notchSimulationMode) {
+                    ForEach(NotchSimulationMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
 
             Slider(value: $animationSpeed, in: 0.5...2.0, step: 0.1) {
                 Text(L10n.string("settings.animation_speed"))
@@ -242,23 +248,3 @@ private struct AIUsageTab: View {
         }
     }
 }
-
-#if DEBUG
-private struct DebugTab: View {
-    @Default(.notchSimulationMode) private var notchSimulationMode
-
-    var body: some View {
-        Form {
-            Section(L10n.string("settings.debug")) {
-                Picker("Notch Simulation", selection: $notchSimulationMode) {
-                    ForEach(NotchSimulationMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-            }
-        }
-        .formStyle(.grouped)
-        .padding()
-    }
-}
-#endif
