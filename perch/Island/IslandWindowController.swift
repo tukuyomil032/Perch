@@ -9,6 +9,9 @@ private let logger = Logger(label: "com.tukuyomi032.perch.IslandWindowController
 final class IslandWindowController: NSWindowController {
     private let appState: AppState
     private var pendingLayoutTask: Task<Void, Never>?
+    // nonisolated(unsafe): written once on @MainActor (startObserving) and
+    // read only in deinit (nonisolated). No concurrent access occurs.
+    nonisolated(unsafe) private var notchModeObservation: (any Defaults.Observation)?
 
     private var islandWindow: IslandWindow? { window as? IslandWindow }
 
@@ -70,6 +73,7 @@ final class IslandWindowController: NSWindowController {
 
     deinit {
         pendingLayoutTask?.cancel()
+        notchModeObservation?.invalidate()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -120,6 +124,11 @@ final class IslandWindowController: NSWindowController {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
+        notchModeObservation = Defaults.observe(.notchSimulationMode) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.scheduleLayoutUpdate()
+            }
+        }
     }
 
     @objc private func screenParametersDidChange(_ notification: Notification) {

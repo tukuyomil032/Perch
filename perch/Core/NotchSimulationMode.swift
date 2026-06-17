@@ -5,11 +5,11 @@ enum NotchSimulationMode: String, CaseIterable, Defaults.Serializable {
     case forceNotched
     case forceNonNotched
 
-    var displayName: String {
+    var displayNameKey: String {
         switch self {
-        case .auto: return "Auto"
-        case .forceNotched: return "Force Notch"
-        case .forceNonNotched: return "Force No Notch"
+        case .auto: return "settings.island_position.auto"
+        case .forceNotched: return "settings.island_position.notch"
+        case .forceNonNotched: return "settings.island_position.floating"
         }
     }
 }
