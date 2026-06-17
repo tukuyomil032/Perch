@@ -17,6 +17,12 @@ final class NowPlayingManager {
         ("com.operasoftware.Opera", "Opera"),
         ("com.vivaldi.Vivaldi", "Vivaldi"),
         ("com.pushplaylabs.sidekick", "Sidekick"),
+        ("org.mozilla.firefox, Firefox"),
+        ("org.mozilla.firefoxdeveloperedition", "Firefox Developer Edition"),
+        ("org.mozilla.nightly", "Firefox Nightly"),
+        ("app.zen-browser.zen", "Zen"),
+        ("com.apple.Safari", "Safari"),
+        ("company.thebrowser.dia", "Dia"),
     ]
     private(set) var currentState: NowPlayingState?
     let audioCaptureService = AudioCaptureService()
