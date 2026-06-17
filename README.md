@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="perch/Resources/Assets.xcassets/AppIcon.appiconset/icon_128x128.png" width="96" alt="Perch icon">
+  <img src="docs/icon.png" width="96" alt="Perch icon">
 
   # Perch
 
