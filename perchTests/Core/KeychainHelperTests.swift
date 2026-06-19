@@ -29,12 +29,13 @@ func saveAndLoad() throws {
     }
 
     @Test("overwrite replaces existing value")
-    func overwriteReplaces() throws {
-        try KeychainHelper.save("first", forKey: testKey)
-        try KeychainHelper.save("second", forKey: testKey)
-        let loaded = KeychainHelper.load(forKey: testKey)
-        #expect(loaded == "second")
-    }
+func overwriteReplaces() throws {
+    defer { KeychainHelper.delete(forKey: testKey) }
+    try KeychainHelper.save("first", forKey: testKey)
+    try KeychainHelper.save("second", forKey: testKey)
+    let loaded = KeychainHelper.load(forKey: testKey)
+    #expect(loaded == "second")
+}
 
     @Test("delete removes the value")
     func deleteRemoves() throws {
