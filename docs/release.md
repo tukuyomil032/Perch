@@ -51,7 +51,10 @@ Commit and push to `main`. The Release workflow creates:
   `appcast.xml`.
 - If the target tag or GitHub Release already exists, the workflow fails.
 - `workflow_dispatch` remains available for manual stable or beta publishing
-  from the current `version.env` values.
+  from the current `version.env` values, but it must be run from `main`.
+- The one-time migration from the legacy `MARKETING_VERSION` / `BUILD_NUMBER`
+  format to the split stable/beta fields is treated as a schema update and does
+  not publish a release by itself.
 
 ## Local Checks
 
