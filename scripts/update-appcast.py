@@ -59,8 +59,6 @@ def main() -> None:
     item = ET.Element("item")
     ET.SubElement(item, "title").text = version
     ET.SubElement(item, "pubDate").text = pub_date
-    ET.SubElement(item, s("version")).text = build
-    ET.SubElement(item, s("shortVersionString")).text = version
     ET.SubElement(item, s("minimumSystemVersion")).text = "14.0"
     if channel:
         ET.SubElement(item, s("channel")).text = channel
@@ -69,6 +67,8 @@ def main() -> None:
     enc.set("url", dmg_url)
     enc.set("length", dmg_size)
     enc.set("type", "application/x-apple-diskimage")
+    enc.set(s("version"), build)
+    enc.set(s("shortVersionString"), version)
     enc.set(s("edSignature"), "PLACEHOLDER_PHASE6")
 
     existing = ch.findall("item")
