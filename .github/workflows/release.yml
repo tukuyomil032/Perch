@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release tag (e.g. v0.3.0 or v0.3.0-beta.1)'
+        description: 'Release tag (e.g. v0.3.1 or v0.3.1-beta.1)'
         required: true
         type: string
 
@@ -15,14 +15,86 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: macos-26
-    env:
-      SCHEME: perch
-      APP_NAME: perch
+  # ─── Job 1: Skip guard + version resolution (cheap, ubuntu-latest) ────────
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      skip:         ${{ steps.gate.outputs.skip }}
+      version:      ${{ steps.version.outputs.version }}
+      base_version: ${{ steps.version.outputs.base_version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      tag:          ${{ steps.version.outputs.tag }}
+      is_beta:      ${{ steps.version.outputs.is_beta }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Read version.env
+        id: ver_env
+        run: |
+          set -a; source version.env; set +a
+          echo "marketing_version=$MARKETING_VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER"           >> "$GITHUB_OUTPUT"
+
+      - name: Resolve and validate version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.version }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+
+          VERSION="${TAG#v}"
+          BASE_VERSION="${VERSION%%-*}"   # strips -beta.1, -rc.1, etc.
+
+          IS_BETA="false"
+          [[ "$TAG" == *"-beta"* ]] && IS_BETA="true"
+
+          MVER="${{ steps.ver_env.outputs.marketing_version }}"
+          if [ "$BASE_VERSION" != "$MVER" ]; then
+            echo "::error::Tag base version ($BASE_VERSION) ≠ version.env MARKETING_VERSION ($MVER)"
+            echo "Update version.env (MARKETING_VERSION=$BASE_VERSION) before tagging."
+            exit 1
+          fi
+
+          echo "version=$VERSION"                                       >> "$GITHUB_OUTPUT"
+          echo "base_version=$BASE_VERSION"                             >> "$GITHUB_OUTPUT"
+          echo "build_number=${{ steps.ver_env.outputs.build_number }}" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"                                               >> "$GITHUB_OUTPUT"
+          echo "is_beta=$IS_BETA"                                       >> "$GITHUB_OUTPUT"
+
+      - name: Check if release already exists
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" 2>/dev/null; then
+            echo "Release $TAG already exists — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ─── Job 2: Build, package, publish (macos-26) ───────────────────────────
+  release:
+    needs: check
+    if: needs.check.outputs.skip != 'true'
+    runs-on: macos-26
+    env:
+      SCHEME:       perch
+      APP_NAME:     perch
+      VERSION:      ${{ needs.check.outputs.version }}
+      BASE_VERSION: ${{ needs.check.outputs.base_version }}
+      BUILD_NUMBER: ${{ needs.check.outputs.build_number }}
+      TAG:          ${{ needs.check.outputs.tag }}
+      IS_BETA:      ${{ needs.check.outputs.is_beta }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed for GitHub Contents API push of appcast.xml
 
       - name: Cache DerivedData
         uses: actions/cache@v4
@@ -32,27 +104,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-dd-release-
 
-      - name: Resolve version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.version }}"
-          else
-            TAG="${GITHUB_REF_NAME}"
-          fi
-          VERSION="${TAG#v}"
-          BASE_VERSION="${VERSION%%-*}"
-          echo "version=$VERSION"           >> "$GITHUB_OUTPUT"
-          echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG"                   >> "$GITHUB_OUTPUT"
-
       - name: Build universal archive
         run: |
           set -o pipefail
           xcodebuild archive \
             -scheme "$SCHEME" \
             -configuration Release \
-            -archivePath build/$APP_NAME.xcarchive \
+            -archivePath "build/$APP_NAME.xcarchive" \
             -destination 'generic/platform=macOS' \
             -derivedDataPath build/DerivedData \
             -skipPackagePluginValidation \
@@ -63,33 +121,30 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            MARKETING_VERSION="${{ steps.version.outputs.base_version }}" \
+            MARKETING_VERSION="$BASE_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             SKIP_INSTALL=NO 2>&1 | tail -100
 
       - name: Ad-hoc sign app bundle
         run: |
           APP="build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app"
-          codesign --force --deep --sign - --timestamp=none "${APP}"
-          echo "Signed: ${APP}"
+          codesign --force --deep --sign - --timestamp=none "$APP"
+          echo "Signed: $APP"
+
+      - name: Install create-dmg
+        run: brew install create-dmg
 
       - name: Create DMG
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
           mkdir -p build/dmg
-          STAGING="build/dmg-staging"
-          mkdir -p "$STAGING"
-          cp -R "build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" "$STAGING/$APP_NAME.app"
-          hdiutil create \
-            -volname "Perch" \
-            -srcfolder "$STAGING" \
-            -ov -format UDZO \
-            "build/dmg/$APP_NAME-${VERSION}.dmg"
-          echo "Created: $APP_NAME-${VERSION}.dmg"
+          bash scripts/build-dmg.sh \
+            "$VERSION" \
+            "build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" \
+            "build/dmg"
 
       - name: Compose release body
         id: body
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
           {
             echo "body<<__BODY__"
             echo "## Perch ${VERSION}"
@@ -110,10 +165,53 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: "Perch ${{ steps.version.outputs.version }}"
-          body: ${{ steps.body.outputs.body }}
-          files: |
-            build/dmg/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.dmg
-          draft: false
-          prerelease: ${{ contains(steps.version.outputs.tag, 'beta') }}
+          tag_name:   ${{ env.TAG }}
+          name:       "Perch ${{ env.VERSION }}"
+          body:       ${{ steps.body.outputs.body }}
+          files:      build/dmg/${{ env.APP_NAME }}-${{ env.VERSION }}.dmg
+          draft:      false
+          prerelease: ${{ env.IS_BETA == 'true' }}
+
+      - name: Update appcast.xml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DMG_PATH="build/dmg/${APP_NAME}-${VERSION}.dmg"
+          DMG_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${APP_NAME}-${VERSION}.dmg"
+          DMG_SIZE=$(stat -f%z "$DMG_PATH")
+
+          CHANNEL_ARG=""
+          [[ "$IS_BETA" == "true" ]] && CHANNEL_ARG="beta"
+
+          # Always fetch appcast.xml from main branch (not from tag checkout)
+          if gh api "repos/${GITHUB_REPOSITORY}/contents/appcast.xml" \
+               --jq '.content' 2>/dev/null | python3 -c 'import base64,sys;sys.stdout.buffer.write(base64.b64decode(sys.stdin.buffer.read()))' > appcast.xml; then
+            echo "Fetched existing appcast.xml from main"
+          else
+            echo "appcast.xml not found on main — using template from checkout"
+          fi
+
+          if [[ -n "$CHANNEL_ARG" ]]; then
+            python3 scripts/update-appcast.py \
+              "$VERSION" "$BUILD_NUMBER" "$DMG_URL" "$DMG_SIZE" "$CHANNEL_ARG"
+          else
+            python3 scripts/update-appcast.py \
+              "$VERSION" "$BUILD_NUMBER" "$DMG_URL" "$DMG_SIZE"
+          fi
+
+          # Push updated appcast.xml to main branch via GitHub Contents API
+          SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/appcast.xml" \
+            --jq '.sha' 2>/dev/null || echo "")
+
+          ENCODED=$(base64 -i appcast.xml | tr -d '\n')
+          jq -n \
+            --arg message "appcast: add v${VERSION} (build ${BUILD_NUMBER})" \
+            --arg content  "$ENCODED" \
+            --arg sha      "$SHA" \
+            '{"message": $message, "content": $content}
+             + (if $sha != "" then {"sha": $sha} else {} end)' \
+          | gh api "repos/${GITHUB_REPOSITORY}/contents/appcast.xml" \
+              --method PUT \
+              --input -
+
+          echo "appcast.xml updated for v${VERSION}"

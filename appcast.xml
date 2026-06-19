@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Perch</title>
+        <link>https://raw.githubusercontent.com/tukuyomil032/perch/main/appcast.xml</link>
+        <description>Perch release feed for Sparkle auto-update</description>
+        <!-- Entries are managed by CI via scripts/update-appcast.py. Do not edit manually. -->
+        <!-- Phase 6: Replace sparkle:edSignature="PLACEHOLDER_PHASE6" with real EdDSA signatures. -->
+    </channel>
+</rss>

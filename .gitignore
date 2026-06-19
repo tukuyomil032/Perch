@@ -56,3 +56,13 @@ sparkle_private_key
 
 
 docs/img/**
+
+# Python / uv
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.uv/
+uv.lock
+*.egg-info/
