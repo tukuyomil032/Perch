@@ -17,10 +17,16 @@ on:
           - beta
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   check:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     outputs:
       skip:         ${{ steps.version.outputs.skip }}
@@ -32,12 +38,18 @@ jobs:
       is_beta:      ${{ steps.version.outputs.is_beta }}
 
     steps:
+      - name: Ensure manual release runs from main
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Manual releases must run from main."
+          exit 1
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
 
       - name: Capture previous version.env
         if: github.event_name == 'push'
@@ -89,6 +101,8 @@ jobs:
           fi
 
   release:
+    permissions:
+      contents: write
     needs: check
     if: needs.check.outputs.skip != 'true'
     runs-on: macos-26
@@ -108,7 +122,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
 
       - name: Cache DerivedData
         uses: actions/cache@v4
@@ -234,3 +248,11 @@ jobs:
               --input -
 
           echo "appcast.xml updated for v${VERSION}"
+
+      - name: Clean up failed release artifacts
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes || true
+          git push --delete origin "$TAG" || true
