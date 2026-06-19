@@ -24,7 +24,7 @@ struct WaveformView: View {
                     waveform(levels: blendedLevels(at: context.date))
                 }
             } else {
-                waveform(levels: idleLevels)
+                waveform(levels: Self.idleLevels)
             }
         }
         .frame(
@@ -36,17 +36,57 @@ struct WaveformView: View {
 
     // MARK: - Level computation
 
-    /// Silent levels for paused state.
-    private var idleLevels: [Float] {
-        [Float](repeating: 0, count: barCount)
+    private static let idleLevels = [Float](repeating: 0, count: AudioSpectrumAnalyzer.bandCount)
+
+    private func blendedLevels(at date: Date) -> [Float] {
+        guard isPlaying else { return Self.idleLevels }
+
+        guard let realLevels = normalizedExternalLevels() else {
+            return usesSyntheticFallback ? syntheticLevels(at: date) : Self.idleLevels
+        }
+
+        let peak = realLevels.max() ?? 0
+
+        guard peak > 0.012 else {
+            return Self.idleLevels
+        }
+
+        let synthetic = syntheticLevels(at: date)
+        let flourishStrength = Float(0.34) * (0.35 + 0.65 * peak)
+
+        return (0..<barCount).map { index in
+            let real = realLevels[index]
+            let shapedReal = Float(pow(Double(real), 0.92))
+            let flourish = (synthetic[index] - 0.5) * flourishStrength
+            let minimumVisibleLevel: Float = peak > 0.08 ? 0.02 : 0.0
+
+            return clamp(
+                shapedReal + flourish,
+                minimum: minimumVisibleLevel,
+                maximum: 1.0
+            )
+        }
     }
 
-    /// Always returns pure synthetic sine-wave levels to reproduce the
-    /// organic, continuous motion users preferred before audio-reactive mode.
-    /// externalLevels are intentionally ignored so the animation stays fluid
-    /// regardless of the audio content.
-    private func blendedLevels(at date: Date) -> [Float] {
-        return syntheticLevels(at: date)
+    private func normalizedExternalLevels() -> [Float]? {
+        guard let externalLevels, !externalLevels.isEmpty else {
+            return nil
+        }
+
+        if externalLevels.count == barCount {
+            return externalLevels.map {
+                clamp($0, minimum: 0, maximum: 1)
+            }
+        }
+
+        // Nearest-neighbour resampling — sufficient because callers always supply
+        // AudioSpectrumAnalyzer.bandCount elements (barCount == externalLevels.count).
+        return (0..<barCount).map { index in
+            let ratio = Double(index) / Double(barCount)
+            let rawIndex = Int(ratio * Double(externalLevels.count))
+            let sourceIndex = min(externalLevels.count - 1, rawIndex)
+            return clamp(externalLevels[sourceIndex], minimum: 0, maximum: 1)
+        }
     }
 
     // MARK: - Rendering
@@ -115,6 +155,10 @@ struct WaveformView: View {
     // Higher, fully-irrational frequencies (√6, π, √3, e, √15, √(3.73)) per bar.
     private let barFreqs: [Double] = [2.414, 3.146, 1.732, 2.718, 3.873, 1.931]
     private let barPhases: [Double] = [0.000, 1.173, 2.427, 0.893, 1.972, 3.217]
+
+    private func clamp(_ value: Float, minimum: Float, maximum: Float) -> Float {
+        min(maximum, max(minimum, value))
+    }
 
     private func syntheticLevels(at date: Date) -> [Float] {
         guard isPlaying else { return [Float](repeating: 0, count: barCount) }

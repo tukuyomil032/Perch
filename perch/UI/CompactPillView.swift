@@ -62,8 +62,10 @@ struct CompactPillView: View {
                 let capture = appState.nowPlayingManager.audioCaptureService
                 NowPlayingCompact(
                     state: state,
-                    waveformLevels: capture.isCaptureActive ? capture.rmsLevels : nil,
-                    usesSyntheticFallback: !capture.isCaptureActive
+                    waveformLevels: capture.isCaptureActive && capture.hasReceivedAudio
+                        ? capture.rmsLevels
+                        : nil,
+                    usesSyntheticFallback: !capture.isCaptureActive || !capture.hasReceivedAudio
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }

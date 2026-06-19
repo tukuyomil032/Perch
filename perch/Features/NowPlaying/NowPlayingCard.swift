@@ -15,6 +15,10 @@ struct NowPlayingCard: View {
     @State private var scrubProgress: Double = 0
     @State private var waveformPalette = ArtworkPalette.fallback
 
+    private var capture: AudioCaptureService {
+        manager.audioCaptureService
+    }
+
     var body: some View {
         Group {
             if showLyricsFullView {
@@ -73,10 +77,11 @@ struct NowPlayingCard: View {
                     WaveformView(
                         isPlaying: state.isPlaying,
                         colors: waveformPalette.gradientColors,
-                        externalLevels: manager.audioCaptureService.isCaptureActive
-                            ? manager.audioCaptureService.rmsLevels
+                        externalLevels: capture.isCaptureActive && capture.hasReceivedAudio
+                            ? capture.rmsLevels
                             : nil,
-                        usesSyntheticFallback: !manager.audioCaptureService.isCaptureActive
+                        usesSyntheticFallback: !capture.isCaptureActive
+                            || !capture.hasReceivedAudio
                     )
                     .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
                     .padding(.trailing, 6)

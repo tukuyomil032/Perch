@@ -15,12 +15,12 @@ struct KeychainHelperTests {
     }
 
     @Test("save and load round-trip")
-func saveAndLoad() throws {
-    defer { KeychainHelper.delete(forKey: testKey) }
-    try KeychainHelper.save("secret-value", forKey: testKey)
-    let loaded = KeychainHelper.load(forKey: testKey)
-    #expect(loaded == "secret-value")
-}
+    func saveAndLoad() throws {
+        defer { KeychainHelper.delete(forKey: testKey) }
+        try KeychainHelper.save("secret-value", forKey: testKey)
+        let loaded = KeychainHelper.load(forKey: testKey)
+        #expect(loaded == "secret-value")
+    }
 
     @Test("load returns nil for missing key")
     func loadMissingReturnsNil() {
@@ -29,13 +29,13 @@ func saveAndLoad() throws {
     }
 
     @Test("overwrite replaces existing value")
-func overwriteReplaces() throws {
-    defer { KeychainHelper.delete(forKey: testKey) }
-    try KeychainHelper.save("first", forKey: testKey)
-    try KeychainHelper.save("second", forKey: testKey)
-    let loaded = KeychainHelper.load(forKey: testKey)
-    #expect(loaded == "second")
-}
+    func overwriteReplaces() throws {
+        defer { KeychainHelper.delete(forKey: testKey) }
+        try KeychainHelper.save("first", forKey: testKey)
+        try KeychainHelper.save("second", forKey: testKey)
+        let loaded = KeychainHelper.load(forKey: testKey)
+        #expect(loaded == "second")
+    }
 
     @Test("delete removes the value")
     func deleteRemoves() throws {
@@ -52,9 +52,10 @@ func overwriteReplaces() throws {
     }
 
     @Test("empty string saves and loads correctly")
-func emptyStringRoundTrip() throws {
-    defer { KeychainHelper.delete(forKey: testKey) }
-    try KeychainHelper.save("", forKey: testKey)
-    let loaded = KeychainHelper.load(forKey: testKey)
-    #expect(loaded == "")
+    func emptyStringRoundTrip() throws {
+        defer { KeychainHelper.delete(forKey: testKey) }
+        try KeychainHelper.save("", forKey: testKey)
+        let loaded = KeychainHelper.load(forKey: testKey)
+        #expect(loaded == "")
+    }
 }
