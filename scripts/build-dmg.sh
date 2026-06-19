@@ -46,4 +46,4 @@ create-dmg \
     "$STAGING"
 
 echo "Done: $OUTPUT_DMG"
-ls -lh "$OUTPUT_DMG"
+stat -f "Size: %z bytes" "$OUTPUT_DMG"

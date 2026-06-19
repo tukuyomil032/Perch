@@ -2,24 +2,29 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+    paths:
+      - version.env
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Release tag (e.g. v0.3.1 or v0.3.1-beta.1)'
+      channel:
+        description: 'Release channel to publish from version.env'
         required: true
-        type: string
+        type: choice
+        options:
+          - stable
+          - beta
 
 permissions:
   contents: write
 
 jobs:
-  # ─── Job 1: Skip guard + version resolution (cheap, ubuntu-latest) ────────
   check:
     runs-on: ubuntu-latest
     outputs:
-      skip:         ${{ steps.gate.outputs.skip }}
+      skip:         ${{ steps.version.outputs.skip }}
+      channel:      ${{ steps.version.outputs.channel }}
       version:      ${{ steps.version.outputs.version }}
       base_version: ${{ steps.version.outputs.base_version }}
       build_number: ${{ steps.version.outputs.build_number }}
@@ -28,56 +33,61 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Read version.env
-        id: ver_env
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8
+
+      - name: Capture previous version.env
+        if: github.event_name == 'push'
         run: |
-          set -a; source version.env; set +a
-          echo "marketing_version=$MARKETING_VERSION" >> "$GITHUB_OUTPUT"
-          echo "build_number=$BUILD_NUMBER"           >> "$GITHUB_OUTPUT"
+          if git cat-file -e "${{ github.event.before }}:version.env" 2>/dev/null; then
+            git show "${{ github.event.before }}:version.env" > /tmp/version-before.env
+          else
+            touch /tmp/version-before.env
+          fi
 
-      - name: Resolve and validate version
+      - name: Resolve release metadata
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.version }}"
+          PREVIOUS_ARGS=()
+          CHANNEL_ARGS=()
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            PREVIOUS_ARGS=(--previous /tmp/version-before.env)
           else
-            TAG="${GITHUB_REF_NAME}"
+            CHANNEL_ARGS=(--channel "${{ github.event.inputs.channel }}")
           fi
 
-          VERSION="${TAG#v}"
-          BASE_VERSION="${VERSION%%-*}"   # strips -beta.1, -rc.1, etc.
+          UV_CACHE_DIR=.uv-cache uv run python scripts/resolve-release.py \
+            --current version.env \
+            "${PREVIOUS_ARGS[@]}" \
+            --event-name "${{ github.event_name }}" \
+            "${CHANNEL_ARGS[@]}" \
+            --appcast appcast.xml
 
-          IS_BETA="false"
-          [[ "$TAG" == *"-beta"* ]] && IS_BETA="true"
+      - name: Stop when version.env did not change a release block
+        if: steps.version.outputs.skip == 'true'
+        run: echo "No STABLE_* or BETA_* release fields changed."
 
-          MVER="${{ steps.ver_env.outputs.marketing_version }}"
-          if [ "$BASE_VERSION" != "$MVER" ]; then
-            echo "::error::Tag base version ($BASE_VERSION) ≠ version.env MARKETING_VERSION ($MVER)"
-            echo "Update version.env (MARKETING_VERSION=$BASE_VERSION) before tagging."
-            exit 1
-          fi
-
-          echo "version=$VERSION"                                       >> "$GITHUB_OUTPUT"
-          echo "base_version=$BASE_VERSION"                             >> "$GITHUB_OUTPUT"
-          echo "build_number=${{ steps.ver_env.outputs.build_number }}" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG"                                               >> "$GITHUB_OUTPUT"
-          echo "is_beta=$IS_BETA"                                       >> "$GITHUB_OUTPUT"
-
-      - name: Check if release already exists
-        id: gate
+      - name: Check tag and release do not exist
+        if: steps.version.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" 2>/dev/null; then
-            echo "Release $TAG already exists — skipping."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::error::Tag ${TAG} already exists."
+            exit 1
           fi
 
-  # ─── Job 2: Build, package, publish (macos-26) ───────────────────────────
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release ${TAG} already exists."
+            exit 1
+          fi
+
   release:
     needs: check
     if: needs.check.outputs.skip != 'true'
@@ -85,6 +95,7 @@ jobs:
     env:
       SCHEME:       perch
       APP_NAME:     perch
+      CHANNEL:      ${{ needs.check.outputs.channel }}
       VERSION:      ${{ needs.check.outputs.version }}
       BASE_VERSION: ${{ needs.check.outputs.base_version }}
       BUILD_NUMBER: ${{ needs.check.outputs.build_number }}
@@ -94,7 +105,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # needed for GitHub Contents API push of appcast.xml
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8
 
       - name: Cache DerivedData
         uses: actions/cache@v4
@@ -142,6 +156,13 @@ jobs:
             "build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" \
             "build/dmg"
 
+      - name: Create release tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
+
       - name: Compose release body
         id: body
         run: |
@@ -156,7 +177,7 @@ jobs:
             echo '```'
             echo ""
             echo "### Direct Download"
-            echo "- **perch-${VERSION}.dmg** — Universal (Apple Silicon + Intel)"
+            echo "- **perch-${VERSION}.dmg** - Universal (Apple Silicon + Intel)"
             echo ""
             echo "> Not notarized by Apple. If Gatekeeper blocks it: right-click > Open > Open."
             echo "__BODY__"
@@ -183,23 +204,21 @@ jobs:
           CHANNEL_ARG=""
           [[ "$IS_BETA" == "true" ]] && CHANNEL_ARG="beta"
 
-          # Always fetch appcast.xml from main branch (not from tag checkout)
           if gh api "repos/${GITHUB_REPOSITORY}/contents/appcast.xml" \
                --jq '.content' 2>/dev/null | base64 -d > appcast.xml; then
             echo "Fetched existing appcast.xml from main"
           else
-            echo "appcast.xml not found on main — using template from checkout"
+            echo "appcast.xml not found on main - using template from checkout"
           fi
 
           if [[ -n "$CHANNEL_ARG" ]]; then
-            python3 scripts/update-appcast.py \
+            UV_CACHE_DIR=.uv-cache uv run python scripts/update-appcast.py \
               "$VERSION" "$BUILD_NUMBER" "$DMG_URL" "$DMG_SIZE" "$CHANNEL_ARG"
           else
-            python3 scripts/update-appcast.py \
+            UV_CACHE_DIR=.uv-cache uv run python scripts/update-appcast.py \
               "$VERSION" "$BUILD_NUMBER" "$DMG_URL" "$DMG_SIZE"
           fi
 
-          # Push updated appcast.xml to main branch via GitHub Contents API
           SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/appcast.xml" \
             --jq '.sha' 2>/dev/null || echo "")
 
