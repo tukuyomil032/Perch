@@ -15,11 +15,12 @@ struct KeychainHelperTests {
     }
 
     @Test("save and load round-trip")
-    func saveAndLoad() throws {
-        try KeychainHelper.save("secret-value", forKey: testKey)
-        let loaded = KeychainHelper.load(forKey: testKey)
-        #expect(loaded == "secret-value")
-    }
+func saveAndLoad() throws {
+    defer { KeychainHelper.delete(forKey: testKey) }
+    try KeychainHelper.save("secret-value", forKey: testKey)
+    let loaded = KeychainHelper.load(forKey: testKey)
+    #expect(loaded == "secret-value")
+}
 
     @Test("load returns nil for missing key")
     func loadMissingReturnsNil() {
