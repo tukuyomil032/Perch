@@ -185,7 +185,7 @@ jobs:
 
           # Always fetch appcast.xml from main branch (not from tag checkout)
           if gh api "repos/${GITHUB_REPOSITORY}/contents/appcast.xml" \
-               --jq '.content' 2>/dev/null | base64 -d > appcast.xml; then
+               --jq '.content' 2>/dev/null | python3 -c 'import base64,sys;sys.stdout.buffer.write(base64.b64decode(sys.stdin.buffer.read()))' > appcast.xml; then
             echo "Fetched existing appcast.xml from main"
           else
             echo "appcast.xml not found on main — using template from checkout"
