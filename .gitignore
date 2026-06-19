@@ -53,16 +53,17 @@ sparkle_private_key
 
 # Superpowers brainstorming sessions
 .superpowers/
+docs/superpowers/**
 
 
 docs/img/**
 
 # Python / uv
 .venv/
+.uv-cache/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .uv/
-uv.lock
 *.egg-info/
