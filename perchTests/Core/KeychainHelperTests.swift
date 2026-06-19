@@ -52,9 +52,9 @@ func overwriteReplaces() throws {
     }
 
     @Test("empty string saves and loads correctly")
-    func emptyStringRoundTrip() throws {
-        try KeychainHelper.save("", forKey: testKey)
-        let loaded = KeychainHelper.load(forKey: testKey)
-        #expect(loaded == "")
-    }
+func emptyStringRoundTrip() throws {
+    defer { KeychainHelper.delete(forKey: testKey) }
+    try KeychainHelper.save("", forKey: testKey)
+    let loaded = KeychainHelper.load(forKey: testKey)
+    #expect(loaded == "")
 }
