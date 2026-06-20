@@ -4,7 +4,6 @@ import SwiftUI
 struct CompactPillView: View {
     @Environment(AppState.self) private var appState
     @State private var isHovered = false
-    @State private var isBouncing = false
     @Default(.pillSize) private var pillSize
     @Default(.pillBackgroundStyle) private var pillBgStyle
 
@@ -17,15 +16,9 @@ struct CompactPillView: View {
 
     var body: some View {
         singlePillView
-            .scaleEffect(isBouncing ? 1.05 : (isHovered ? 1.03 : 1.0))
-            .animation(.spring(response: 0.2, dampingFraction: 0.5), value: isBouncing)
-            .animation(DesignSystem.springAnimation, value: isHovered)
+            .scaleEffect(isHovered ? 1.012 : 1)
+            .animation(.easeOut(duration: 0.12), value: isHovered)
             .onHover { isHovered = $0 }
-            .onChange(of: appState.nowPlayingManager.currentState?.title) { _, newTitle in
-                guard newTitle != nil else { return }
-                withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) { isBouncing = true }
-                withAnimation(.spring(response: 0.2, dampingFraction: 0.8).delay(0.15)) { isBouncing = false }
-            }
             .opacity(isIdle && !isHovered ? 0.12 : 1.0)
             .animation(.easeInOut(duration: 0.25), value: isIdle)
             .animation(.easeInOut(duration: 0.25), value: isHovered)
