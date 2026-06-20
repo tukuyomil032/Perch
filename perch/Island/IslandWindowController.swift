@@ -12,6 +12,7 @@ final class IslandWindowController: NSWindowController {
     // nonisolated(unsafe): written once on @MainActor (startObserving) and
     // read only in deinit (nonisolated). No concurrent access occurs.
     nonisolated(unsafe) private var notchModeObservation: (any Defaults.Observation)?
+    private var lastExpandedTarget: Bool?
 
     private var islandWindow: IslandWindow? { window as? IslandWindow }
 
@@ -80,18 +81,38 @@ final class IslandWindowController: NSWindowController {
     func updateLayout() {
         let (environment, _) = Self.resolveScreenEnvironment()
         let notchSize = environment.notchSize
-        let mode: IslandMode = notchSize == .zero ? .floatingPill : .physicalNotch(notchSize: notchSize)
+        let mode: IslandMode =
+            notchSize == .zero
+            ? .floatingPill
+            : .physicalNotch(notchSize: notchSize)
+
         appState.isPhysicalNotch = (mode != .floatingPill)
-        let frame =
-            appState.isExpanded
+
+        let expands = appState.isExpanded
+
+        let frame: CGRect =
+            expands
             ? IslandGeometry.expandedFrame(
-                mode: mode, environment: environment,
-                height: mode == .floatingPill ? appState.expandedWindowHeight : nil)
+                mode: mode,
+                environment: environment,
+                height: mode == .floatingPill ? appState.expandedWindowHeight : nil
+            )
             : IslandGeometry.compactFrame(
-                mode: mode, environment: environment,
+                mode: mode,
+                environment: environment,
                 width: mode == .floatingPill ? appState.compactWindowWidth : nil,
-                height: mode == .floatingPill ? appState.compactWindowHeight : nil)
-        islandWindow?.applyManagedFrame(frame, display: true)
+                height: mode == .floatingPill ? appState.compactWindowHeight : nil
+            )
+
+        let transition: IslandWindowFrameTransition?
+        if let lastExpandedTarget, lastExpandedTarget != expands {
+            transition = expands ? .open : .close
+        } else {
+            transition = nil
+        }
+
+        lastExpandedTarget = expands
+        islandWindow?.applyManagedFrame(frame, display: true, transition: transition)
 
         logger.debug(
             "updateLayout",
