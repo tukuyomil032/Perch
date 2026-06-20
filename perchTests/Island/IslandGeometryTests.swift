@@ -114,6 +114,23 @@ struct IslandGeometryTests {
         #expect(frame.width == 150)
     }
 
+    // MARK: Expanded custom height
+
+    @Test func testExpandedFrame_physicalNotch_customHeightRespected() {
+        let env = ScreenEnvironment.mockNotchedMacBook()
+        let mode = IslandMode.physicalNotch(notchSize: env.notchSize)
+        let frame = IslandGeometry.expandedFrame(mode: mode, environment: env, height: 264)
+        #expect(frame.width == 460)
+        #expect(frame.height == 264)
+    }
+
+    @Test func testExpandedFrame_floatingPill_customHeightRespected() {
+        let env = ScreenEnvironment.mockNonNotchedMac()
+        let frame = IslandGeometry.expandedFrame(mode: .floatingPill, environment: env, height: 360)
+        #expect(frame.width == 420)
+        #expect(frame.height == 360)
+    }
+
     // MARK: Multi-display / non-zero origin
 
     @Test func testFrameCalculation_withNonZeroScreenOrigin() {
