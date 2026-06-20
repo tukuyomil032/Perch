@@ -11,7 +11,10 @@ struct RootIslandView: View {
     }
 
     private var expandedSize: CGSize {
-        CGSize(width: 420, height: appState.expandedWindowHeight)
+        CGSize(
+            width: appState.isPhysicalNotch ? 460 : 420,
+            height: appState.expandedWindowHeight
+        )
     }
 
     var body: some View {

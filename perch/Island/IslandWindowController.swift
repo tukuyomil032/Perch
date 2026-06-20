@@ -95,7 +95,7 @@ final class IslandWindowController: NSWindowController {
             ? IslandGeometry.expandedFrame(
                 mode: mode,
                 environment: environment,
-                height: mode == .floatingPill ? appState.expandedWindowHeight : nil
+                height: appState.expandedWindowHeight
             )
             : IslandGeometry.compactFrame(
                 mode: mode,
