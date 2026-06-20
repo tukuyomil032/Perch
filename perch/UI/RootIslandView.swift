@@ -7,7 +7,9 @@ struct RootIslandView: View {
     @Default(.pillSize) private var pillSize
 
     private var compactSize: CGSize {
-        CGSize(width: pillSize.pillWidth, height: pillSize.pillHeight)
+        appState.isPhysicalNotch
+            ? appState.compactWindowSize
+            : CGSize(width: pillSize.pillWidth, height: pillSize.pillHeight)
     }
 
     private var expandedSize: CGSize {
@@ -35,8 +37,7 @@ struct RootIslandView: View {
                         NowPlayingMorphContent(
                             state: state,
                             manager: appState.nowPlayingManager,
-                            isExpanded: appState.isExpanded,
-                            showsDetails: appState.showsExpandedDetails
+                            isExpanded: appState.isExpanded
                         )
                     }
                 )

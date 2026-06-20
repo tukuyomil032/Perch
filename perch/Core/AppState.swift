@@ -8,6 +8,7 @@ final class AppState {
     var activeCard: IslandCard = .idle
     var latestError: String?
     var isPhysicalNotch: Bool = false
+    var compactWindowSize: CGSize = CGSize(width: 150, height: 34)
 
     let presetStore = PresetStore()
     let widgetRegistry = WidgetRegistry()
@@ -22,10 +23,6 @@ final class AppState {
 
     var isExpanded: Bool {
         presentation.expandsSurface
-    }
-
-    var showsExpandedDetails: Bool {
-        presentation.showsExpandedDetails
     }
 
     var expandedWindowHeight: CGFloat {
@@ -48,24 +45,10 @@ final class AppState {
     var compactWindowHeight: CGFloat { 44 }
 
     func expand(to card: IslandCard) {
-        transitionGeneration += 1
-        let generation = transitionGeneration
-
+        transitionGeneration += 1  // cancels any pending collapse task
         activeCard = card
-        presentation = .expanding(card)
+        presentation = .expanded(card)
         logger.debug("Expanding island to card: \(card)")
-
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(110))
-
-            guard
-                let self,
-                self.transitionGeneration == generation,
-                self.presentation == .expanding(card)
-            else { return }
-
-            self.presentation = .expanded(card)
-        }
     }
 
     func collapse() {

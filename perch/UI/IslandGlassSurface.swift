@@ -63,7 +63,7 @@ struct IslandGlassSurface<Backdrop: View, Content: View>: View {
 
     @ViewBuilder
     private func surface<S: InsettableShape>(in shape: S) -> some View {
-        ZStack {
+        ZStack(alignment: .top) {
             backdrop
                 .clipShape(shape)
 

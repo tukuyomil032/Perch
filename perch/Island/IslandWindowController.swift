@@ -23,6 +23,7 @@ final class IslandWindowController: NSWindowController {
         let mode: IslandMode = notchSize == .zero ? .floatingPill : .physicalNotch(notchSize: notchSize)
         appState.isPhysicalNotch = (mode != .floatingPill)
         let frame = IslandGeometry.compactFrame(mode: mode, environment: environment)
+        appState.compactWindowSize = frame.size
 
         logger.info(
             "initializing island window",
@@ -67,6 +68,7 @@ final class IslandWindowController: NSWindowController {
         super.init(window: window)
         window.applyManagedFrame(frame, display: true)
         window.orderFrontRegardless()
+        lastExpandedTarget = appState.isExpanded  // false at launch; ensures first expand gets .open transition
         startObserving()
     }
 
@@ -90,6 +92,14 @@ final class IslandWindowController: NSWindowController {
 
         let expands = appState.isExpanded
 
+        let compactFrame = IslandGeometry.compactFrame(
+            mode: mode,
+            environment: environment,
+            width: mode == .floatingPill ? appState.compactWindowWidth : nil,
+            height: mode == .floatingPill ? appState.compactWindowHeight : nil
+        )
+        appState.compactWindowSize = compactFrame.size
+
         let frame: CGRect =
             expands
             ? IslandGeometry.expandedFrame(
@@ -97,12 +107,7 @@ final class IslandWindowController: NSWindowController {
                 environment: environment,
                 height: appState.expandedWindowHeight
             )
-            : IslandGeometry.compactFrame(
-                mode: mode,
-                environment: environment,
-                width: mode == .floatingPill ? appState.compactWindowWidth : nil,
-                height: mode == .floatingPill ? appState.compactWindowHeight : nil
-            )
+            : compactFrame
 
         let transition: IslandWindowFrameTransition?
         if let lastExpandedTarget, lastExpandedTarget != expands {
