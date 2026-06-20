@@ -1,5 +1,21 @@
 import AppKit
 import Defaults
+import QuartzCore
+
+struct IslandWindowFrameTransition {
+    let duration: TimeInterval
+    let timingFunction: CAMediaTimingFunction
+
+    static let open = IslandWindowFrameTransition(
+        duration: DesignSystem.Motion.shellDuration,
+        timingFunction: DesignSystem.Motion.appKitOpenTiming
+    )
+
+    static let close = IslandWindowFrameTransition(
+        duration: DesignSystem.Motion.closeDuration,
+        timingFunction: DesignSystem.Motion.appKitCloseTiming
+    )
+}
 
 final class IslandWindow: NSWindow {
     private var allowsManagedFrameUpdate = false
@@ -41,13 +57,19 @@ final class IslandWindow: NSWindow {
 
     /// The only permitted path for changing the window frame.
     /// All callers must use this instead of setFrame(_:display:) directly.
-    func applyManagedFrame(_ frame: NSRect, display: Bool = true, animate: Bool = false) {
+    func applyManagedFrame(_ frame: NSRect, display: Bool = true, transition: IslandWindowFrameTransition? = nil) {
         guard self.frame != frame else { return }
         allowsManagedFrameUpdate = true
-        defer { allowsManagedFrameUpdate = false }
-        if animate {
-            animator().setFrame(frame, display: display)
+        if let transition {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = transition.duration
+                context.timingFunction = transition.timingFunction
+                self.animator().setFrame(frame, display: display)
+            } completionHandler: {
+                self.allowsManagedFrameUpdate = false
+            }
         } else {
+            defer { allowsManagedFrameUpdate = false }
             super.setFrame(frame, display: display)
         }
     }
