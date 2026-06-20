@@ -17,8 +17,9 @@ struct IslandWindowFrameTransition {
     )
 }
 
+@MainActor
 final class IslandWindow: NSWindow {
-    private var allowsManagedFrameUpdate = false
+    private var managedFrameUpdateDepth = 0
     private var hasCompletedInitialSetup = false
 
     override init(
@@ -59,17 +60,17 @@ final class IslandWindow: NSWindow {
     /// All callers must use this instead of setFrame(_:display:) directly.
     func applyManagedFrame(_ frame: NSRect, display: Bool = true, transition: IslandWindowFrameTransition? = nil) {
         guard self.frame != frame else { return }
-        allowsManagedFrameUpdate = true
+        managedFrameUpdateDepth += 1
         if let transition {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = transition.duration
                 context.timingFunction = transition.timingFunction
                 self.animator().setFrame(frame, display: display)
-            } completionHandler: {
-                self.allowsManagedFrameUpdate = false
+            } completionHandler: { [weak self] in
+                self?.managedFrameUpdateDepth -= 1
             }
         } else {
-            defer { allowsManagedFrameUpdate = false }
+            defer { managedFrameUpdateDepth -= 1 }
             super.setFrame(frame, display: display)
         }
     }
@@ -81,7 +82,7 @@ final class IslandWindow: NSWindow {
         }
         // Silently drop any frame request not from applyManagedFrame.
         // This breaks the SwiftUI NSHostingView → setFrame → layout → NSHostingView loop.
-        guard allowsManagedFrameUpdate else { return }
+        guard managedFrameUpdateDepth > 0 else { return }
         super.setFrame(frameRect, display: flag)
     }
 }
