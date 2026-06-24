@@ -4,6 +4,7 @@ struct NowPlayingMorphContent: View {
     let state: NowPlayingState
     let manager: NowPlayingManager
     let isExpanded: Bool
+    let showsDetails: Bool
 
     @State private var palette = ArtworkPalette.fallback
     @State private var isScrubbing = false
@@ -95,13 +96,13 @@ struct NowPlayingMorphContent: View {
             controlsSection
         }
         .padding(16)
-        .opacity(isExpanded ? 1 : 0)
-        .blur(radius: isExpanded ? 0 : 10)
-        .offset(y: isExpanded ? 0 : 12)
-        .allowsHitTesting(isExpanded)
+        .opacity(showsDetails ? 1 : 0)
+        .blur(radius: showsDetails ? 0 : 10)
+        .offset(y: showsDetails ? 0 : 12)
+        .allowsHitTesting(showsDetails)
         .animation(
-            isExpanded ? DesignSystem.Motion.detailIn : DesignSystem.Motion.detailOut,
-            value: isExpanded
+            showsDetails ? DesignSystem.Motion.detailIn : DesignSystem.Motion.detailOut,
+            value: showsDetails
         )
     }
 

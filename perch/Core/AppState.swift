@@ -25,6 +25,10 @@ final class AppState {
         presentation.expandsSurface
     }
 
+    var showsExpandedDetails: Bool {
+        presentation.showsExpandedDetails
+    }
+
     var expandedWindowHeight: CGFloat {
         guard let preset = presetStore.activePreset else { return 300 }
         let sizeHeights: [WidgetSize: CGFloat] = [.mini: 36, .compact: 52, .standard: 264, .full: 360]
@@ -42,10 +46,24 @@ final class AppState {
     var compactWindowHeight: CGFloat { 44 }
 
     func expand(to card: IslandCard) {
-        transitionGeneration += 1  // cancels any pending collapse task
+        transitionGeneration += 1
+        let generation = transitionGeneration
+
         activeCard = card
-        presentation = .expanded(card)
+        presentation = .expanding(card)
         logger.debug("Expanding island to card: \(card)")
+
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(110))
+
+            guard
+                let self,
+                self.transitionGeneration == generation,
+                self.presentation == .expanding(card)
+            else { return }
+
+            self.presentation = .expanded(card)
+        }
     }
 
     func collapse() {
