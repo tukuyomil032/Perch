@@ -11,19 +11,24 @@ struct NowPlayingCompact: View {
     @State private var waveformPalette = ArtworkPalette.fallback
 
     var body: some View {
-        HStack(alignment: .center, spacing: 6) {
+        ZStack(alignment: .leading) {
+            HStack(alignment: .center, spacing: 6) {
+                Color.clear.frame(width: 22, height: 22)
+                scrollingTitle
+                WaveformView(
+                    isPlaying: state.isPlaying,
+                    colors: waveformPalette.gradientColors,
+                    externalLevels: waveformLevels,
+                    usesSyntheticFallback: usesSyntheticFallback
+                )
+                .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
+            }
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
             artworkThumbnail
-            scrollingTitle
-            WaveformView(
-                isPlaying: state.isPlaying,
-                colors: waveformPalette.gradientColors,
-                externalLevels: waveformLevels,
-                usesSyntheticFallback: usesSyntheticFallback
-            )
-            .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
+                .padding(.leading, 8)
         }
-        .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: state.artworkID) {
             waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
             // artwork fetch is async — if nil at artworkID change, re-check after
