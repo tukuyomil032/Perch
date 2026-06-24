@@ -23,6 +23,7 @@ struct NowPlayingCompact: View {
             .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
         }
         .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: state.artworkID) {
             waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
             // artwork fetch is async — if nil at artworkID change, re-check after
