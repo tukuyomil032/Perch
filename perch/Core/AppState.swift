@@ -43,7 +43,7 @@ final class AppState {
         return (isMusicActive && isAIActive) ? 190 : 170
     }
 
-    var compactWindowHeight: CGFloat { 44 }
+    var compactWindowHeight: CGFloat { 34 }
 
     func expand(to card: IslandCard) {
         transitionGeneration += 1
