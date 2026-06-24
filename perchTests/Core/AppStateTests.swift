@@ -15,13 +15,15 @@ struct AppStateTests {
         #expect(appState.activeCard == .nowPlaying)
     }
 
-    @Test("collapse() immediately transitions to .collapsing while keeping surface expanded")
+    @Test("collapse() transitions to .collapsing and flips isExpanded false at t=0")
     func collapseImmediatelyCollapsing() {
         let appState = AppState()
         appState.expand(to: .nowPlaying)
         appState.collapse()
         #expect(appState.presentation == .collapsing(.nowPlaying))
-        #expect(appState.isExpanded == true)
+        // isExpanded follows presentation.expandsSurface, which is false for .collapsing
+        // so the SwiftUI surface starts its close transition immediately.
+        #expect(appState.isExpanded == false)
     }
 
     @Test("collapse() reaches .compact after ~500ms")

@@ -7,9 +7,9 @@ enum IslandPresentation: Equatable, Sendable {
 
     var expandsSurface: Bool {
         switch self {
-        case .expanded, .collapsing:
+        case .expanded:
             true
-        case .compact:
+        case .compact, .collapsing:
             false
         }
     }

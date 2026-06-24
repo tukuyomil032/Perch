@@ -10,9 +10,11 @@ struct IslandPresentationTests {
         #expect(IslandPresentation.expanded(.nowPlaying).expandsSurface == true)
     }
 
-    @Test("expandsSurface is true for .collapsing — surface stays open during collapse animation")
-    func collapsingExpandsSurface() {
-        #expect(IslandPresentation.collapsing(.nowPlaying).expandsSurface == true)
+    @Test(
+        "expandsSurface is false for .collapsing — UI swaps back to compact immediately so the close animation fires at t=0"
+    )
+    func collapsingDoesNotExpandSurface() {
+        #expect(IslandPresentation.collapsing(.nowPlaying).expandsSurface == false)
     }
 
     @Test("expandsSurface is false for .compact")
