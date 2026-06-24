@@ -7,12 +7,7 @@ struct RootIslandView: View {
     @Default(.pillSize) private var pillSize
 
     private var compactSize: CGSize {
-        // Trust the NSWindow-side measurement (IslandWindowController.updateLayout
-        // sets compactWindowSize from IslandGeometry.compactFrame). Using pillSize
-        // here directly produced a 150pt SwiftUI surface inside a 170/190pt window,
-        // so the inner HStack was clipped to a Capsule that left no room for the
-        // marquee + waveform after the artwork.
-        appState.compactWindowSize
+        CGSize(width: pillSize.pillWidth, height: pillSize.pillHeight)
     }
 
     private var expandedSize: CGSize {
