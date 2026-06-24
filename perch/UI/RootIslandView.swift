@@ -19,6 +19,26 @@ struct RootIslandView: View {
         )
     }
 
+    private var currentTapShape: AnyShape {
+        if appState.isExpanded {
+            if appState.isPhysicalNotch {
+                return AnyShape(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: 0,
+                        bottomLeadingRadius: DesignSystem.cardCornerRadius,
+                        bottomTrailingRadius: DesignSystem.cardCornerRadius,
+                        topTrailingRadius: 0,
+                        style: .continuous
+                    )
+                )
+            }
+            return AnyShape(
+                RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
+            )
+        }
+        return AnyShape(Capsule())
+    }
+
     var body: some View {
         Group {
             if let state = appState.nowPlayingManager.currentState {
@@ -45,7 +65,7 @@ struct RootIslandView: View {
                         }
                     }
                 )
-                .contentShape(Capsule())
+                .contentShape(currentTapShape)
                 .onTapGesture {
                     if appState.isExpanded {
                         appState.collapse()
