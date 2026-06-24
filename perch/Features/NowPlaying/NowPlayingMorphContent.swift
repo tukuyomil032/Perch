@@ -37,7 +37,7 @@ struct NowPlayingMorphContent: View {
                 font: .system(size: 11, weight: .medium)
             )
             .foregroundStyle(.primary)
-            .frame(maxWidth: .infinity, maxHeight: 16)
+            .frame(maxWidth: 120, maxHeight: 16)
 
             WaveformView(
                 isPlaying: state.isPlaying,
