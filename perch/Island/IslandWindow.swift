@@ -22,6 +22,10 @@ final class IslandWindow: NSWindow {
     private var managedFrameUpdateDepth = 0
     private var hasCompletedInitialSetup = false
 
+    /// True while a managed frame animation (open or close transition) is in flight.
+    /// Used by IslandWindowController to detect the close-during-open race condition.
+    var isAnimatingFrame: Bool { managedFrameUpdateDepth > 0 }
+
     override init(
         contentRect: NSRect,
         styleMask style: NSWindow.StyleMask,

@@ -116,6 +116,25 @@ final class IslandWindowController: NSWindowController {
             transition = nil
         }
 
+        // Race guard: if a frame animation is currently in flight AND we need to apply a
+        // direction-change transition (open→close or close→open), the NSAnimationContext
+        // layers can conflict and leave the window at a wrong intermediate frame.
+        // Defer the update until the current animation completes (~500ms covers the close
+        // duration of 460ms with a small buffer). When the deferred task fires it re-calls
+        // updateLayout(), which re-reads appState and applies the correct frame.
+        if let win = islandWindow, win.isAnimatingFrame, transition != nil {
+            pendingLayoutTask?.cancel()
+            pendingLayoutTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(
+                    for: .milliseconds(
+                        Int(DesignSystem.Motion.closeDuration * 1000) + 40
+                    ))
+                guard !Task.isCancelled else { return }
+                self?.updateLayout()
+            }
+            return
+        }
+
         lastExpandedTarget = expands
         islandWindow?.applyManagedFrame(frame, display: true, transition: transition)
 
