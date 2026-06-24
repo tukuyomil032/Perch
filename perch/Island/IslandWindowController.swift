@@ -22,7 +22,12 @@ final class IslandWindowController: NSWindowController {
         let notchSize = environment.notchSize
         let mode: IslandMode = notchSize == .zero ? .floatingPill : .physicalNotch(notchSize: notchSize)
         appState.isPhysicalNotch = (mode != .floatingPill)
-        let frame = IslandGeometry.compactFrame(mode: mode, environment: environment)
+        let frame = IslandGeometry.compactFrame(
+            mode: mode,
+            environment: environment,
+            width: mode == .floatingPill ? appState.compactWindowWidth : nil,
+            height: mode == .floatingPill ? appState.compactWindowHeight : nil
+        )
         appState.compactWindowSize = frame.size
 
         logger.info(
