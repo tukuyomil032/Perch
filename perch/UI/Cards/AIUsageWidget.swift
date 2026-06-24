@@ -99,7 +99,7 @@ struct AIUsageCompactView: View {
                 .foregroundStyle(.secondary)
             Spacer()
             if store.isRefreshing {
-                ProgressView().scaleEffect(0.45)
+                ProgressView().controlSize(.small).frame(width: 14, height: 14)
             } else if let cost = usage?.cost {
                 HStack(spacing: 6) {
                     Text(formatCost(cost.todayUSD))
@@ -175,7 +175,7 @@ struct AIUsageStandardView: View {
                         .buttonStyle(.plain)
                     }
                     if store.isRefreshing {
-                        ProgressView().scaleEffect(0.45)
+                        ProgressView().controlSize(.small).frame(width: 14, height: 14)
                     } else {
                         Button {
                             Task { await store.refresh() }
@@ -273,7 +273,8 @@ struct AIUsageStandardView: View {
                     }
                 } else if usage == nil && store.isRefreshing {
                     ProgressView()
-                        .scaleEffect(0.6)
+                        .controlSize(.small)
+                        .frame(width: 20, height: 20)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 12)
                 }
