@@ -24,11 +24,43 @@ struct ExpandedIslandView: View {
                     .animation(DesignSystem.springAnimation, value: appState.presetStore.activePresetID)
             }
         }
-        .overlay {
+        .clipShape(cardShape)
+        .overlay { cardStroke }
+        .frame(width: appState.isPhysicalNotch ? 460 : 420)
+    }
+
+    private var cardShape: AnyShape {
+        if appState.isPhysicalNotch {
+            return AnyShape(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 0,
+                    bottomLeadingRadius: DesignSystem.cardCornerRadius,
+                    bottomTrailingRadius: DesignSystem.cardCornerRadius,
+                    topTrailingRadius: 0,
+                    style: .continuous
+                )
+            )
+        }
+        return AnyShape(
+            RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
+        )
+    }
+
+    @ViewBuilder
+    private var cardStroke: some View {
+        if appState.isPhysicalNotch {
+            UnevenRoundedRectangle(
+                topLeadingRadius: 0,
+                bottomLeadingRadius: DesignSystem.cardCornerRadius,
+                bottomTrailingRadius: DesignSystem.cardCornerRadius,
+                topTrailingRadius: 0,
+                style: .continuous
+            )
+            .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
+        } else {
             RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
                 .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
         }
-        .frame(width: 420)
     }
 
     // MARK: - Header
