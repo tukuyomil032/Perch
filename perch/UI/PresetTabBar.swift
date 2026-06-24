@@ -12,6 +12,13 @@ struct PresetTabBar: View {
                     }
                 }
                 .buttonStyle(PresetTabButtonStyle(isSelected: appState.presetStore.activePresetID == preset.id))
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        withAnimation(DesignSystem.springAnimation) {
+                            appState.presetStore.select(id: preset.id)
+                        }
+                    }
+                )
             }
         }
     }
