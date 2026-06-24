@@ -47,6 +47,12 @@ final class IslandWindowController: NSWindowController {
         containerView.autoresizingMask = [.width, .height]
         containerView.wantsLayer = true
         containerView.layer?.backgroundColor = NSColor.clear.cgColor
+        containerView.layer?.masksToBounds = true
+        containerView.layer?.cornerRadius = DesignSystem.pillCornerRadius
+        containerView.layer?.maskedCorners = [
+            .layerMinXMinYCorner, .layerMaxXMinYCorner,
+            .layerMinXMaxYCorner, .layerMaxXMaxYCorner,
+        ]
 
         let hostingView = NSHostingView(rootView: RootIslandView().environment(appState))
         hostingView.sizingOptions = []
@@ -136,6 +142,23 @@ final class IslandWindowController: NSWindowController {
         }
 
         lastExpandedTarget = expands
+
+        // Sync CALayer cornerRadius on the contentView so the NSWindow backing
+        // (glass effect / VibrancyBackground) is clipped to the correct shape.
+        // SwiftUI .clipShape() only clips within SwiftUI's render tree; the
+        // NSView contentView layer remains rectangular without this.
+        if let layer = window?.contentView?.layer {
+            let cornerRadius: CGFloat =
+                expands
+                ? DesignSystem.cardCornerRadius
+                : DesignSystem.pillCornerRadius
+            layer.cornerRadius = cornerRadius
+            layer.maskedCorners = [
+                .layerMinXMinYCorner, .layerMaxXMinYCorner,
+                .layerMinXMaxYCorner, .layerMaxXMaxYCorner,
+            ]
+        }
+
         islandWindow?.applyManagedFrame(frame, display: true, transition: transition)
 
         logger.debug(
