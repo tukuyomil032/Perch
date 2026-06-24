@@ -45,13 +45,15 @@ struct IslandGlassSurface<Backdrop: View, Content: View>: View {
                         style: .continuous
                     )
                 )
-            } else {
+            } else if isExpanded {
                 surface(
                     in: RoundedRectangle(
                         cornerRadius: cornerRadius,
                         style: .continuous
                     )
                 )
+            } else {
+                surface(in: Capsule())
             }
         }
         .frame(width: size.width, height: size.height)
