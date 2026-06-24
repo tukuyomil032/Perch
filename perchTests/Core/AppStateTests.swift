@@ -51,4 +51,21 @@ struct AppStateTests {
         try await Task.sleep(for: .milliseconds(600))
         #expect(appState.presentation == .expanded(.nowPlaying))
     }
+
+    @Test("expandedWindowHeight follows active preset widget sizes (not a card-card constant)")
+    func expandedWindowHeightFollowsActivePreset() {
+        let appState = AppState()
+        // Default Daily preset = NowPlaying standard (264) + AIUsage compact (52),
+        // one widget in .sidebar => header 40 + widgets 316 + divider 1 = 357
+        #expect(appState.expandedWindowHeight == 357)
+    }
+
+    @Test("expandedWindowHeight ignores activeCard once preset-driven")
+    func expandedWindowHeightIgnoresActiveCard() {
+        let appState = AppState()
+        let baseline = appState.expandedWindowHeight
+        appState.expand(to: .nowPlaying)
+        // Even with activeCard == .nowPlaying, height must come from the preset.
+        #expect(appState.expandedWindowHeight == baseline)
+    }
 }
