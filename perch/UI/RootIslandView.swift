@@ -1,13 +1,11 @@
-import Defaults
 import SwiftUI
 
 struct RootIslandView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.openSettings) private var openSettings
-    @Default(.pillSize) private var pillSize
 
     private var compactSize: CGSize {
-        CGSize(width: pillSize.pillWidth, height: pillSize.pillHeight)
+        appState.compactWindowSize
     }
 
     private var expandedSize: CGSize {
