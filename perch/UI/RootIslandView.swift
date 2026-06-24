@@ -34,11 +34,15 @@ struct RootIslandView: View {
                         )
                     },
                     content: {
-                        NowPlayingMorphContent(
-                            state: state,
-                            manager: appState.nowPlayingManager,
-                            isExpanded: appState.isExpanded
-                        )
+                        if appState.isExpanded {
+                            ExpandedIslandView()
+                                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                        } else {
+                            NowPlayingCompactContent(
+                                state: state,
+                                manager: appState.nowPlayingManager
+                            )
+                        }
                     }
                 )
                 .contentShape(Capsule())

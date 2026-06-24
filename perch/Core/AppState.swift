@@ -26,9 +26,6 @@ final class AppState {
     }
 
     var expandedWindowHeight: CGFloat {
-        if activeCard == .nowPlaying {
-            return 264
-        }
         guard let preset = presetStore.activePreset else { return 300 }
         let sizeHeights: [WidgetSize: CGFloat] = [.mini: 36, .compact: 52, .standard: 264, .full: 360]
         let widgetTotal = preset.widgets.map { sizeHeights[$0.size] ?? 44 }.reduce(0, +)
