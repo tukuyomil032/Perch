@@ -73,6 +73,40 @@ struct NowPlayingCard: View {
                     }
                 }
                 .frame(height: 100)
+                HStack(spacing: 0) {
+                    WaveformView(
+                        isPlaying: state.isPlaying,
+                        colors: waveformPalette.gradientColors,
+                        externalLevels: capture.isCaptureActive && capture.hasReceivedAudio
+                            ? capture.rmsLevels
+                            : nil,
+                        usesSyntheticFallback: !capture.isCaptureActive
+                            || !capture.hasReceivedAudio
+                    )
+                    .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
+                    .padding(.trailing, 6)
+                    Text(state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 8)
+                    if !lyrics.isEmpty {
+                        Button {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                                showLyricsFullView = true
+                            }
+                        } label: {
+                            Image(systemName: "music.note.list")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.55))
+                                .frame(width: 28, height: 28)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Show lyrics")
+                    }
+                }
                 progressSection
                 controlsSection
             }
