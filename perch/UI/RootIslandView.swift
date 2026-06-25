@@ -1,63 +1,79 @@
-import Defaults
 import SwiftUI
 
 struct RootIslandView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.openSettings) private var openSettings
-    @Default(.animationSpeed) private var animationSpeed
 
-    private var openAnimation: Animation {
-        .spring(response: 0.42 / animationSpeed, dampingFraction: 0.80)
+    private var compactSize: CGSize {
+        appState.compactWindowSize
     }
 
-    private var closeAnimation: Animation {
-        .spring(response: 0.38 / animationSpeed, dampingFraction: 1.00)
+    private var expandedSize: CGSize {
+        CGSize(
+            width: appState.isPhysicalNotch ? 460 : 420,
+            height: appState.expandedWindowHeight
+        )
     }
 
-    private var contentAnimation: Animation {
-        appState.isExpanded
-            ? openAnimation.delay(0.05)
-            : closeAnimation
+    private var currentTapShape: AnyShape {
+        if appState.isExpanded {
+            if appState.isPhysicalNotch {
+                return AnyShape(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: 0,
+                        bottomLeadingRadius: DesignSystem.cardCornerRadius,
+                        bottomTrailingRadius: DesignSystem.cardCornerRadius,
+                        topTrailingRadius: 0,
+                        style: .continuous
+                    )
+                )
+            }
+            return AnyShape(
+                RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
+            )
+        }
+        return AnyShape(Capsule())
     }
 
     var body: some View {
-        ZStack {
-            Color.clear  // ensure no implicit background from NSHostingController bleeds through
-            if appState.isExpanded {
-                if appState.isPhysicalNotch {
-                    NotchExpandedView()
-                        .transition(
-                            .asymmetric(
-                                insertion: .scale(scale: 0.97, anchor: .top).combined(with: .opacity),
-                                removal: .scale(scale: 0.97, anchor: .top).combined(with: .opacity)
-                            )
+        Group {
+            if let state = appState.nowPlayingManager.currentState {
+                IslandGlassSurface(
+                    isExpanded: appState.isExpanded,
+                    isPhysicalNotch: appState.isPhysicalNotch,
+                    compactSize: compactSize,
+                    expandedSize: expandedSize,
+                    backdrop: {
+                        NowPlayingAmbientBackdrop(
+                            artwork: state.artwork,
+                            isExpanded: appState.isExpanded
                         )
-                        .animation(contentAnimation, value: appState.isExpanded)
-                } else {
-                    ExpandedIslandView()
-                        .transition(
-                            .asymmetric(
-                                insertion: .scale(scale: 0.94, anchor: .top).combined(with: .opacity),
-                                removal: .scale(scale: 0.94, anchor: .top).combined(with: .opacity)
+                    },
+                    content: {
+                        if appState.isExpanded {
+                            ExpandedIslandView()
+                                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                        } else {
+                            NowPlayingCompactContent(
+                                state: state,
+                                manager: appState.nowPlayingManager
                             )
-                        )
-                        .animation(contentAnimation, value: appState.isExpanded)
+                        }
+                    }
+                )
+                .contentShape(currentTapShape)
+                .onTapGesture {
+                    if appState.isExpanded {
+                        appState.collapse()
+                    } else {
+                        appState.expand(to: .nowPlaying)
+                    }
                 }
             } else {
                 CompactPillView()
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.94, anchor: .top).combined(with: .opacity),
-                            removal: .scale(scale: 0.94, anchor: .top).combined(with: .opacity)
-                        )
-                    )
-                    .animation(contentAnimation, value: appState.isExpanded)
             }
         }
-        .animation(
-            appState.isExpanded ? openAnimation : closeAnimation,
-            value: appState.isExpanded
-        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {
             appState.openSettingsAction = { openSettings() }
         }

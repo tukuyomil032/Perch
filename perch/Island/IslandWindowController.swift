@@ -12,6 +12,7 @@ final class IslandWindowController: NSWindowController {
     // nonisolated(unsafe): written once on @MainActor (startObserving) and
     // read only in deinit (nonisolated). No concurrent access occurs.
     nonisolated(unsafe) private var notchModeObservation: (any Defaults.Observation)?
+    private var lastExpandedTarget: Bool?
 
     private var islandWindow: IslandWindow? { window as? IslandWindow }
 
@@ -21,7 +22,13 @@ final class IslandWindowController: NSWindowController {
         let notchSize = environment.notchSize
         let mode: IslandMode = notchSize == .zero ? .floatingPill : .physicalNotch(notchSize: notchSize)
         appState.isPhysicalNotch = (mode != .floatingPill)
-        let frame = IslandGeometry.compactFrame(mode: mode, environment: environment)
+        let frame = IslandGeometry.compactFrame(
+            mode: mode,
+            environment: environment,
+            width: mode == .floatingPill ? appState.compactWindowWidth : nil,
+            height: mode == .floatingPill ? appState.compactWindowHeight : nil
+        )
+        appState.compactWindowSize = frame.size
 
         logger.info(
             "initializing island window",
@@ -45,6 +52,12 @@ final class IslandWindowController: NSWindowController {
         containerView.autoresizingMask = [.width, .height]
         containerView.wantsLayer = true
         containerView.layer?.backgroundColor = NSColor.clear.cgColor
+        containerView.layer?.masksToBounds = true
+        containerView.layer?.cornerRadius = DesignSystem.pillCornerRadius
+        containerView.layer?.maskedCorners = [
+            .layerMinXMinYCorner, .layerMaxXMinYCorner,
+            .layerMinXMaxYCorner, .layerMaxXMaxYCorner,
+        ]
 
         let hostingView = NSHostingView(rootView: RootIslandView().environment(appState))
         hostingView.sizingOptions = []
@@ -66,6 +79,7 @@ final class IslandWindowController: NSWindowController {
         super.init(window: window)
         window.applyManagedFrame(frame, display: true)
         window.orderFrontRegardless()
+        lastExpandedTarget = appState.isExpanded  // false at launch; ensures first expand gets .open transition
         startObserving()
     }
 
@@ -80,18 +94,77 @@ final class IslandWindowController: NSWindowController {
     func updateLayout() {
         let (environment, _) = Self.resolveScreenEnvironment()
         let notchSize = environment.notchSize
-        let mode: IslandMode = notchSize == .zero ? .floatingPill : .physicalNotch(notchSize: notchSize)
+        let mode: IslandMode =
+            notchSize == .zero
+            ? .floatingPill
+            : .physicalNotch(notchSize: notchSize)
+
         appState.isPhysicalNotch = (mode != .floatingPill)
-        let frame =
-            appState.isExpanded
+
+        let expands = appState.isExpanded
+
+        let compactFrame = IslandGeometry.compactFrame(
+            mode: mode,
+            environment: environment,
+            width: mode == .floatingPill ? appState.compactWindowWidth : nil,
+            height: mode == .floatingPill ? appState.compactWindowHeight : nil
+        )
+        appState.compactWindowSize = compactFrame.size
+
+        let frame: CGRect =
+            expands
             ? IslandGeometry.expandedFrame(
-                mode: mode, environment: environment,
-                height: mode == .floatingPill ? appState.expandedWindowHeight : nil)
-            : IslandGeometry.compactFrame(
-                mode: mode, environment: environment,
-                width: mode == .floatingPill ? appState.compactWindowWidth : nil,
-                height: mode == .floatingPill ? appState.compactWindowHeight : nil)
-        islandWindow?.applyManagedFrame(frame, display: true)
+                mode: mode,
+                environment: environment,
+                height: appState.expandedWindowHeight
+            )
+            : compactFrame
+
+        let transition: IslandWindowFrameTransition?
+        if let lastExpandedTarget, lastExpandedTarget != expands {
+            transition = expands ? .open : .close
+        } else {
+            transition = nil
+        }
+
+        // Race guard: if a frame animation is currently in flight AND we need to apply a
+        // direction-change transition (open→close or close→open), the NSAnimationContext
+        // layers can conflict and leave the window at a wrong intermediate frame.
+        // Defer the update until the current animation completes (~500ms covers the close
+        // duration of 460ms with a small buffer). When the deferred task fires it re-calls
+        // updateLayout(), which re-reads appState and applies the correct frame.
+        if let win = islandWindow, win.isAnimatingFrame, transition != nil {
+            pendingLayoutTask?.cancel()
+            pendingLayoutTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(
+                    for: .milliseconds(
+                        Int(DesignSystem.Motion.closeDuration * 1000) + 40
+                    ))
+                guard !Task.isCancelled else { return }
+                self?.updateLayout()
+            }
+            return
+        }
+
+        lastExpandedTarget = expands
+
+        // Sync CALayer cornerRadius on the contentView so the NSWindow backing
+        // (glass effect / VibrancyBackground) is clipped to the correct shape.
+        // SwiftUI .clipShape() only clips within SwiftUI's render tree; the
+        // NSView contentView layer remains rectangular without this.
+        if let layer = window?.contentView?.layer {
+            let cornerRadius: CGFloat =
+                expands
+                ? DesignSystem.cardCornerRadius
+                : DesignSystem.pillCornerRadius
+            layer.cornerRadius = cornerRadius
+            layer.maskedCorners = [
+                .layerMinXMinYCorner, .layerMaxXMinYCorner,
+                .layerMinXMaxYCorner, .layerMaxXMaxYCorner,
+            ]
+        }
+
+        islandWindow?.applyManagedFrame(frame, display: true, transition: transition)
 
         logger.debug(
             "updateLayout",

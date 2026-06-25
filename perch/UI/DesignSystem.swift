@@ -1,3 +1,4 @@
+import QuartzCore
 import SwiftUI
 
 enum DesignSystem {
@@ -12,6 +13,39 @@ enum DesignSystem {
 
     // AI provider brand colors
     static let claudeAmber = Color(red: 0.851, green: 0.467, blue: 0.024)  // #d97706
+
+    enum Motion {
+        static let shellDuration: TimeInterval = 0.50
+        static let closeDuration: TimeInterval = 0.46
+
+        static let shellOpen = Animation.timingCurve(
+            0.20, 0.88, 0.28, 1.00,
+            duration: shellDuration
+        )
+
+        static let shellClose = Animation.timingCurve(
+            0.30, 0.00, 0.18, 1.00,
+            duration: closeDuration
+        )
+
+        static let detailIn = Animation.timingCurve(
+            0.16, 0.84, 0.25, 1.00,
+            duration: 0.36
+        )
+
+        static let detailOut = Animation.timingCurve(
+            0.35, 0.00, 0.35, 1.00,
+            duration: 0.12
+        )
+
+        static let appKitOpenTiming = CAMediaTimingFunction(
+            controlPoints: 0.20, 0.88, 0.28, 1.00
+        )
+
+        static let appKitCloseTiming = CAMediaTimingFunction(
+            controlPoints: 0.30, 0.00, 0.18, 1.00
+        )
+    }
 }
 
 // MARK: - Color Utilities

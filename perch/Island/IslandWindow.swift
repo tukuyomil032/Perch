@@ -1,9 +1,30 @@
 import AppKit
 import Defaults
+import QuartzCore
 
+struct IslandWindowFrameTransition {
+    let duration: TimeInterval
+    let timingFunction: CAMediaTimingFunction
+
+    static let open = IslandWindowFrameTransition(
+        duration: DesignSystem.Motion.shellDuration,
+        timingFunction: DesignSystem.Motion.appKitOpenTiming
+    )
+
+    static let close = IslandWindowFrameTransition(
+        duration: DesignSystem.Motion.closeDuration,
+        timingFunction: DesignSystem.Motion.appKitCloseTiming
+    )
+}
+
+@MainActor
 final class IslandWindow: NSWindow {
-    private var allowsManagedFrameUpdate = false
+    private var managedFrameUpdateDepth = 0
     private var hasCompletedInitialSetup = false
+
+    /// True while a managed frame animation (open or close transition) is in flight.
+    /// Used by IslandWindowController to detect the close-during-open race condition.
+    var isAnimatingFrame: Bool { managedFrameUpdateDepth > 0 }
 
     override init(
         contentRect: NSRect,
@@ -41,13 +62,19 @@ final class IslandWindow: NSWindow {
 
     /// The only permitted path for changing the window frame.
     /// All callers must use this instead of setFrame(_:display:) directly.
-    func applyManagedFrame(_ frame: NSRect, display: Bool = true, animate: Bool = false) {
+    func applyManagedFrame(_ frame: NSRect, display: Bool = true, transition: IslandWindowFrameTransition? = nil) {
         guard self.frame != frame else { return }
-        allowsManagedFrameUpdate = true
-        defer { allowsManagedFrameUpdate = false }
-        if animate {
-            animator().setFrame(frame, display: display)
+        managedFrameUpdateDepth += 1
+        if let transition {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = transition.duration
+                context.timingFunction = transition.timingFunction
+                self.animator().setFrame(frame, display: display)
+            } completionHandler: { [weak self] in
+                self?.managedFrameUpdateDepth -= 1
+            }
         } else {
+            defer { managedFrameUpdateDepth -= 1 }
             super.setFrame(frame, display: display)
         }
     }
@@ -59,7 +86,7 @@ final class IslandWindow: NSWindow {
         }
         // Silently drop any frame request not from applyManagedFrame.
         // This breaks the SwiftUI NSHostingView → setFrame → layout → NSHostingView loop.
-        guard allowsManagedFrameUpdate else { return }
+        guard managedFrameUpdateDepth > 0 else { return }
         super.setFrame(frameRect, display: flag)
     }
 }
