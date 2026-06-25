@@ -9,6 +9,7 @@ struct NowPlayingMorphContent: View {
     @State private var palette = ArtworkPalette.fallback
     @State private var isScrubbing = false
     @State private var scrubProgress = 0.0
+    @State private var scrubEndTask: Task<Void, Never>?
 
     private var capture: AudioCaptureService {
         manager.audioCaptureService
