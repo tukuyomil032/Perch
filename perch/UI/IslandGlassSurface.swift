@@ -6,8 +6,8 @@ struct IslandGlassSurface<Backdrop: View, Content: View>: View {
     let compactSize: CGSize
     let expandedSize: CGSize
 
-    @ViewBuilder private let backdrop: Backdrop
-    @ViewBuilder private let content: Content
+    private let backdrop: Backdrop
+    private let content: Content
 
     init(
         isExpanded: Bool,
