@@ -175,18 +175,23 @@ struct NowPlayingMorphContent: View {
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
+                            scrubEndTask?.cancel()
+                            scrubEndTask = nil
                             isScrubbing = true
-                            scrubProgress = max(0, min(1, value.location.x / geo.size.width))
+                            scrubProgress = max(0, min(1, value.location.x / max(1, geo.size.width)))
                         }
                         .onEnded { value in
-                            let progress = max(0, min(1, value.location.x / geo.size.width))
+                            let progress = max(0, min(1, value.location.x / max(1, geo.size.width)))
                             if let duration = state.duration {
                                 manager.seek(to: progress * duration)
                             }
 
-                            Task { @MainActor in
+                            scrubEndTask?.cancel()
+                            scrubEndTask = Task { @MainActor in
                                 try? await Task.sleep(for: .milliseconds(250))
+                                guard !Task.isCancelled else { return }
                                 isScrubbing = false
+                                scrubEndTask = nil
                             }
                         }
                 )
