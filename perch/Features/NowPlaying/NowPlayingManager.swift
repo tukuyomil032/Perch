@@ -42,6 +42,12 @@ final class NowPlayingManager {
     private nonisolated(unsafe) var mediaRemoteStateTask: Task<Void, Never>?
     private var isYTMPolling: Bool = false
     private var wasYTMPolling: Bool = false
+    /// Cap on how many times `pollAppleMusicPosition` will retry Apple Music
+    /// artwork per track. Prevents infinite polling loops when both the
+    /// AppleScript path AND iTunes Search fallback fail (e.g. offline, or the
+    /// track isn't in iTunes' catalog). Reset on every track change.
+    private var appleMusicArtworkPollAttempts: Int = 0
+    private static let appleMusicArtworkPollAttemptLimit: Int = 3
     private let logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
 
     init() {
@@ -343,10 +349,13 @@ final class NowPlayingManager {
         let capturedTitle = state.title
 
         // Piggyback artwork retry: if the initial retry chain exhausted and we
-        // still have no artwork for this track, quietly try again on each poll.
-        // The poll is already running for position updates, so the added cost
-        // is just the AppleScript call.
-        if state.artwork == nil {
+        // still have no artwork for this track, quietly try again on each poll
+        // — but only up to appleMusicArtworkPollAttemptLimit to avoid an
+        // infinite loop when both AppleScript and iTunes Search miss.
+        if state.artwork == nil,
+            appleMusicArtworkPollAttempts < Self.appleMusicArtworkPollAttemptLimit
+        {
+            appleMusicArtworkPollAttempts += 1
             _ = await tryFetchAppleMusicArtwork(for: state)
         }
 
@@ -458,6 +467,11 @@ final class NowPlayingManager {
         } else {
             trackIdentityChanged = false
         }
+        // Reset the Apple Music artwork-poll retry counter whenever the track
+        // changes so a new song starts with a fresh N-attempt budget.
+        if trackIdentityChanged {
+            appleMusicArtworkPollAttempts = 0
+        }
         // Carry forward previous artwork during track transitions (same source).
         // Prevents the music-note placeholder from flashing until new artwork is fetched.
         // Skip carry-forward during ads so the megaphone placeholder shows immediately.
@@ -553,11 +567,11 @@ final class NowPlayingManager {
     }
 
     private func fetchAndApplyArtwork(for state: NowPlayingState) async {
-        // Apple Music routes through a dedicated retry helper because its
-        // AppleScript-based artwork descriptor can return nil right after a
-        // track change (Music.app hasn't populated it yet, especially for
-        // streaming / Apple Music catalog tracks). Other sources use direct
-        // HTTP/URL fetches which are deterministic on the first try.
+        // Apple Music routes through a dedicated retry helper because the
+        // initial AppleScript call can race Music.app's metadata population,
+        // AND the AppleScript path may be permission-denied entirely. The
+        // helper's fetcher includes an iTunes Search API fallback so a single
+        // retry catches the network-flake case without infinite loops.
         if state.source == .appleMusic {
             await fetchAppleMusicArtworkWithRetry(for: state)
             return
@@ -566,17 +580,27 @@ final class NowPlayingManager {
         let artworkData: Data?
         switch state.source {
         case .spotify:
-            artworkData = await ArtworkFetcher.shared.fetchSpotifyArtworkData()
+            do {
+                artworkData = try await ArtworkFetcher.shared.fetchSpotifyArtworkData()
+            } catch {
+                logger.warning(
+                    "Spotify artwork fetch failed for '\(state.title)': \(String(describing: error))"
+                )
+                artworkData = nil
+            }
         case .youTubeMusic:
-            // Always fetch fresh artwork for YTM — carry-forward may have populated
-            // state.artwork with the previous song's image, so guard state.artwork == nil
-            // was previously blocking refetch on track change. applyState now gates the
-            // call via needsFetch, so we unconditionally fetch here.
-            artworkData = await ArtworkFetcher.shared.fetchYouTubeMusicArtworkData(
-                thumbnailURL: state.thumbnailURL,
-                title: state.title,
-                artist: state.artist
-            )
+            do {
+                artworkData = try await ArtworkFetcher.shared.fetchYouTubeMusicArtworkData(
+                    thumbnailURL: state.thumbnailURL,
+                    title: state.title,
+                    artist: state.artist
+                )
+            } catch {
+                logger.warning(
+                    "YouTube Music artwork fetch failed for '\(state.title)': \(String(describing: error))"
+                )
+                artworkData = nil
+            }
         default:
             return
         }
@@ -589,36 +613,44 @@ final class NowPlayingManager {
         currentState = state.enriched(artwork: artwork)
     }
 
-    /// Apple Music: try immediately, then retry with backoff if the AppleScript
-    /// descriptor isn't ready. Each attempt re-validates track identity so a
-    /// fetch spawned for a previous song can't clobber a newer one. If every
-    /// attempt fails, `pollAppleMusicPosition` will keep trying as a fallback.
+    /// Apple Music: initial fetch + one retry after 500ms. `ArtworkFetcher`
+    /// falls back from AppleScript to iTunes Search API internally, so extra
+    /// retries would only help for transient network failure — one is enough.
+    /// Each attempt re-validates track identity so a fetch spawned for a
+    /// previous song can't clobber a newer one.
     private func fetchAppleMusicArtworkWithRetry(for state: NowPlayingState) async {
         if await tryFetchAppleMusicArtwork(for: state) { return }
-
-        let retryDelays: [Duration] = [
-            .milliseconds(250),
-            .milliseconds(500),
-            .seconds(1),
-            .seconds(2),
-        ]
-        for delay in retryDelays {
-            try? await Task.sleep(for: delay)
-            guard sameAppleMusicTrack(as: state) else { return }
-            if currentState?.artwork != nil { return }
-            if await tryFetchAppleMusicArtwork(for: state) { return }
-        }
+        try? await Task.sleep(for: .milliseconds(500))
+        guard sameAppleMusicTrack(as: state), currentState?.artwork == nil else { return }
+        _ = await tryFetchAppleMusicArtwork(for: state)
     }
 
     /// Returns true when artwork was fetched, validated, and applied. Callable
     /// both from the retry chain and from position-polling piggyback.
     @discardableResult
     private func tryFetchAppleMusicArtwork(for state: NowPlayingState) async -> Bool {
-        guard let data = await ArtworkFetcher.shared.fetchAppleMusicArtworkData(),
-            let image = NSImage(data: data)
-        else { return false }
-        guard sameAppleMusicTrack(as: state) else { return false }
+        let data: Data
+        do {
+            data = try await ArtworkFetcher.shared.fetchAppleMusicArtworkData(
+                title: state.title,
+                artist: state.artist,
+                album: state.album
+            ) { [logger] appleScriptError in
+                // Log AppleScript failure even if the iTunes Search fallback succeeds
+                // — this is how we discover TCC permission problems in the wild.
+                logger.warning(
+                    "Apple Music AppleScript failed (falling back to iTunes Search): \(String(describing: appleScriptError))"
+                )
+            }
+        } catch {
+            logger.warning(
+                "Apple Music artwork fetch failed for '\(state.title)': \(String(describing: error))"
+            )
+            return false
+        }
+        guard let image = NSImage(data: data), sameAppleMusicTrack(as: state) else { return false }
         currentState = state.enriched(artwork: image)
+        logger.debug("Apple Music artwork applied for '\(state.title)'")
         return true
     }
 
