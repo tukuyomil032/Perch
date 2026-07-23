@@ -39,6 +39,34 @@ struct AudioSpectrumAnalyzerTests {
             "Release times ≤ 155ms should decay bars below 0.10 after ~1s silence; got peak=\(lastPeak)")
     }
 
+    @Test("Loud broadband noise settles below the ceiling (no bar-pin)")
+    func doesNotPinAtCeiling() {
+        let sampleRate: Float = 44_100
+        let analyzer = AudioSpectrumAnalyzer(publishRateHz: 0)
+        let chunkSize = 2_048
+
+        // Prime with several seconds of loud broadband noise so AGC fully
+        // converges and every band reaches its steady-state value. With the
+        // old target≡ceiling design, peak bands mathematically pinned at 1.0
+        // and every bar visually stuck at maxHeight regardless of dynamics.
+        var lastLevels: [Float] = []
+        for chunk in 0..<120 {
+            let noise = generateNoise(sampleCount: chunkSize, amplitude: 0.7, seed: UInt64(chunk + 100))
+            if let levels = analyzer.consume(samples: noise, sampleRate: sampleRate) {
+                lastLevels = levels
+            }
+        }
+
+        let peak = lastLevels.max() ?? 0
+        #expect(
+            peak < 0.95,
+            "AGC target below ceiling should keep steady-state peak under 0.95 to leave transient headroom; got peak=\(peak)"
+        )
+        #expect(
+            peak > 0.60,
+            "Loud broadband should still register a substantial signal, not be over-attenuated; got peak=\(peak)")
+    }
+
     @Test("Returns bandCount channels per published frame")
     func publishesBandCountChannels() {
         let sampleRate: Float = 44_100

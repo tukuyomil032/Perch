@@ -182,7 +182,11 @@ final class AudioSpectrumAnalyzer: @unchecked Sendable {
         let framePeak = bandDB.max() ?? -120
 
         if framePeak > -72 {
-            let desiredGain = clamp(-14 - framePeak, minimum: -8, maximum: 18)
+            // Target 8 dB below the normalization ceiling so peak bands settle
+            // around 0.83 in steady state instead of pinning to 1.0 — leaving
+            // headroom for transients to actually spike upward. AGC can now
+            // both attenuate hot masters (min: -20) and lift quiet material.
+            let desiredGain = clamp(-22 - framePeak, minimum: -20, maximum: 18)
             let coefficient: Float = desiredGain < autoGainDB ? 0.16 : 0.025
             autoGainDB += (desiredGain - autoGainDB) * coefficient
         }
@@ -227,18 +231,19 @@ final class AudioSpectrumAnalyzer: @unchecked Sendable {
 
     /// Remaps the six frequency-ordered bands into a visual channel order that
     /// resembles the iOS Dynamic Island rather than a left-to-right spectrum slope.
-    /// Bass energy (s[0]) is spread across all six bars rather than concentrated
-    /// on bars 0–1, which previously caused persistent left-side dominance in
-    /// bass-heavy genres (hip-hop, trap, etc.).
+    /// Each output bar takes ~70% of its "own" band (in a non-linear arrangement
+    /// so bars don't read as a strict bass→treble slope) plus small ~15/~15 accents
+    /// from two related bands for visual cohesion. Strong main-component dominance
+    /// prevents a single saturated band from dragging every bar upward.
     nonisolated private func remapForDynamicIsland(_ s: [Float]) -> [Float] {
         guard s.count >= 6 else { return s }
         return [
-            s[0] * 0.40 + s[5] * 0.40 + s[2] * 0.20,  // bar0: bass+treble+mid
-            s[1] * 0.55 + s[4] * 0.45,  // bar1: low-mid+high
-            s[0] * 0.30 + s[2] * 0.50 + s[4] * 0.20,  // bar2: mid-dominated
-            s[1] * 0.25 + s[3] * 0.50 + s[5] * 0.25,  // bar3: mid-high
-            s[0] * 0.40 + s[4] * 0.35 + s[3] * 0.25,  // bar4: bass+high+mid
-            s[5] * 0.40 + s[2] * 0.35 + s[3] * 0.25,  // bar5: treble+mid
+            s[0] * 0.70 + s[5] * 0.20 + s[2] * 0.10,  // bar0: bass + treble/mid accents
+            s[1] * 0.70 + s[4] * 0.20 + s[3] * 0.10,  // bar1: low-mid + high/mid accents
+            s[2] * 0.70 + s[0] * 0.15 + s[4] * 0.15,  // bar2: mid + bass/high accents
+            s[3] * 0.70 + s[1] * 0.15 + s[5] * 0.15,  // bar3: mid-high + low-mid/treble accents
+            s[4] * 0.70 + s[0] * 0.15 + s[3] * 0.15,  // bar4: high + bass/mid accents
+            s[5] * 0.70 + s[2] * 0.15 + s[3] * 0.15,  // bar5: treble + mid/mid-high accents
         ]
     }
 

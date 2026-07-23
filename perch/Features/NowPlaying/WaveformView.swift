@@ -51,11 +51,10 @@ struct WaveformView: View {
             return Self.idleLevels
         }
 
-        // Direct real-audio mapping. No synthetic flourish — Atoll-style honesty
-        // so users can trust that the bars actually track what they're hearing.
-        return realLevels.map { level in
-            clamp(Float(pow(Double(level), 0.92)), minimum: 0, maximum: 1)
-        }
+        // Direct real-audio mapping — the analyzer has already shaped these
+        // levels with its own `pow(0.88)` curve, so re-lifting them here just
+        // pushes every bar toward the ceiling. Pass them through unmodified.
+        return realLevels.map { clamp($0, minimum: 0, maximum: 1) }
     }
 
     private func normalizedExternalLevels() -> [Float]? {
