@@ -41,7 +41,8 @@ struct NowPlayingCard: View {
                 await LyricsStore.shared.fetchLyrics(
                     title: state.title,
                     artist: state.artist,
-                    album: state.album
+                    album: state.album,
+                    duration: state.duration
                 ) ?? []
             isLyricsLoading = false
         }
