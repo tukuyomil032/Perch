@@ -15,8 +15,11 @@ final class AudioSpectrumAnalyzer: @unchecked Sendable {
     // Six broad bands covering the full audible range.
     nonisolated(unsafe) private let bandEdgesHz: [Float] = [55, 130, 300, 700, 1_600, 4_000, 12_000]
 
-    // Gentle high-shelf gain to compensate for natural low-frequency dominance.
-    nonisolated(unsafe) private let bandGainDB: [Float] = [0, 1.0, 2.0, 3.5, 5.0, 7.0]
+    // Progressive high-shelf compensation. Real music rolls off ~15-20 dB from
+    // bass (~80 Hz) to treble (~8 kHz), so the raw low band always visually
+    // dominates. The +18 dB top-shelf lifts treble to roughly the same power
+    // range as bass so every bar dances instead of just the low ones.
+    nonisolated(unsafe) private let bandGainDB: [Float] = [0, 3.0, 6.0, 10.0, 14.0, 18.0]
 
     // Per-bar attack/release times (seconds) give each bar independent inertia.
     // Release times shortened ~35% so bars snap down like the real Dynamic

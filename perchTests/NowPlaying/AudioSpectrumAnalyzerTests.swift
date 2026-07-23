@@ -67,6 +67,37 @@ struct AudioSpectrumAnalyzerTests {
             "Loud broadband should still register a substantial signal, not be over-attenuated; got peak=\(peak)")
     }
 
+    @Test("Bars stay visually balanced for broadband input (no one-bar bias)")
+    func barsStayBalanced() {
+        let sampleRate: Float = 44_100
+        let analyzer = AudioSpectrumAnalyzer(publishRateHz: 0)
+        let chunkSize = 2_048
+
+        // Prime with broadband noise so every band converges to steady state.
+        // Broadband is spectrally flat by definition, so with the corrected
+        // high-shelf gains every OUTPUT bar should be roughly the same height.
+        var lastLevels: [Float] = []
+        for chunk in 0..<120 {
+            let noise = generateNoise(sampleCount: chunkSize, amplitude: 0.7, seed: UInt64(chunk + 200))
+            if let levels = analyzer.consume(samples: noise, sampleRate: sampleRate) {
+                lastLevels = levels
+            }
+        }
+
+        let maxBar = lastLevels.max() ?? 0
+        let minBar = lastLevels.min() ?? 0
+        // Guard against divide-by-zero if the analyzer misbehaves entirely.
+        #expect(
+            minBar > 0.1,
+            "Every bar should register substantial signal for broadband noise; got min=\(minBar)")
+
+        let ratio = maxBar / max(minBar, 0.001)
+        #expect(
+            ratio < 2.0,
+            "max/min bar ratio must stay under 2.0 for broadband noise (Atoll-style balance); got max=\(maxBar) min=\(minBar) ratio=\(ratio)"
+        )
+    }
+
     @Test("Returns bandCount channels per published frame")
     func publishesBandCountChannels() {
         let sampleRate: Float = 44_100
