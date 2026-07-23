@@ -342,6 +342,14 @@ final class NowPlayingManager {
         guard let state = currentState, state.source == .appleMusic else { return }
         let capturedTitle = state.title
 
+        // Piggyback artwork retry: if the initial retry chain exhausted and we
+        // still have no artwork for this track, quietly try again on each poll.
+        // The poll is already running for position updates, so the added cost
+        // is just the AppleScript call.
+        if state.artwork == nil {
+            _ = await tryFetchAppleMusicArtwork(for: state)
+        }
+
         let script = """
             tell application "Music"
                 if not running then return "-1"
@@ -467,7 +475,22 @@ final class NowPlayingManager {
                 elapsedTime: new.elapsedTime, timestamp: new.timestamp, source: new.source
             )
         }
-        guard stateToApply != currentState else { return }
+        if stateToApply == currentState {
+            // Same state — normally we'd early-return, but if this is an Apple
+            // Music track that never got its artwork, use this notification as
+            // a re-fetch opportunity (the initial retry chain may have finished
+            // before Music.app had the descriptor ready).
+            if let current = currentState,
+                current.source == .appleMusic,
+                current.artwork == nil,
+                current.isPlaying
+            {
+                Task { @MainActor [weak self] in
+                    await self?.fetchAppleMusicArtworkWithRetry(for: current)
+                }
+            }
+            return
+        }
         currentState = stateToApply
         logger.debug("Now playing updated [\(source)]: \(stateToApply?.title ?? "nil")")
         let captureBundleId: String?
@@ -530,12 +553,20 @@ final class NowPlayingManager {
     }
 
     private func fetchAndApplyArtwork(for state: NowPlayingState) async {
+        // Apple Music routes through a dedicated retry helper because its
+        // AppleScript-based artwork descriptor can return nil right after a
+        // track change (Music.app hasn't populated it yet, especially for
+        // streaming / Apple Music catalog tracks). Other sources use direct
+        // HTTP/URL fetches which are deterministic on the first try.
+        if state.source == .appleMusic {
+            await fetchAppleMusicArtworkWithRetry(for: state)
+            return
+        }
+
         let artworkData: Data?
         switch state.source {
         case .spotify:
             artworkData = await ArtworkFetcher.shared.fetchSpotifyArtworkData()
-        case .appleMusic:
-            artworkData = await ArtworkFetcher.shared.fetchAppleMusicArtworkData()
         case .youTubeMusic:
             // Always fetch fresh artwork for YTM — carry-forward may have populated
             // state.artwork with the previous song's image, so guard state.artwork == nil
@@ -556,5 +587,44 @@ final class NowPlayingManager {
             currentState?.source == state.source
         else { return }
         currentState = state.enriched(artwork: artwork)
+    }
+
+    /// Apple Music: try immediately, then retry with backoff if the AppleScript
+    /// descriptor isn't ready. Each attempt re-validates track identity so a
+    /// fetch spawned for a previous song can't clobber a newer one. If every
+    /// attempt fails, `pollAppleMusicPosition` will keep trying as a fallback.
+    private func fetchAppleMusicArtworkWithRetry(for state: NowPlayingState) async {
+        if await tryFetchAppleMusicArtwork(for: state) { return }
+
+        let retryDelays: [Duration] = [
+            .milliseconds(250),
+            .milliseconds(500),
+            .seconds(1),
+            .seconds(2),
+        ]
+        for delay in retryDelays {
+            try? await Task.sleep(for: delay)
+            guard sameAppleMusicTrack(as: state) else { return }
+            if currentState?.artwork != nil { return }
+            if await tryFetchAppleMusicArtwork(for: state) { return }
+        }
+    }
+
+    /// Returns true when artwork was fetched, validated, and applied. Callable
+    /// both from the retry chain and from position-polling piggyback.
+    @discardableResult
+    private func tryFetchAppleMusicArtwork(for state: NowPlayingState) async -> Bool {
+        guard let data = await ArtworkFetcher.shared.fetchAppleMusicArtworkData(),
+            let image = NSImage(data: data)
+        else { return false }
+        guard sameAppleMusicTrack(as: state) else { return false }
+        currentState = state.enriched(artwork: image)
+        return true
+    }
+
+    private func sameAppleMusicTrack(as state: NowPlayingState) -> Bool {
+        currentState?.source == .appleMusic
+            && currentState?.title == state.title
+            && currentState?.artist == state.artist
     }
 }

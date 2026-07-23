@@ -30,13 +30,10 @@ struct NowPlayingCompact: View {
                 .padding(.leading, 8)
         }
         .task(id: state.artworkID) {
+            // Re-runs every time artworkID changes (enriched() mints a new UUID
+            // on artwork arrival), so the palette follows currentState.artwork
+            // without needing an internal sleep-and-recheck fallback.
             waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
-            // artwork fetch is async — if nil at artworkID change, re-check after
-            // a brief window so the thumbnail updates once the fetch completes.
-            if state.artwork == nil {
-                try? await Task.sleep(for: .milliseconds(600))
-                waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
-            }
         }
     }
 
