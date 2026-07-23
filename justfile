@@ -62,3 +62,11 @@ clean:
     xcodebuild -scheme perch clean 2>&1 | xcbeautify
     rm -rf ~/Library/Developer/Xcode/DerivedData/perch-*
     echo "Cleaned DerivedData for perch"
+
+# Build and launch Perch inline (Xcode ⌘R equivalent). Ctrl+C stops the app.
+run:
+    bash scripts/run.sh
+
+# Same as `run` but Release configuration
+run-release:
+    CONFIG=Release bash scripts/run.sh
