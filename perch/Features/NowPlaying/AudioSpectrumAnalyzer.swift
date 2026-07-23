@@ -19,8 +19,10 @@ final class AudioSpectrumAnalyzer: @unchecked Sendable {
     nonisolated(unsafe) private let bandGainDB: [Float] = [0, 1.0, 2.0, 3.5, 5.0, 7.0]
 
     // Per-bar attack/release times (seconds) give each bar independent inertia.
+    // Release times shortened ~35% so bars snap down like the real Dynamic
+    // Island / Atoll instead of lingering behind the audio.
     nonisolated(unsafe) private let attackTimes: [Float] = [0.030, 0.045, 0.024, 0.038, 0.027, 0.050]
-    nonisolated(unsafe) private let releaseTimes: [Float] = [0.170, 0.230, 0.150, 0.210, 0.180, 0.260]
+    nonisolated(unsafe) private let releaseTimes: [Float] = [0.110, 0.140, 0.095, 0.130, 0.115, 0.155]
 
     nonisolated(unsafe) private let fftSetup: FFTSetup
     nonisolated(unsafe) private let window: [Float]

@@ -51,20 +51,10 @@ struct WaveformView: View {
             return Self.idleLevels
         }
 
-        let synthetic = syntheticLevels(at: date)
-        let flourishStrength = Float(0.34) * (0.35 + 0.65 * peak)
-
-        return (0..<barCount).map { index in
-            let real = realLevels[index]
-            let shapedReal = Float(pow(Double(real), 0.92))
-            let flourish = (synthetic[index] - 0.5) * flourishStrength
-            let minimumVisibleLevel: Float = peak > 0.08 ? 0.02 : 0.0
-
-            return clamp(
-                shapedReal + flourish,
-                minimum: minimumVisibleLevel,
-                maximum: 1.0
-            )
+        // Direct real-audio mapping. No synthetic flourish — Atoll-style honesty
+        // so users can trust that the bars actually track what they're hearing.
+        return realLevels.map { level in
+            clamp(Float(pow(Double(level), 0.92)), minimum: 0, maximum: 1)
         }
     }
 
@@ -102,52 +92,33 @@ struct WaveformView: View {
     }
 
     private func bars(levels: [Float]) -> some View {
-        let gradColors = resolvedGradientColors
+        let gradient = unifiedGradient(colors: resolvedGradientColors)
         return HStack(alignment: .center, spacing: spacing) {
             ForEach(0..<barCount, id: \.self) { index in
                 let level = index < levels.count ? CGFloat(levels[index]) : 0
                 let height = minHeight + (maxHeight - minHeight) * max(0.01, level)
 
                 RoundedRectangle(cornerRadius: barWidth / 2, style: .continuous)
-                    .fill(gradientFill(for: index, colors: gradColors))
+                    .fill(gradient)
                     .frame(width: barWidth, height: height)
-                    .animation(.easeOut(duration: 0.055), value: height)
+                    .animation(.easeOut(duration: 0.028), value: height)
             }
         }
         .frame(height: maxHeight)
     }
 
-    /// Per-bar gradient with strong contrast so each bar's transition is visible.
-    ///
-    /// - index % 3 == 0 (bars 0, 3): full 3-color span, top→bottom
-    /// - index % 3 == 1 (bars 1, 4): highlight → near-transparent fade, top→bottom
-    /// - index % 3 == 2 (bars 2, 5): full 3-color span reversed, bottom→top
-    private func gradientFill(for index: Int, colors: [Color]) -> LinearGradient {
-        switch index % 3 {
-        case 0:
-            return LinearGradient(
-                stops: [
-                    .init(color: colors[0], location: 0.0),
-                    .init(color: colors[1], location: 0.5),
-                    .init(color: colors[2], location: 1.0),
-                ],
-                startPoint: .top, endPoint: .bottom)
-        case 1:
-            return LinearGradient(
-                stops: [
-                    .init(color: colors[0], location: 0.0),
-                    .init(color: colors[1].opacity(0.15), location: 1.0),
-                ],
-                startPoint: .top, endPoint: .bottom)
-        default:
-            return LinearGradient(
-                stops: [
-                    .init(color: colors[2], location: 0.0),
-                    .init(color: colors[1], location: 0.5),
-                    .init(color: colors[0], location: 1.0),
-                ],
-                startPoint: .bottom, endPoint: .top)
-        }
+    /// Single top→bottom gradient shared by every bar so the whole waveform
+    /// reads as one artwork-tinted shape whose height varies per band, rather
+    /// than a mosaic of bars each running its own color direction.
+    private func unifiedGradient(colors: [Color]) -> LinearGradient {
+        LinearGradient(
+            stops: [
+                .init(color: colors[0], location: 0.0),
+                .init(color: colors[1], location: 0.5),
+                .init(color: colors[2], location: 1.0),
+            ],
+            startPoint: .top, endPoint: .bottom
+        )
     }
 
     // MARK: - Synthetic fallback
