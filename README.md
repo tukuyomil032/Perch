@@ -7,7 +7,7 @@
 
   [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple&logoColor=white)](https://www.apple.com/macos/)
   [![Swift 6](https://img.shields.io/badge/Swift-6-f05138?logo=swift&logoColor=white)](https://swift.org)
-  [![MIT License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+  [![Apache 2.0 License](https://img.shields.io/badge/license-Apache_2.0-blue)](LICENSE)
 </div>
 
 ---
