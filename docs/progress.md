@@ -364,3 +364,119 @@
 - [ ] T6-6: HUD（バッテリー、音量表示）
 - [ ] T6-7: README / Docs整備
 - [ ] T6-8: パフォーマンス最適化
+
+---
+
+## Phase A / B / C: OpenNook 移行 + Atoll 風 UI + 波形修理
+
+**Branch**: `feat/island-opennook-vendored`
+**Last Updated**: 2026-07-27
+**設計書**: `docs/opennook-migration-plan.md`（判断背景・制約・検証済み事実の全文）
+
+### 目標
+
+Island 層の独自実装（`perch/Island/` 595行）を vendored NookSurface に置き換え、展開UIを
+作り直し、実音波形を実際に動かす。機能ロジック（NowPlaying / AIUsage / Providers /
+PresetStore / WidgetRegistry）は全部引き継ぐ。
+
+### 検証済み事実（PoC 実測、`~/tmp/nook-poc`）
+
+| 項目 | 結果 |
+|---|---|
+| 既存 `@main struct App` + `@NSApplicationDelegateAdaptor` に低レベル `Nook` だけ差し込む | **可**（`NookApp.main()` を呼ばずに動作。docs に記載のない使い方） |
+| 半画面パネル（画面上半分全体、level 33）がクリックを食うか | **食わない**。`.contentShape(NookShape)` が AppKit のヒットテストまで効き、可視形状の外は透過。DynamicNotchKit Issue #48 は再現せず |
+| `configureWindow` で `showInAllSpaces` を再現できるか | **可**。ただし窓が作り直されるたびリセットされるので `onExpand`/`onCompact` から毎回再適用が必要 |
+| `AppState` の名前衝突 | 起きない（自モジュール優先で解決） |
+| 疑似ノッチの実寸（非ノッチ機） | **300 × 30pt**。実ノッチは 185〜208pt |
+
+### vendoring した理由
+
+疑似ノッチ幅 `arbitraryWidth = 300`（`NSScreen+Extensions.swift:53`）は internal 定数で、
+`screenProvider` / `configureWindow` / `NookStyle` のいずれからも変更できない。
+かつ NookKit の UI 部品（`NookTopBar` は internal で構造固定、モジュール切替は横並び
+アイコンバーではなく Menu ポップアップ、ステータスは全幅バナー、バッテリー/WiFi/BT の
+部品は皆無）が Atoll 風 UI の要件に合わず、どのみち UI を自作するため NookKit を使う
+実利が小さい。NookSurface は 2,617行・外部依存ゼロ・MIT なので取り込みコストが低い。
+
+### Phase A タスク（基盤置換 / 見た目は現行維持）
+
+- [ ] A0: デッドコード削除（`NotchExpandedView` 223 / `NowPlayingMorphContent` 244 / `MetalLiquidBlobView`+`LiquidBlob.metal` 54 / `IslandCardContainer` 13 / デッド Defaults / 効かない animationSpeed Slider / KeyboardShortcuts 依存）約 557行
+- [ ] A1: macOS 15 Sequoia 引き上げ（pbxproj 4箇所 + CLAUDE.md + README + Homebrew Cask）
+- [ ] A2: `perch/Vendor/NookSurface/` に 19ファイル取り込み + ThirdPartyLicenses / NOTICE
+- [ ] A3: vendored の改変3点 — 疑似ノッチ幅を可変化（既定 195pt）/ `notchSize`・`menubarHeight` を public 化 / `NookHoverBehavior.expandsOnHover` 追加
+- [ ] A4: `NookBridge` / `IslandSurfaceDriving` / `IslandChromeStyle` / `WidgetSizeMetrics` / `ScreenLocator` 追加 + テスト
+- [ ] A5: `perch/Island/` 旧7ファイル削除 + AppState 縮退 + UI シェル層削除
+- [ ] A6: 既存テストの改廃（`IslandGeometryTests` / `NotchDetectorTests` 全削除、`AppStateTests` / `IslandPresentationTests` 改廃）
+
+### Phase B タスク（Atoll 風展開UI）
+
+`/hallmark` と `/ui-ux-pro-max` を必ず適用。Atoll の OSS 版は **GPL-3.0 なのでソースは読まない**
+（読むこと自体が派生物認定のリスク）。スクリーンショットから読み取れるレイアウト構造の
+着想のみ参考にし、視覚言語は Perch 独自にする。
+
+- [ ] B1: `IslandTopBar` — 左にモジュールアイコン列、右にステータスクラスタ
+- [ ] B2: `SystemStatusCluster` — バッテリー（IOKit、権限不要）/ WiFi（CoreWLAN、**SSID は出さない**＝ Location 権限を回避）/ Bluetooth（`IOBluetoothHostController.powerState` のみ＝ `NSBluetoothAlwaysUsageDescription` を回避）。**権限ダイアログをゼロにする構成**
+- [ ] B3: `PerchModule` enum + ルーティング（Kit の `NookModule` は使わない）
+- [ ] B4: NowPlaying 展開の再デザイン（既存 `NowPlayingCard.swift` 374行の資産を活かす）
+- [ ] B5: `compactLeading`/`compactTrailing` のレジストリ駆動化（`WidgetLayout.pillPrimary`/`pillSecondary` を配線。**A0 で削除しないこと**）
+- [ ] B6: File Shelf モジュール（Shelf モデル4ファイル 607行をコピー、View は自作）
+- [ ] B7: Timer モジュール
+
+> モジュール（ホーム / File Shelf / Timer / AI Usage）とプリセット（Daily / Dev）は**別概念**。
+> 上部バーはモジュール、プリセットはホームモジュール内のウィジェット配置として残す。
+
+### Phase C タスク（波形の実音キャプチャ修理）
+
+**原因はすべて特定済み。** 現状は ScreenCaptureKit のアプリ別音声キャプチャで、以下が壊れている:
+
+| # | 箇所 | 内容 |
+|---|---|---|
+| 1 | `NowPlayingManager.swift:415-419` | `ytmBrowserBundleId` が「起動中の最初のブラウザ」の当てずっぽう。Safari 常駐時は Chrome の YTM を永久に拾えない。正しい bundleId は `MediaRemoteBridge.swift:53` にあるのに `NowPlayingState.swift:276` が捨てている |
+| 2 | `NowPlayingManager.swift:478` | `.mrMediaRemote` は `captureBundleId = nil` → **この経路では実音波形が構造的に一度も動かない** |
+| 3 | `AudioCaptureService.swift:73` | `SCStream(delegate: nil)` でストリーム死亡を検知できず、`:34` の guard で再接続が永久ブロック |
+| 4 | `AudioCaptureService.swift:132-138` | デコードエラーの完全握りつぶし（`AudioPCMDecoder` は6種の `LocalizedError` を定義しているのに一件も表に出ない） |
+| 5 | `AudioCaptureService.swift:33-35` | `startCapturing` に再入ガードなし。孤児 SCStream が残りうる |
+
+`WaveformView.swift:41-69` が失敗時に合成波形へフォールバックするため、**壊れていても
+「滑らかに動いている」ように見え、成功と区別がつかない**。git log にも
+`88e744f fix: pure synthetic waveform`（一度降参）→ `4cdcddd`（実音に再挑戦）→
+`87172f0 fix: gate waveform levels on hasReceivedAudio`（実音が来ない前提のゲート追加）
+という往復が残っている。**原因に手を付けないままゲートで隠したのが再発の構造的理由。**
+
+- [ ] C0: 切り分け — `:132` の catch にログ / `:38` の `content.applications.count` をログ / **Spotify で試す**（bundleId が正しいので、動けば YTM のブラウザ誤選択が犯人と確定）
+- [ ] C1: `NowPlayingState` に `sourceBundleId` を追加し MediaRemote の bundleIdentifier を伝搬
+- [ ] C2: `ytmBrowserBundleId` の当てずっぽうを削除
+- [ ] C3: `.mrMediaRemote` でもキャプチャする
+- [ ] C4: `SCStreamDelegate` 実装（`didStopWithError` で再接続可能に）
+- [ ] C5: エラーを握りつぶさずログ
+- [ ] C6: `startCapturing` の再入ガード
+- [ ] C7: **BF4 回収** — `CGPreflightScreenCaptureAccess` / `CGRequestScreenCaptureAccess` + 拒否時の Settings 導線
+- [ ] C8: **診断表示** — Settings に「波形が実音か合成か」を出す。再発を即座に検知できるようにする
+- [ ] C9: テスト追加（`AudioPCMDecoder` 各フォーマット / `AudioSpectrumAnalyzer` 既知入力 / `WaveformView.blendedLevels` の3分岐）。**現状 Audio 系のテストはゼロ**
+
+### 将来（Phase 4）: Core Audio Taps への載せ替え
+
+Phase C で SCK が直っても、**macOS 15 以降のオレンジ収録インジケータ常時点灯と定期的な
+権限再確認ダイアログは残る**（`com.apple.developer.persistent-content-capture` entitlement は
+特別承認が必要で一般アプリには下りない）。常駐アプリとして痛いので Core Audio Process Taps
+（macOS 14.2+）に載せ替える。インジケータなし・仮想デバイス不要。見積 8〜11人日。
+
+参照実装は **AudioCap (BSD-2)** と **iqualize (MIT)** のみ。boring.notch / Atoll は GPL-3.0 で参照不可。
+（参考: boring.notch 10k★ の波形は `CGFloat.random(in: 0.35...1.0)` の純乱数）
+
+既知の罠: `isExclusive` を触ると無音 / アグリゲートは「実出力デバイス=main、tap=sub-tap、
+`TapAutoStart=true`」でないとエラーなしのゼロサンプル / `AVAudioEngine` への retarget は
+`noErr` を返すのに既定入力を読み続ける / IOProc の queue に `nil` を渡すと macOS 26 で
+サイレント失敗 / 署名なしビルドでは TCC ダイアログがそもそも出ない / macOS 26 に
+「長時間稼働で全サンプルが 0 になる」未解決 OS バグ（Apple Forums #825780、Apple 未回答）
+→ 連続ゼロ検知でタップ+アグリゲートを両方破棄して再作成するウォッチドッグ必須
+
+### 既知の制限 / 仕様変更
+
+- **hover で自動展開する**（`Nook.updateHoverState` が無条件で `_expand` を呼ぶ）。従来はタップのみ。vendoring したのでオプション化は可能だが、Phase A では既定挙動を受け入れる
+- **「外側クリックで即収縮」が無くなる**（hover 展開と喧嘩するため）
+- **`Defaults[.pillSize]` を削除**。`.notch` 固定にすると floating pill の概念が消え、高さは
+  `notchSize.height`、幅は content-driven になるため設定の意味が失われる
+- **同じ Perch でもマシンによってノッチ幅が変わる**（実ノッチ機は実寸、非ノッチ機は疑似 195pt）
+- `perchUITests/` は Xcode テンプレートのまま実質空。UI リグレッションは手動チェックリスト
+  （設計書の E-1 節）で担保する

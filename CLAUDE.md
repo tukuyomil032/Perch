@@ -13,7 +13,7 @@ Now Playing、ファイル棚などの情報・操作を常時アクセス可能
 
 ## Tech Stack
 
-- **Language**: Swift 6, macOS 14 Sonoma+
+- **Language**: Swift 6, macOS 14 Sonoma+（Phase A で **macOS 15 Sequoia+** に引き上げ予定）
 - **UI**: SwiftUI + AppKit（ウィンドウ制御）
 - **Build**: Xcode 16+, .xcodeproj ベース
 - **Target**: Apple Silicon / Intel 両対応
@@ -57,13 +57,19 @@ Integration Layer (AppKit)
   └─ MouseEventMonitor   — hover/click検知
 ```
 
+> **Phase A で Integration Layer 全体を置換予定。**
+> `perch/Vendor/NookSurface/`（OpenNook から vendoring、MIT）がウィンドウ・ノッチ形状・
+> ジオメトリ・hover を担い、`perch/Island/NookBridge.swift` が AppState との橋渡しだけを持つ。
+> 詳細: `docs/opennook-migration-plan.md`
+
 ## Module Responsibilities
 
 | Module | Path | Responsibility |
 |--------|------|---------------|
 | App | `perch/App/` | エントリーポイント、AppDelegate、MenuBar |
 | Core | `perch/Core/` | AppState、EventBus、Preferences、RefreshScheduler、NotificationService |
-| Island | `perch/Island/` | NSWindow制御、ノッチ検出、ジオメトリ計算、マウスイベント |
+| Island | `perch/Island/` | NSWindow制御、ノッチ検出、ジオメトリ計算、マウスイベント（Phase A 以降は vendored NookSurface のアダプタに縮退） |
+| Vendor | `perch/Vendor/` | 外部OSSの取り込み（Phase A で NookSurface を追加）。改変時はファイル冒頭に `// Modified for Perch:` を記す |
 | UI | `perch/UI/` | SwiftUIビュー、カード、DesignSystem、設定画面 |
 | Features | `perch/Features/` | NowPlaying、FileShelf、AIUsage、DevStatus、HUD |
 | Providers | `perch/Providers/` | Claude、Codex、OpenAI、OpenRouter、GitHub |
@@ -153,7 +159,7 @@ appState.widgetRegistry.register(DevStatusWidget())
 - `hallmark` — Anti-AI-Slop デザイン品質ガードレール
 
 ### Project-specific
-- `appkit-window-control` — NSWindow/NSPanel、透明ウィンドウ、level
+- `appkit-window-control` — NSWindow/NSPanel、透明ウィンドウ、level（Phase A 以降は vendored NookSurface の改変指針として使う）
 - `dynamic-island-ui` — ピルUI、展開アニメーション、カード切り替え
 - `ai-provider-integration` — AIProvider protocol、認証、エラーハンドリング
 
@@ -161,10 +167,25 @@ appState.widgetRegistry.register(DevStatusWidget())
 
 | Package | Version | Purpose | Phase |
 |---------|---------|---------|-------|
-| KeyboardShortcuts | 2.4.0+ | グローバルショートカット | Phase 1 |
+| ~~KeyboardShortcuts~~ | 2.4.0+ | グローバルショートカット | **Phase A で削除**（Swift 参照ゼロ） |
 | Defaults | 9.0.0+ | 型安全な設定保存 | Phase 1 |
 | swift-log | 1.12.0+ | ログ基盤 | Phase 1 |
 | Sparkle | 2.9.1+ | 自動アップデート | Phase 6 |
+
+### Vendored（SPM ではなくソース取り込み）
+
+| 取り込み元 | ライセンス | 配置 | Phase |
+|-----------|-----------|------|-------|
+| OpenNook `NookSurface`（19ファイル / 2,617行 / 外部依存ゼロ） | MIT（原著 DynamicNotchKit / Kai Azim、改変 Glendon Chin） | `perch/Vendor/NookSurface/` | A |
+| OpenNook `NookScreenLocator` | Apache-2.0 | `perch/Island/ScreenLocator.swift` | A |
+| OpenNook Shelf モデル4ファイル（607行） | Apache-2.0 | `perch/Features/FileShelf/` | B |
+
+vendoring した理由: 疑似ノッチ幅（`arbitraryWidth = 300`）が internal 定数で、`screenProvider` /
+`configureWindow` / `NookStyle` のいずれからも変更できないため。かつ NookKit の UI 部品
+（`NookTopBar` は internal で構造固定、モジュール切替は Menu ポップアップのみ）が Perch の要件に
+合わず、どのみち UI を自作するため NookKit を使う実利が小さい。
+
+帰属表示は `NOTICE` と `ThirdPartyLicenses/` に置き、Settings の About / Licenses に表示する。
 
 ## Phase Roadmap
 
@@ -174,9 +195,15 @@ appState.widgetRegistry.register(DevStatusWidget())
 | 1 | v0.1 | Core Island UI（ピル、ノッチ、展開、Settings、MenuBar） |
 | 2 | v0.2 | Now Playing（Spotify、YouTube Music、Apple Music） |
 | 3 | v0.3 | AI Usage（Claude、Codex Provider + カード表示） |
-| 4 | v0.4 | File Shelf（D&D、一時保存、Quick Look、AirDrop） |
+| **A** | v0.35 | **Island 層を vendored NookSurface に置換**（デッドコード削除 + macOS 15 引き上げ + 見た目は現行維持） |
+| **B** | v0.36 | **Atoll 風展開UI**（モジュールバー、システムステータス、NowPlaying 再デザイン、File Shelf、Timer） |
+| **C** | v0.37 | **波形の実音キャプチャ修理**（ScreenCaptureKit）+ Audio テスト整備 |
+| 4 | v0.4 | 波形を Core Audio Taps へ載せ替え（オレンジ収録インジケータ解消） |
 | 5 | v0.5 | Dev Status（GitHub Actions、CI通知） |
-| 6 | v1.0 | Sparkle、Homebrew Cask、追加Provider、HUD、安定化 |
+| 6 | v1.0 | Sparkle、Homebrew Cask、追加Provider、輝度HUD、安定化 |
+
+Phase A/B/C の詳細・判断背景・検証済み事実は
+`docs/opennook-migration-plan.md` を参照。
 
 ## Distribution
 
