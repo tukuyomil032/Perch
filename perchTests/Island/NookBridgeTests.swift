@@ -1,4 +1,5 @@
 import AppKit
+import Defaults
 import Foundation
 import Testing
 
@@ -26,15 +27,11 @@ struct NookBridgeTests {
         #expect(NookBridge.collapseDelay(forConfiguredSeconds: -5) == .zero)
     }
 
-    @Test("an absurd delay clamps so a bad plist cannot pin the surface open")
-    func collapseDelayUpperBound() {
-        #expect(NookBridge.collapseDelay(forConfiguredSeconds: 10_000) == .seconds(60))
-    }
-
-    @Test("non-finite values fall back to the shipped default")
+    @Test("non-finite values fall back to the preference's own default, not a second one")
     func collapseDelayNonFinite() {
-        #expect(NookBridge.collapseDelay(forConfiguredSeconds: .nan) == .seconds(3))
-        #expect(NookBridge.collapseDelay(forConfiguredSeconds: .infinity) == .seconds(3))
+        let fallback = Duration.seconds(Defaults.Keys.autoCollapseDelay.defaultValue)
+        #expect(NookBridge.collapseDelay(forConfiguredSeconds: .nan) == fallback)
+        #expect(NookBridge.collapseDelay(forConfiguredSeconds: .infinity) == fallback)
     }
 
     // MARK: - desiredCollectionBehavior
@@ -138,6 +135,34 @@ struct NookBridgeTests {
 
         await bridge.expand()
         #expect(surface.configureWindowCallCount == 0)
+    }
+
+    // MARK: - Chrome style
+
+    @Test("the chrome style reaches the surface through the bridge")
+    func chromeStyleReachesSurface() {
+        let surface = FakeIslandSurface()
+        let bridge = NookBridge(surface: surface, collapseDelay: { .zero })
+
+        bridge.applyChromeStyle(.floating)
+        #expect(surface.appliedChromeStyles == [.floating])
+    }
+
+    @Test("the style can be switched while the surface is live, and chrome is re-applied after the rebuild")
+    func chromeStyleSwitchesAtRuntime() async {
+        let surface = FakeIslandSurface()
+        let bridge = NookBridge(surface: surface, collapseDelay: { .zero })
+
+        await bridge.expand()
+        let chromeCallsAfterExpand = surface.configureWindowCallCount
+
+        bridge.applyChromeStyle(.floating)
+        bridge.applyChromeStyle(.notch)
+
+        #expect(surface.appliedChromeStyles == [.floating, .notch])
+        // The surface rebuilds its window on a presentation change, so the collection
+        // behavior has to be re-applied once per switch.
+        #expect(surface.configureWindowCallCount == chromeCallsAfterExpand + 2)
     }
 
     // MARK: - Auto-collapse

@@ -23,6 +23,10 @@ final class FakeIslandSurface: IslandSurfaceDriving {
     private(set) var compactCallCount = 0
     private(set) var configureWindowCallCount = 0
 
+    /// Every chrome style handed to the surface, in order, so a test can assert on live
+    /// switching rather than just the final value.
+    private(set) var appliedChromeStyles: [IslandChromeStyle] = []
+
     /// `false` reproduces a hidden surface, where there is no window to configure.
     var hasLiveWindow = true
 
@@ -42,6 +46,10 @@ final class FakeIslandSurface: IslandSurfaceDriving {
     func compact(on screen: NSScreen?) async {
         compactCallCount += 1
         onCompact?()
+    }
+
+    func applyChromeStyle(_ style: IslandChromeStyle) {
+        appliedChromeStyles.append(style)
     }
 
     @discardableResult

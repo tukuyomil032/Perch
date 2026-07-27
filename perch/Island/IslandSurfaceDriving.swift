@@ -41,6 +41,15 @@ protocol IslandSurfaceDriving: AnyObject {
     /// Awaits until the collapse has settled. See ``expand(on:)`` for `screen`.
     func compact(on screen: NSScreen?) async
 
+    /// Switches the chrome between the pseudo-notch and floating looks. Takes Perch's own
+    /// `IslandChromeStyle`, not the vendored presentation enum, so the mapping onto the Kit
+    /// vocabulary lives in exactly one place (the `Nook` conformance below).
+    ///
+    /// Callable at any time, including while the surface is on screen: the vendored
+    /// surface rebuilds its visible window when its presentation changes, so a style
+    /// switch from Settings takes effect immediately rather than on next launch.
+    func applyChromeStyle(_ style: IslandChromeStyle)
+
     /// Applies window-level tweaks to the currently mounted window. Returns `false`
     /// when there is no live window — the surface tears its window down and rebuilds it
     /// across transitions, which is exactly why chrome has to be re-applied.
@@ -51,5 +60,11 @@ protocol IslandSurfaceDriving: AnyObject {
 extension Nook: IslandSurfaceDriving {
     var isHoveringPublisher: AnyPublisher<Bool, Never> {
         $isHovering.eraseToAnyPublisher()
+    }
+
+    /// The single point where a Perch chrome style becomes a vendored `NookPresentation`.
+    /// Assigning `presentation` is what triggers the surface's in-place window rebuild.
+    func applyChromeStyle(_ style: IslandChromeStyle) {
+        presentation = style.nookPresentation
     }
 }

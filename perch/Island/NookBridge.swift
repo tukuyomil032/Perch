@@ -87,6 +87,17 @@ final class NookBridge {
         await surface.compact(on: nil)
     }
 
+    /// Switches the chrome between the pseudo-notch and floating looks.
+    ///
+    /// Safe to call while the surface is visible — the vendored surface rebuilds its
+    /// window in place — so Settings can drive this live rather than deferring to the
+    /// next launch. Window chrome is re-applied afterwards for the same reason it is
+    /// re-applied on every transition: the rebuild produces a brand-new window.
+    func applyChromeStyle(_ style: IslandChromeStyle) {
+        surface.applyChromeStyle(style)
+        applyWindowChrome()
+    }
+
     // MARK: - Surface callbacks
 
     private func surfaceDidExpand() {
@@ -144,15 +155,15 @@ final class NookBridge {
 
     // MARK: - Pure policy
 
-    /// Clamps the persisted auto-collapse preference into a delay the scheduler can use.
+    /// Turns the persisted auto-collapse preference into a delay the scheduler can use.
     ///
-    /// The preference is a raw `Double` in `Defaults`, so it can arrive as a negative
-    /// number, a NaN, or an absurd value from a hand-edited plist. Zero is meaningful
-    /// (collapse as soon as the cursor leaves); the upper bound only exists so a garbage
-    /// value cannot pin the surface open for the rest of the session.
-    nonisolated static func collapseDelay(forConfiguredSeconds seconds: Double) -> Duration {
-        guard seconds.isFinite else { return .seconds(3) }
-        return .seconds(min(max(seconds, 0), 60))
+    /// `Duration.seconds` traps on a non-finite `Double`, and the preference is a raw
+    /// `Double` read from `Defaults` — so NaN and infinity are converted to the key's own
+    /// declared default rather than crashing. Negative values clamp to zero, which is
+    /// meaningful: collapse as soon as the cursor leaves.
+    static func collapseDelay(forConfiguredSeconds seconds: Double) -> Duration {
+        guard seconds.isFinite else { return .seconds(Defaults.Keys.autoCollapseDelay.defaultValue) }
+        return .seconds(max(seconds, 0))
     }
 
     /// The collection behavior the island window must carry. `.canJoinAllSpaces` is the
