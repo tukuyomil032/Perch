@@ -31,8 +31,7 @@ final class AppState {
 
     var expandedWindowHeight: CGFloat {
         guard let preset = presetStore.activePreset else { return 300 }
-        let sizeHeights: [WidgetSize: CGFloat] = [.mini: 36, .compact: 52, .standard: 264, .full: 360]
-        let widgetTotal = preset.widgets.map { sizeHeights[$0.size] ?? 44 }.reduce(0, +)
+        let widgetTotal = preset.widgets.map { WidgetSizeMetrics.height(for: $0.size) }.reduce(0, +)
         let hasSidebar = preset.widgets.contains { $0.position != .main }
         return 40 + widgetTotal + (hasSidebar ? 1 : 0)
     }

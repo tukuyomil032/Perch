@@ -104,17 +104,11 @@ struct ExpandedIslandView: View {
         }
     }
 
-    private let widgetSizeHeights: [WidgetSize: CGFloat] = [
-        .mini: 36, .compact: 52, .standard: 264, .full: 360,
-    ]
-
     @ViewBuilder
     private func widgetView(for placement: WidgetPlacement) -> some View {
-        if let widget = appState.widgetRegistry.widget(forId: placement.widgetId),
-            let h = widgetSizeHeights[placement.size]
-        {
+        if let widget = appState.widgetRegistry.widget(forId: placement.widgetId) {
             widget.body(size: placement.size)
-                .frame(height: h)
+                .frame(height: WidgetSizeMetrics.height(for: placement.size))
                 .clipped()
         }
     }
