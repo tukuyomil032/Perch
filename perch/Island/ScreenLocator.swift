@@ -21,11 +21,19 @@
 // up) doesn't require touching this file again. Dropped every `public` access
 // modifier (`public enum` -> `enum`, `public struct` -> `struct`, `public let`/`var`/
 // `static func`/`init` -> internal) since both types are internal to the Perch module,
-// with no cross-module consumer the way NookKit had one. Added `nonisolated` to
-// `ScreenPreference` and `ScreenLocator` themselves: Perch's project settings default
-// every declaration to `@MainActor` (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`),
-// which upstream's package doesn't set, so without `nonisolated` neither type's pure,
-// synchronous API (notably `resolveIndex`) could be called from a plain test function.
+// with no cross-module consumer the way NookKit had one. Added `nonisolated` -
+// narrowly, not to the whole file - because Perch's project settings default every
+// declaration to `@MainActor` (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`), which
+// upstream's package doesn't set: `ScreenPreference` (a plain value type),
+// `resolveIndex(preference:displays:mainIndex:)` (the pure fallback-chain policy this
+// is tested through), and the two value types it's tested with
+// (`DisplayCandidate`, `DisplayInfo`) are `nonisolated` so tests can construct and
+// call them synchronously. `ScreenLocator` itself and every static func that actually
+// touches `NSScreen` (`displayID(for:)`, `uuid(for:)`, `connectedDisplays()`,
+// `screen(matching:)`, `isBuiltIn(_:)`, `builtInScreen()`) are left on the project's
+// default `@MainActor` isolation, matching `NotchDetector.swift`'s convention for the
+// same kind of `NSScreen`-touching code - `NSScreen` is a main-thread-only API, and
+// blanket `nonisolated` would have silently removed that guardrail from callers.
 
 import AppKit
 import CoreGraphics
@@ -82,9 +90,11 @@ nonisolated struct ScreenPreference: Equatable, Codable, Sendable {
         case displayUUID
     }
 
-    // Lenient decode so JSON from an older/newer build round-trips to a sane value
-    // instead of failing the whole record. An unrecognized `mode` string, or a
-    // `.specific` mode missing its UUID, both degrade to the default rather than throw.
+    // Lenient decode covering the two known corruption shapes: an unrecognized `mode`
+    // string (older/newer build wrote a case this build doesn't know) and a `.specific`
+    // mode missing its UUID. Both degrade to the default rather than throw. This does
+    // NOT cover every malformed shape - e.g. `"mode": 1` (wrong JSON type) still throws
+    // via `decodeIfPresent`, since that's not a corruption pattern we expect in practice.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let rawMode = try container.decodeIfPresent(String.self, forKey: .mode)
@@ -115,9 +125,9 @@ nonisolated struct ScreenPreference: Equatable, Codable, Sendable {
 /// preference can't reference them directly. The display *UUID*
 /// (`CGDisplayCreateUUIDFromDisplayID`) is stable across reconnects, so that's what
 /// ``ScreenPreference/specific(_:)`` persists and what this type matches against.
-nonisolated enum ScreenLocator {
+enum ScreenLocator {
     /// A currently-attached display, as surfaced to settings UI.
-    struct DisplayInfo: Identifiable, Equatable, Sendable {
+    nonisolated struct DisplayInfo: Identifiable, Equatable, Sendable {
         /// Stable display UUID - the value stored in ``ScreenPreference``.
         let uuid: String
         /// Human-readable name (`NSScreen.localizedName`), e.g. "Built-in Retina Display".
@@ -165,7 +175,7 @@ nonisolated enum ScreenLocator {
     /// A display abstracted to just what the fallback chain needs, so the resolution
     /// *policy* can be unit-tested without a live `NSScreen` (which is unavailable on
     /// headless CI). The AppKit path builds these from `NSScreen.screens`.
-    struct DisplayCandidate: Equatable, Sendable {
+    nonisolated struct DisplayCandidate: Equatable, Sendable {
         /// Stable display UUID, or `nil` for displays that expose none.
         let uuid: String?
         /// `true` for the Mac's built-in panel.
@@ -187,7 +197,7 @@ nonisolated enum ScreenLocator {
     /// Returns `nil` only when `displays` is empty. `mainIndex` is the index of the
     /// system's main display within `displays` (the AppKit path derives it from
     /// `NSScreen.main`); `nil` if unknown.
-    static func resolveIndex(
+    nonisolated static func resolveIndex(
         preference: ScreenPreference,
         displays: [DisplayCandidate],
         mainIndex: Int?
