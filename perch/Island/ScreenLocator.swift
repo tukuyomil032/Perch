@@ -18,7 +18,14 @@
 // over would have pulled in a second, incompatible persistence convention for no
 // current caller. `ScreenPreference` keeps upstream's `Codable` conformance so a
 // future `Defaults.Key<ScreenPreference>` (Phase A5, when this type is actually wired
-// up) doesn't require touching this file again.
+// up) doesn't require touching this file again. Dropped every `public` access
+// modifier (`public enum` -> `enum`, `public struct` -> `struct`, `public let`/`var`/
+// `static func`/`init` -> internal) since both types are internal to the Perch module,
+// with no cross-module consumer the way NookKit had one. Added `nonisolated` to
+// `ScreenPreference` and `ScreenLocator` themselves: Perch's project settings default
+// every declaration to `@MainActor` (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`),
+// which upstream's package doesn't set, so without `nonisolated` neither type's pure,
+// synchronous API (notably `resolveIndex`) could be called from a plain test function.
 
 import AppKit
 import CoreGraphics
