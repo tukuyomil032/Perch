@@ -139,6 +139,29 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ---
 
+## NookScreenLocator (vendored, copied into ScreenLocator)
+
+- **Source**: https://github.com/athledev-labs/opennook
+- **Version**: 0.4.0 (`NookScreenLocator.swift`)
+- **License**: Apache License 2.0
+- **Copyright**: Copyright © 2026 Glendon Chin
+- **Vendored into**: `perch/Island/ScreenLocator.swift`
+
+Unlike NookSurface above, this is not a SwiftPM dependency: `NookScreenLocator` is a
+single Apache-2.0 file with no dependency on the rest of NookKit besides the small
+`NookDisplayPreference` value type, which Perch inlined and renamed
+`ScreenPreference` rather than pulling in as a second file. Renamed
+`NookScreenLocator` -> `ScreenLocator`; dropped `NookDisplayStore` (a
+`UserDefaults`-backed persistence layer built on a NookKit-only storage type) since
+Perch persists preferences through the `Defaults` package instead. See the
+`// Modified for Perch:` header comment in `ScreenLocator.swift` for the full list of
+changes. Perch's own root `LICENSE` is Apache-2.0, so this file's terms already match
+the project's license.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+---
+
 ## Regex
 
 - **Source**: https://github.com/ddddxxx/Regex
