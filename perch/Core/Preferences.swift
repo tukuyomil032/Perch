@@ -40,12 +40,8 @@ enum PillSizePreset: String, CaseIterable, Defaults.Serializable {
 
 extension Defaults.Keys {
     static let launchAtLogin = Key<Bool>("launchAtLogin", default: false)
-    static let islandMode = Key<String>("islandMode", default: "auto")
-    static let windowLevel = Key<String>("windowLevel", default: "statusBar+1")
-    static let animationSpeed = Key<Double>("animationSpeed", default: 1.0)
     static let showInAllSpaces = Key<Bool>("showInAllSpaces", default: true)
     static let autoCollapseDelay = Key<Double>("autoCollapseDelay", default: 3.0)
-    static let displayScreen = Key<Int>("displayScreen", default: -1)
     static let showNowPlayingSource = Key<Bool>("showNowPlayingSource", default: false)
     static let enableSpotify = Key<Bool>("enableSpotify", default: true)
     static let enableAppleMusic = Key<Bool>("enableAppleMusic", default: true)
@@ -54,7 +50,6 @@ extension Defaults.Keys {
     static let aiRefreshInterval = Key<RefreshInterval>("aiRefreshInterval", default: .fiveMinutes)
     static let notchSimulationMode = Key<NotchSimulationMode>("notchSimulationMode", default: .auto)
     static let pillSize = Key<PillSizePreset>("pillSize", default: .medium)
-    static let showSatelliteCircle = Key<Bool>("showSatelliteCircle", default: false)
     static let pillBackgroundStyle = Key<PillBackgroundStyle>("pillBackgroundStyle", default: .glassBlack)
     static let claudeSessionTokenLimit = Key<Int>("claudeSessionTokenLimit", default: 88_000)
     static let claudeWeeklyTokenLimit = Key<Int>("claudeWeeklyTokenLimit", default: 500_000)

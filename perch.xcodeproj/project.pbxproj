@@ -11,7 +11,6 @@
 		BA0A723D2FCEBA1A00F08C06 /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A723C2FCEBA1A00F08C06 /* Defaults */; };
 		BA0A72422FCEBA4F00F08C06 /* InMemoryLogging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */; };
 		BA0A72442FCEBA4F00F08C06 /* Logging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72432FCEBA4F00F08C06 /* Logging */; };
-		BA0A72472FCEBA7600F08C06 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */; };
 		BA0A724A2FCEBABC00F08C06 /* LyricsKit in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72492FCEBABC00F08C06 /* LyricsKit */; };
 		CF26B21B955740D69EB91851 /* MediaRemoteAdapter in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 5EC016E2A8BA4516AB09390A /* MediaRemoteAdapter */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -78,7 +77,6 @@
 			files = (
 				BA0A723D2FCEBA1A00F08C06 /* Defaults in Frameworks */,
 				BA0A72422FCEBA4F00F08C06 /* InMemoryLogging in Frameworks */,
-				BA0A72472FCEBA7600F08C06 /* KeyboardShortcuts in Frameworks */,
 				BA0A724A2FCEBABC00F08C06 /* LyricsKit in Frameworks */,
 				BA0A72442FCEBA4F00F08C06 /* Logging in Frameworks */,
 				0E9B581DEA7444588A383555 /* MediaRemoteAdapter in Frameworks */,
@@ -146,7 +144,6 @@
 				BA0A723C2FCEBA1A00F08C06 /* Defaults */,
 				BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */,
 				BA0A72432FCEBA4F00F08C06 /* Logging */,
-				BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */,
 				BA0A72492FCEBABC00F08C06 /* LyricsKit */,
 				5EC016E2A8BA4516AB09390A /* MediaRemoteAdapter */,
 			);
@@ -236,7 +233,6 @@
 			packageReferences = (
 				BA0A723B2FCEBA1A00F08C06 /* XCRemoteSwiftPackageReference "Defaults" */,
 				BA0A72402FCEBA4F00F08C06 /* XCRemoteSwiftPackageReference "swift-log" */,
-				BA0A72452FCEBA7600F08C06 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 				BA0A72482FCEBABC00F08C06 /* XCRemoteSwiftPackageReference "LyricsKit" */,
 				185D8EF0AE794F73837563A8 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */,
 			);
@@ -642,14 +638,6 @@
 				minimumVersion = 1.13.1;
 			};
 		};
-		BA0A72452FCEBA7600F08C06 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.4.0;
-			};
-		};
 		BA0A72482FCEBABC00F08C06 /* XCRemoteSwiftPackageReference "LyricsKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/MxIris-LyricsX-Project/LyricsKit";
@@ -680,11 +668,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BA0A72402FCEBA4F00F08C06 /* XCRemoteSwiftPackageReference "swift-log" */;
 			productName = Logging;
-		};
-		BA0A72462FCEBA7600F08C06 /* KeyboardShortcuts */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BA0A72452FCEBA7600F08C06 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
-			productName = KeyboardShortcuts;
 		};
 		BA0A72492FCEBABC00F08C06 /* LyricsKit */ = {
 			isa = XCSwiftPackageProductDependency;

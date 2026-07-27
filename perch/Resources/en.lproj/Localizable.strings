@@ -18,9 +18,6 @@
 
 /* Settings — Island */
 "settings.pill_size" = "Pill size";
-"settings.animation_speed" = "Animation speed";
-"settings.animation_slow" = "Slow";
-"settings.animation_fast" = "Fast";
 "settings.auto_collapse" = "Auto-collapse delay";
 
 /* Settings — Now Playing */

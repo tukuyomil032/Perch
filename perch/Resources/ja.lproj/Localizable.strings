@@ -18,9 +18,6 @@
 
 /* Settings — Island */
 "settings.pill_size" = "ピルサイズ";
-"settings.animation_speed" = "アニメーション速度";
-"settings.animation_slow" = "遅";
-"settings.animation_fast" = "速";
 "settings.auto_collapse" = "自動折りたたみ";
 
 /* Settings — Now Playing */

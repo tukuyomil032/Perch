@@ -11,8 +11,6 @@ struct CompactPillView: View {
     private var isIdle: Bool { !isMusicActive }
     private var pillW: CGFloat { pillSize.pillWidth }
     private var pillH: CGFloat { pillSize.pillHeight }
-    // Satellite reserved for future timer/focus mode — always hidden for now
-    private var isSatelliteVisible: Bool { false }
 
     var body: some View {
         singlePillView
@@ -72,12 +70,4 @@ struct CompactPillView: View {
         guard !isIdle else { return }
         appState.expand(to: .nowPlaying)
     }
-}
-
-// MARK: - Helpers
-
-private func formatCost(_ usd: Double) -> String {
-    if usd == 0 { return "$0.00" }
-    if usd < 0.01 { return "<$0.01" }
-    return String(format: "$%.2f", usd)
 }

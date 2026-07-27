@@ -3,7 +3,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @Default(.launchAtLogin) var launchAtLogin
-    @Default(.animationSpeed) var animationSpeed
     @Default(.autoCollapseDelay) var autoCollapseDelay
     @Default(.showInAllSpaces) var showInAllSpaces
     @Default(.languageCode) var languageCode
@@ -12,7 +11,7 @@ struct SettingsView: View {
         TabView {
             GeneralTab(launchAtLogin: $launchAtLogin, showInAllSpaces: $showInAllSpaces)
                 .tabItem { Label(L10n.string("settings.general"), systemImage: "gearshape") }
-            IslandTab(animationSpeed: $animationSpeed, autoCollapseDelay: $autoCollapseDelay)
+            IslandTab(autoCollapseDelay: $autoCollapseDelay)
                 .tabItem { Label(L10n.string("settings.island"), systemImage: "rectangle.topthird.inset.filled") }
             NowPlayingTab()
                 .tabItem { Label(L10n.string("settings.nowplaying"), systemImage: "music.note") }
@@ -44,7 +43,6 @@ private struct GeneralTab: View {
 }
 
 private struct IslandTab: View {
-    @Binding var animationSpeed: Double
     @Binding var autoCollapseDelay: Double
     @Default(.pillSize) private var pillSize
     @Default(.pillBackgroundStyle) private var pillBgStyle
@@ -74,14 +72,6 @@ private struct IslandTab: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-            }
-
-            Slider(value: $animationSpeed, in: 0.5...2.0, step: 0.1) {
-                Text(L10n.string("settings.animation_speed"))
-            } minimumValueLabel: {
-                Text(L10n.string("settings.animation_slow"))
-            } maximumValueLabel: {
-                Text(L10n.string("settings.animation_fast"))
             }
 
             Slider(value: $autoCollapseDelay, in: 1.0...10.0, step: 0.5) {
