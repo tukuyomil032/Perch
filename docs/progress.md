@@ -400,13 +400,26 @@ PresetStore / WidgetRegistry）は全部引き継ぐ。
 
 ### Phase A タスク（基盤置換 / 見た目は現行維持）
 
-- [ ] A0: デッドコード削除（`NotchExpandedView` 223 / `NowPlayingMorphContent` 244 / `MetalLiquidBlobView`+`LiquidBlob.metal` 54 / `IslandCardContainer` 13 / デッド Defaults / 効かない animationSpeed Slider / KeyboardShortcuts 依存）約 557行
-- [ ] A1: macOS 15 Sequoia 引き上げ（pbxproj 4箇所 + CLAUDE.md + README + Homebrew Cask）
-- [ ] A2: `perch/Vendor/NookSurface/` に 19ファイル取り込み + ThirdPartyLicenses / NOTICE
-- [ ] A3: vendored の改変3点 — 疑似ノッチ幅を可変化（既定 195pt）/ `notchSize`・`menubarHeight` を public 化 / `NookHoverBehavior.expandsOnHover` 追加
+- [x] A0: デッドコード削除（`NotchExpandedView` 223 / `NowPlayingMorphContent` 244 / `MetalLiquidBlobView`+`LiquidBlob.metal` 54 / `IslandCardContainer` 13 / デッド Defaults 5件 / 効かない animationSpeed Slider / KeyboardShortcuts 依存）**実績 -590行**
+- [x] A1: macOS 15 Sequoia 引き上げ（pbxproj 4箇所 + CLAUDE.md + README）。Homebrew Cask は別リポジトリなので配布時に対応
+- [x] A2: `perch/Vendor/NookSurface/` に **21ファイル / 2,647行**取り込み（プランの見積 19/2,617 は誤り、実測が正）+ THIRD_PARTY_NOTICES.md に帰属追記
+- [x] A3: vendored の改変3点 — 疑似ノッチ幅を可変化（既定 195pt）/ `notchSize`・`menubarHeight` を public 化 / `NookHoverBehavior.expandsOnHover` 追加 + 改変を守るテスト
 - [ ] A4: `NookBridge` / `IslandSurfaceDriving` / `IslandChromeStyle` / `WidgetSizeMetrics` / `ScreenLocator` 追加 + テスト
 - [ ] A5: `perch/Island/` 旧7ファイル削除 + AppState 縮退 + UI シェル層削除
 - [ ] A6: 既存テストの改廃（`IslandGeometryTests` / `NotchDetectorTests` 全削除、`AppStateTests` / `IslandPresentationTests` 改廃）
+
+#### A0〜A3 で判明した追加事項
+
+- **lefthook の pre-commit が `swift-format format --in-place` + `stage_fixed: true` を走らせる。**
+  vendored ファイルが意図せず整形されたため `lefthook.yml` と CI lint の両方で
+  `perch/Vendor/**` を除外した。上流との同一性は
+  `diff -rq <upstream>/Sources/NookSurface perch/Vendor/NookSurface` で常に検証できる
+- `.swift-format-ignore` は swift-format 602 でディレクトリを明示指定した場合に効かない。
+  CI 側は `git ls-files '*.swift' | grep -v '^perch/Vendor/' | xargs swift-format lint` で回避
+- **`perchUITests` は `perch.app` の `CFBundleIdentifier` を読めず失敗する既存バグがある。**
+  ソースの `Info.plist` に当該キーが無いのが原因で、A0 の変更前から再現する（stash して確認済み）。
+  Phase A のスコープ外だが、UI テストを実際に書く前に解消が必要。
+  当面の検証は `xcodebuild test -only-testing:perchTests` で行う
 
 ### Phase B タスク（Atoll 風展開UI）
 
