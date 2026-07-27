@@ -68,4 +68,8 @@ jobs:
         run: brew install swift-format
 
       - name: Lint
-        run: swift-format lint --recursive perch/ perchTests/
+        # perch/Vendor はアップストリームのソースをそのまま取り込んでいる。
+        # Perch のスタイルに整形すると上流との diff が追えなくなるので除外する。
+        # swift-format に除外オプションが無く、.swift-format-ignore も 602 では
+        # ディレクトリ明示指定に効かないため、対象ファイルを列挙して渡す。
+        run: git ls-files '*.swift' | grep -v '^perch/Vendor/' | xargs swift-format lint

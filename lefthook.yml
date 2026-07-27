@@ -7,9 +7,15 @@ pre-commit:
   commands:
     format:
       glob: "*.swift"
+      # perch/Vendor はアップストリームのソースをそのまま取り込んでいる。
+      # 整形すると上流との diff が追えなくなるので触らない。
+      exclude:
+        - "perch/Vendor/**"
       run: swift-format format --recursive --in-place {staged_files}
       stage_fixed: true
     lint:
       glob: "*.swift"
+      exclude:
+        - "perch/Vendor/**"
       run: swift-format lint --recursive {staged_files}
       fail_text: "Swift lint errors found. Run 'just format' to fix."
