@@ -5,7 +5,7 @@
 
   A Dynamic Island-style live hub for macOS, living at the top center of your screen.
 
-  [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple&logoColor=white)](https://www.apple.com/macos/)
+  [![macOS 15+](https://img.shields.io/badge/macOS-15%2B-black?logo=apple&logoColor=white)](https://www.apple.com/macos/)
   [![Swift 6](https://img.shields.io/badge/Swift-6-f05138?logo=swift&logoColor=white)](https://swift.org)
   [![Apache 2.0 License](https://img.shields.io/badge/license-Apache_2.0-blue)](LICENSE)
 </div>
@@ -74,7 +74,7 @@ The preset and widget infrastructure (`PresetStore`, `WidgetRegistry`, `WidgetLa
 
 | Requirement | Version |
 |---|---|
-| macOS | 14 Sonoma or later |
+| macOS | 15 Sequoia or later |
 | Xcode | 16 or later |
 | Swift | 6 |
 | Architecture | Apple Silicon, Intel |

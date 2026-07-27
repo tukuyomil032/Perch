@@ -13,7 +13,7 @@ Now Playing、ファイル棚などの情報・操作を常時アクセス可能
 
 ## Tech Stack
 
-- **Language**: Swift 6, macOS 14 Sonoma+（Phase A で **macOS 15 Sequoia+** に引き上げ予定）
+- **Language**: Swift 6, macOS 15 Sequoia+
 - **UI**: SwiftUI + AppKit（ウィンドウ制御）
 - **Build**: Xcode 16+, .xcodeproj ベース
 - **Target**: Apple Silicon / Intel 両対応
