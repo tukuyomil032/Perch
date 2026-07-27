@@ -5,6 +5,10 @@
 // Licensed under the MIT License.
 // Original kit license: /ThirdPartyLicenses/DynamicNotchKit.txt
 // Modifications license: /LICENSE-MIT-NOOKSURFACE
+//
+// Modified for Perch: added `.expandsOnHover` so hover-driven expansion can be turned
+// off. Upstream expands unconditionally on hover with no way to opt out, which forecloses
+// a design decision Perch wants to keep open.
 
 import Foundation
 
@@ -22,5 +26,10 @@ public struct NookHoverBehavior: OptionSet, Sendable {
     /// Trigger a subtle alignment haptic on hover-state transitions.
     public static let hapticFeedback = NookHoverBehavior(rawValue: 1 << 1)
 
-    public static let all: NookHoverBehavior = [.keepVisible, .hapticFeedback]
+    /// Modified for Perch: hovering expands the surface, and leaving it compacts again.
+    /// Without this option `isHovering` still updates, so a host can drive its own
+    /// timing — which is what Perch does to honour its auto-collapse delay.
+    public static let expandsOnHover = NookHoverBehavior(rawValue: 1 << 2)
+
+    public static let all: NookHoverBehavior = [.keepVisible, .hapticFeedback, .expandsOnHover]
 }

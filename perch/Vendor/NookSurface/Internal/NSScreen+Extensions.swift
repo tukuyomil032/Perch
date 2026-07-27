@@ -5,6 +5,11 @@
 // Licensed under the MIT License.
 // Original kit license: /ThirdPartyLicenses/DynamicNotchKit.txt
 // Modifications license: /LICENSE-MIT-NOOKSURFACE
+//
+// Modified for Perch: the synthetic notch width is a parameter instead of a hardcoded
+// 300pt. Perch draws the notch shape on every Mac, including ones with no physical
+// notch, so the fallback box has to be able to match real notch dimensions (185-208pt)
+// rather than the testing-oriented placeholder upstream uses.
 
 import SwiftUI
 
@@ -43,18 +48,17 @@ extension NSScreen {
         frame.maxY - visibleFrame.maxY
     }
 
-    /// Use `notchFrame` when available; otherwise center an arbitrary-width box at the top.
-    /// Lets the surface still render reasonably on non-notched displays during testing.
-    var notchFrameWithMenubarAsBackup: NSRect {
+    /// Use `notchFrame` when available; otherwise center a box of `syntheticWidth` at the
+    /// top so the surface still renders on displays with no physical notch.
+    func notchFrameWithMenubarAsBackup(syntheticWidth: CGFloat) -> NSRect {
         if let notchFrame {
             return notchFrame
         }
 
-        let arbitraryWidth: CGFloat = 300
         return NSRect(
-            x: frame.midX - (arbitraryWidth / 2),
+            x: frame.midX - (syntheticWidth / 2),
             y: frame.maxY - menubarHeight,
-            width: arbitraryWidth,
+            width: syntheticWidth,
             height: menubarHeight
         )
     }

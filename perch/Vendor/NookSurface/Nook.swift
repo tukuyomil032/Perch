@@ -5,6 +5,10 @@
 // Licensed under the MIT License.
 // Original kit license: /ThirdPartyLicenses/DynamicNotchKit.txt
 // Modifications license: /LICENSE-MIT-NOOKSURFACE
+//
+// Modified for Perch: added `syntheticNotchWidth`, published `notchSize`/`menubarHeight`,
+// and gated hover-driven transitions on `NookHoverBehavior.expandsOnHover`.
+// Each change is marked inline.
 
 import AppKit
 import Combine
@@ -99,6 +103,20 @@ where Expanded: View, CompactLeading: View, CompactTrailing: View {
         }
     }
 
+    /// Modified for Perch: width of the notch shape drawn on displays with no physical
+    /// notch. Upstream hardcodes 300pt, which reads as conspicuously wider than a real
+    /// notch (185-208pt). Perch presents the notch layout on every Mac, so this has to be
+    /// tunable. Ignored on displays reporting a real notch — those use actual metrics.
+    ///
+    /// Changing this rebuilds a visible window in place, matching `presentation`.
+    public var syntheticNotchWidth: CGFloat = 195 {
+        didSet {
+            guard syntheticNotchWidth != oldValue, state != .hidden, let screen = resolvedScreen
+            else { return }
+            rebuildVisibleWindow(on: screen)
+        }
+    }
+
     let expandedContent: Expanded
     let compactLeadingContent: CompactLeading
     let compactTrailingContent: CompactTrailing
@@ -113,8 +131,10 @@ where Expanded: View, CompactLeading: View, CompactTrailing: View {
     /// callbacks fire on every transition, including hover- and drag-driven ones that
     /// never pass through a host-called `expand`/`compact`.
     @Published public private(set) var state: NookState = .hidden
-    @Published private(set) var notchSize: CGSize = .zero
-    @Published private(set) var menubarHeight: CGFloat = 0
+    /// Modified for Perch: exposed publicly. Perch sizes its own compact slots against the
+    /// notch, so it needs the resolved metrics the surface lays out against.
+    @Published public private(set) var notchSize: CGSize = .zero
+    @Published public private(set) var menubarHeight: CGFloat = 0
 
     /// Layout resolved for the current window's screen - `.notch` or `.floating`.
     /// Recomputed every time the panel window is built (see `initializeWindow`); drives
@@ -408,6 +428,11 @@ where Expanded: View, CompactLeading: View, CompactTrailing: View {
             let performer = NSHapticFeedbackManager.defaultPerformer
             performer.perform(.alignment, performanceTime: .default)
         }
+
+        // Modified for Perch: hover-driven transitions are gated on `.expandsOnHover`.
+        // `isHovering` is published above regardless, so a host that opts out still sees
+        // hover and can schedule its own expand/compact.
+        guard hoverBehavior.contains(.expandsOnHover) else { return }
 
         guard hovering || !suppressesHoverExitCompact else {
             return
@@ -854,7 +879,7 @@ private extension Nook {
     func initializeWindow(screen: NSScreen, orderFront: Bool = true) {
         deinitializeWindow()
 
-        notchSize = screen.notchFrameWithMenubarAsBackup.size
+        notchSize = screen.notchFrameWithMenubarAsBackup(syntheticWidth: syntheticNotchWidth).size
         menubarHeight = screen.menubarHeight
         layoutForm = presentation.isFloating(screenHasNotch: screen.hasNotch) ? .floating : .notch
 
