@@ -215,6 +215,22 @@ final class NookBridge {
         surface.applyBackdrop(reduceTransparency: reduceTransparency)
     }
 
+    /// Applies a host-supplied tweak to the surface's current window, returning `false`
+    /// when there is no live window to apply it to.
+    ///
+    /// Distinct from ``applyWindowChrome()``, which applies the fixed set of settings *this
+    /// bridge* is responsible for restoring. This is the open seam for settings the bridge
+    /// has no opinion about — currently the click recognizer `IslandHost` attaches, which
+    /// has to live on the window because the notch gap between Perch's two compact slots is
+    /// drawn by the vendored view and cannot carry a SwiftUI gesture.
+    ///
+    /// Callers must re-apply after anything that rebuilds the window, for the same reason
+    /// window chrome is re-applied: the surface builds a fresh panel each time.
+    @discardableResult
+    func configureWindow(_ apply: (NSWindow) -> Void) -> Bool {
+        surface.configureWindow(apply)
+    }
+
     // MARK: - Surface callbacks
 
     private func surfaceDidExpand() {

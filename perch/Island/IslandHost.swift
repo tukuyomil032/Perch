@@ -33,6 +33,18 @@ final class IslandHost {
     nonisolated(unsafe) private var chromeStyleObservation: (any Defaults.Observation)?
     nonisolated(unsafe) private var allSpacesObservation: (any Defaults.Observation)?
     nonisolated(unsafe) private var screenPreferenceObservation: (any Defaults.Observation)?
+    nonisolated(unsafe) private var screenChangeObserver: (any NSObjectProtocol)?
+
+    /// One recognizer, reused for the host's lifetime. The surface tears its window down
+    /// and builds a new one on every transition, so the recognizer has to be re-attached
+    /// constantly; holding a single instance makes re-attaching idempotent by construction,
+    /// where building one per attach would stack duplicates and fire the toggle N times per
+    /// click.
+    private lazy var tapRecognizer: NSClickGestureRecognizer = {
+        let recognizer = NSClickGestureRecognizer(target: self, action: #selector(islandWasClicked))
+        recognizer.numberOfClicksRequired = 1
+        return recognizer
+    }()
 
     init(appState: AppState) {
         self.appState = appState
@@ -65,8 +77,10 @@ final class IslandHost {
         applyInitialConfiguration()
         observePreferences()
         observeReduceTransparency()
+        observeScreenChanges()
 
-        // The surface starts hidden; nothing shows it implicitly.
+        // The surface starts hidden; nothing shows it implicitly. `attachTapTarget` runs
+        // off the arrival callback once this lands.
         Task { await bridge.compact() }
     }
 
@@ -74,6 +88,9 @@ final class IslandHost {
         chromeStyleObservation?.invalidate()
         allSpacesObservation?.invalidate()
         screenPreferenceObservation?.invalidate()
+        if let screenChangeObserver {
+            NotificationCenter.default.removeObserver(screenChangeObserver)
+        }
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
@@ -92,11 +109,19 @@ final class IslandHost {
         appState.driveSurfaceExpand = { [weak bridge] in await bridge?.expand() }
         appState.driveSurfaceCompact = { [weak bridge] in await bridge?.compact() }
 
-        bridge.onSurfaceExpanded = { [weak appState] in appState?.applySurfaceExpanded() }
-        bridge.onSurfaceCompacted = { [weak appState] in appState?.applySurfaceCompacted() }
+        // Each transition replaces the window, so the click target is re-attached on
+        // arrival as well as being applied up front.
+        bridge.onSurfaceExpanded = { [weak self] in
+            self?.appState.applySurfaceExpanded()
+            self?.attachTapTarget()
+        }
+        bridge.onSurfaceCompacted = { [weak self] in
+            self?.appState.applySurfaceCompacted()
+            self?.attachTapTarget()
+        }
         // Kept distinct from compacted on purpose — hidden means no pill and no window,
         // which is a different thing for `AppState` to believe than "showing the pill".
-        bridge.onSurfaceHidden = { [weak appState] in appState?.applySurfaceHidden() }
+        bridge.onSurfaceHidden = { [weak self] in self?.appState.applySurfaceHidden() }
     }
 
     private func applyInitialConfiguration() {
@@ -119,6 +144,7 @@ final class IslandHost {
         chromeStyleObservation = Defaults.observe(.islandChromeStyle) { [weak self] change in
             Task { @MainActor [weak self] in
                 self?.bridge.applyChromeStyle(change.newValue)
+                self?.attachTapTarget()
             }
         }
 
@@ -136,6 +162,60 @@ final class IslandHost {
         screenPreferenceObservation = Defaults.observe(.islandScreenPreference) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.bridge.applyChromeStyle(Defaults[.islandChromeStyle])
+                self?.attachTapTarget()
+            }
+        }
+    }
+
+    // MARK: - Click target
+
+    /// Makes the whole visible chrome open and close the island.
+    ///
+    /// An AppKit recognizer on the surface's content view, rather than a SwiftUI
+    /// `.onTapGesture` on Perch's own content, because in compact mode Perch only supplies
+    /// the two slots that flank the notch — the gap between them is drawn by the vendored
+    /// view and is not Perch's to attach a gesture to. In `.notch` chrome on a Mac with no
+    /// physical notch that gap is the 195pt pseudo-notch, i.e. most of what the user sees
+    /// and the most obvious thing to click. Worse, Q2 keeps the chrome on screen while idle,
+    /// where both slots collapse to zero size and a SwiftUI gesture would have no hit area
+    /// at all — exactly the state in which opening the island matters most, since the
+    /// expanded view is where the widgets live.
+    ///
+    /// Attaching to the content view rather than the window is what keeps this honest: the
+    /// panel spans a large region, but the vendored view applies `.contentShape(NookShape)`,
+    /// which constrains AppKit hit-testing as well as drawing. The hosting view therefore
+    /// returns no hit outside the visible shape, so clicks on the transparent area still
+    /// pass through to whatever is behind — the recognizer only ever sees clicks on the
+    /// chrome itself.
+    private func attachTapTarget() {
+        let attached = bridge.configureWindow { [tapRecognizer] window in
+            guard let contentView = window.contentView else { return }
+            guard tapRecognizer.view !== contentView else { return }
+            tapRecognizer.view?.removeGestureRecognizer(tapRecognizer)
+            contentView.addGestureRecognizer(tapRecognizer)
+        }
+        if !attached {
+            logger.debug("click target not attached — no live surface window")
+        }
+    }
+
+    @objc private func islandWasClicked() {
+        appState.toggleExpansion()
+    }
+
+    /// A display change rebuilds the window without a state transition, so neither
+    /// `onSurfaceExpanded` nor `onSurfaceCompacted` fires and the recognizer would be left
+    /// on a window that no longer exists. Deferred a hop so it runs after the surface's own
+    /// observer has replaced the window.
+    private func observeScreenChanges() {
+        screenChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await Task.yield()
+                self?.attachTapTarget()
             }
         }
     }

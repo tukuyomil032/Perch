@@ -190,4 +190,89 @@ struct AppStateTests {
         #expect(driver.expandCount == 1)
         #expect(appState.presentation == .expanded(.aiUsage))
     }
+
+    // MARK: - Click toggle
+    //
+    // The gesture itself is an `NSClickGestureRecognizer` attached to a live surface
+    // window, which a unit test cannot exercise. `toggleExpansion` exists so the *decision*
+    // the click makes is testable even though the click is not — see the on-device check
+    // for the gesture wiring itself.
+
+    @Test("a click on a closed island opens it")
+    func toggleOpensClosedIsland() async {
+        let appState = AppState()
+        let driver = FakeSurfaceDriver()
+        driver.attach(to: appState)
+
+        appState.toggleExpansion()
+        await drain()
+
+        #expect(driver.expandCount == 1)
+        #expect(appState.presentation == .expanded(.nowPlaying))
+    }
+
+    @Test("a click on an open island closes it")
+    func toggleClosesOpenIsland() async {
+        let appState = AppState()
+        let driver = FakeSurfaceDriver()
+        driver.attach(to: appState)
+
+        appState.toggleExpansion()
+        await drain()
+        appState.toggleExpansion()
+        await drain()
+
+        #expect(driver.expandCount == 1)
+        #expect(driver.compactCount == 1)
+        #expect(appState.presentation == .compact)
+    }
+
+    @Test("a double click closes rather than re-opening")
+    func doubleClickClosesRatherThanReopening() async {
+        let appState = AppState()
+        let driver = FakeSurfaceDriver()
+        driver.attach(to: appState)
+
+        // Both clicks land before the first transition settles, so branching on
+        // `presentation` would see `.compact` twice and open the island twice.
+        appState.toggleExpansion()
+        appState.toggleExpansion()
+        await drain()
+
+        #expect(driver.expandCount == 1)
+        #expect(driver.compactCount == 1)
+        #expect(appState.presentation == .compact)
+    }
+
+    @Test("a click reopens the last card rather than resetting to the default")
+    func toggleReopensTheStickyCard() async {
+        let appState = AppState()
+        let driver = FakeSurfaceDriver()
+        driver.attach(to: appState)
+
+        appState.expand(to: .aiUsage)
+        await drain()
+        appState.toggleExpansion()
+        await drain()
+        appState.toggleExpansion()
+        await drain()
+
+        #expect(appState.presentation == .expanded(.aiUsage))
+    }
+
+    @Test("a click opens the island even with no music playing")
+    func toggleOpensWhileIdle() async {
+        let appState = AppState()
+        let driver = FakeSurfaceDriver()
+        driver.attach(to: appState)
+
+        // Nothing is playing, so both compact slots render empty. Opening the island is
+        // precisely what the user wants here — the expanded view is where the widgets are.
+        #expect(appState.nowPlayingManager.currentState == nil)
+        appState.toggleExpansion()
+        await drain()
+
+        #expect(driver.expandCount == 1)
+        #expect(appState.isExpanded == true)
+    }
 }

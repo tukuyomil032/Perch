@@ -9,7 +9,6 @@ import SwiftUI
 /// pin the surface to a width its own geometry did not choose.
 struct ExpandedIslandView: View {
     @Environment(AppState.self) private var appState
-    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,9 +21,6 @@ struct ExpandedIslandView: View {
         // width, and without a floor the surface would shrink to the notch minimum on an
         // empty preset.
         .frame(minWidth: 420)
-        .onAppear {
-            appState.openSettingsAction = { openSettings() }
-        }
     }
 
     // MARK: - Header

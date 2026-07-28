@@ -82,6 +82,23 @@ final class AppState {
         }
     }
 
+    /// Opens the island if it is closed, closes it if it is open — the behaviour a click on
+    /// the chrome has.
+    ///
+    /// Exists as its own method, rather than the caller branching on `isExpanded`, for two
+    /// reasons. It is the only part of the click path that can be unit-tested (the gesture
+    /// itself is an AppKit recognizer attached to a live window), and it branches on the
+    /// same synchronous *intent* the requests below use rather than on `presentation` —
+    /// clicking twice quickly must close, not re-open, and `presentation` has not caught up
+    /// by the second click.
+    func toggleExpansion(defaultCard: IslandCard = .nowPlaying) {
+        if requestedExpansion {
+            collapse()
+        } else {
+            expand(to: activeCard == .idle ? defaultCard : activeCard)
+        }
+    }
+
     /// Asks the surface to collapse back to the compact pill.
     func collapse() {
         guard requestedExpansion else { return }
