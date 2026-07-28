@@ -6,19 +6,39 @@ import Combine
 /// In-memory stand-in for the vendored notch surface.
 ///
 /// Exists so `NookBridge` — and, from A5 on, `AppState`'s transition tests — can be
-/// driven without mounting a real `NSPanel`, and so tests can play back hover and
-/// lifecycle events in an order a real surface would only produce with a live cursor.
+/// driven without mounting a real `NSPanel`, and so tests can play back hover, hide and
+/// window-rebuild events in an order a real surface would only produce with a live cursor
+/// and a display being unplugged.
+///
+/// It mirrors three behaviours of the real surface that the bridge's correctness depends
+/// on, because a fake more forgiving than the real thing is a test hole:
+/// 1. lifecycle callbacks fire only on an actual state *change* (the real surface returns
+///    early when asked to expand an already-expanded surface on the same screen);
+/// 2. `compact()` can settle as *hidden* rather than compact (``compactCollapsesToHide``),
+///    which is what the real surface does when it has no compact content;
+/// 3. building a window resets its chrome to the vendored panel's defaults
+///    (``simulateWindowRebuild()``), so "the bridge re-applied chrome" is observable as a
+///    property value rather than only as a call count.
 @MainActor
 final class FakeIslandSurface: IslandSurfaceDriving {
+    enum State: Equatable {
+        case hidden
+        case compact
+        case expanded
+    }
+
     private let hoverSubject = CurrentValueSubject<Bool, Never>(false)
 
     var isHovering: Bool { hoverSubject.value }
     var isHoveringPublisher: AnyPublisher<Bool, Never> { hoverSubject.eraseToAnyPublisher() }
 
     var staysExpandedOnHoverExit = false
+    var screenProvider: (@MainActor () -> NSScreen?)?
     var onExpand: (@MainActor () -> Void)?
     var onCompact: (@MainActor () -> Void)?
+    var onHide: (@MainActor () -> Void)?
 
+    private(set) var state: State = .hidden
     private(set) var expandCallCount = 0
     private(set) var compactCallCount = 0
     private(set) var configureWindowCallCount = 0
@@ -26,6 +46,15 @@ final class FakeIslandSurface: IslandSurfaceDriving {
     /// Every chrome style handed to the surface, in order, so a test can assert on live
     /// switching rather than just the final value.
     private(set) var appliedChromeStyles: [IslandChromeStyle] = []
+
+    /// Every `applyBackdrop(reduceTransparency:)` argument, in order.
+    private(set) var appliedBackdropReduceTransparency: [Bool] = []
+
+    private(set) var appliedSyntheticNotchWidths: [CGFloat] = []
+
+    /// Reproduces a surface built without compact content: `compact()` collapses all the
+    /// way to hidden and reports `onHide`, never `onCompact`.
+    var compactCollapsesToHide = false
 
     /// `false` reproduces a hidden surface, where there is no window to configure.
     var hasLiveWindow = true
@@ -38,18 +67,32 @@ final class FakeIslandSurface: IslandSurfaceDriving {
         defer: true
     )
 
+    init() {
+        resetWindowToVendoredDefaults()
+    }
+
     func expand(on screen: NSScreen?) async {
         expandCallCount += 1
-        onExpand?()
+        transition(to: .expanded)
     }
 
     func compact(on screen: NSScreen?) async {
         compactCallCount += 1
-        onCompact?()
+        transition(to: compactCollapsesToHide ? .hidden : .compact)
     }
 
     func applyChromeStyle(_ style: IslandChromeStyle) {
         appliedChromeStyles.append(style)
+        simulateWindowRebuild()
+    }
+
+    func applySyntheticNotchWidth(_ width: CGFloat) {
+        appliedSyntheticNotchWidths.append(width)
+        simulateWindowRebuild()
+    }
+
+    func applyBackdrop(reduceTransparency: Bool) {
+        appliedBackdropReduceTransparency.append(reduceTransparency)
     }
 
     @discardableResult
@@ -65,5 +108,47 @@ final class FakeIslandSurface: IslandSurfaceDriving {
     /// Plays back a hover transition the way the real surface publishes it.
     func setHovering(_ hovering: Bool) {
         hoverSubject.send(hovering)
+    }
+
+    /// Plays back an explicit `hide()`: the real surface publishes the hidden state and
+    /// clears hover inside the same animation block, in that order.
+    func simulateHide() {
+        transition(to: .hidden)
+        hoverSubject.send(false)
+    }
+
+    /// Plays back the surface building a fresh panel — on a transition out of hidden, a
+    /// presentation change, or a display change. The new panel carries `NookPanel`'s own
+    /// defaults, which is precisely why the bridge has to re-apply chrome.
+    func simulateWindowRebuild() {
+        resetWindowToVendoredDefaults()
+    }
+
+    private func transition(to newState: State) {
+        // The real surface returns early rather than re-firing a lifecycle hook for a
+        // transition that would not change anything.
+        guard newState != state else { return }
+        let wasHidden = state == .hidden
+        state = newState
+        if wasHidden { simulateWindowRebuild() }
+
+        switch newState {
+        case .expanded: onExpand?()
+        case .compact: onCompact?()
+        case .hidden: onHide?()
+        }
+    }
+
+    /// Mirrors `NookPanel.init`: `.canJoinAllSpaces` unconditionally, and no opinion at
+    /// all about `isOpaque` / `isReleasedWhenClosed`.
+    private func resetWindowToVendoredDefaults() {
+        window.collectionBehavior = [
+            .canJoinAllSpaces,
+            .stationary,
+            .fullScreenAuxiliary,
+            .ignoresCycle,
+        ]
+        window.isOpaque = true
+        window.isReleasedWhenClosed = true
     }
 }

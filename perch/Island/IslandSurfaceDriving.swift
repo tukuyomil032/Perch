@@ -8,13 +8,16 @@ import Combine
 /// in `perchTests`, and that the vendoring dependency stays pinned to one conformance
 /// (`Nook: IslandSurfaceDriving`, below) instead of spreading through Perch.
 ///
-/// The member names match `Nook`'s existing API exactly, so the conformance is
-/// declaration-only. That is intentional: a protocol that renamed things would need an
-/// adapter layer, and an adapter is one more place for the two vocabularies to drift.
+/// The member names match `Nook`'s existing API wherever they can, so most of the
+/// conformance is declaration-only. The exceptions are the three `apply…` methods: they
+/// take Perch's own vocabulary (`IslandChromeStyle`, a width, a boolean) and the
+/// conformance translates each into the Kit type it maps onto — which is what keeps
+/// `NookPresentation` and `NookBackdrop` confined to this one file.
 ///
-/// `NSWindow` and Combine appear here and that is fine — they are system frameworks, not
-/// vendored code. What must not leak is `NookState` / `NookPresentation` / `NookStyle`,
-/// because those are what a re-sync with upstream can change out from under us.
+/// `NSScreen`, `NSWindow` and Combine appear here and that is fine — they are system
+/// frameworks, not vendored code. What must not leak is `NookState` / `NookPresentation` /
+/// `NookStyle` / `NookBackdrop`, because those are what a re-sync with upstream can change
+/// out from under us.
 @MainActor
 protocol IslandSurfaceDriving: AnyObject {
     /// `true` while the cursor is over the surface's *visible* shape (not its window
@@ -28,14 +31,29 @@ protocol IslandSurfaceDriving: AnyObject {
     /// Perch sets this so `NookBridge` can honour the user's auto-collapse delay.
     var staysExpandedOnHoverExit: Bool { get set }
 
+    /// Resolves the display the chrome should occupy when a caller passes no screen.
+    /// This is how a persisted display preference reaches the surface: without it the
+    /// surface falls back to the system main screen and the preference is inert.
+    var screenProvider: (@MainActor () -> NSScreen?)? { get set }
+
     /// Fires on every transition *into* the expanded surface, whatever caused it.
     var onExpand: (@MainActor () -> Void)? { get set }
 
     /// Fires on every transition *into* the compact pill.
     var onCompact: (@MainActor () -> Void)? { get set }
 
+    /// Fires on every transition *into* the hidden state.
+    ///
+    /// Not optional to handle: hiding is not only an explicit `hide()`. A surface built
+    /// with no compact content turns `compact()` into a full hide, so `onHide` is the
+    /// only collapse signal such a surface ever emits — and the hidden transition also
+    /// publishes `isHovering = false`, which a host tracking expansion from
+    /// `onExpand`/`onCompact` alone would misread as "the cursor left an expanded
+    /// surface".
+    var onHide: (@MainActor () -> Void)? { get set }
+
     /// Awaits until the expansion has settled. Passing `nil` lets the surface resolve
-    /// the target screen itself.
+    /// the target screen itself (see ``screenProvider``).
     func expand(on screen: NSScreen?) async
 
     /// Awaits until the collapse has settled. See ``expand(on:)`` for `screen`.
@@ -49,6 +67,17 @@ protocol IslandSurfaceDriving: AnyObject {
     /// surface rebuilds its visible window when its presentation changes, so a style
     /// switch from Settings takes effect immediately rather than on next launch.
     func applyChromeStyle(_ style: IslandChromeStyle)
+
+    /// Sets the width of the notch shape drawn on displays with no physical notch — the
+    /// knob vendoring existed to obtain. Like ``applyChromeStyle(_:)`` it rebuilds a
+    /// visible window in place.
+    func applySyntheticNotchWidth(_ width: CGFloat)
+
+    /// Paints the chrome's backdrop for the current transparency setting. The decision
+    /// (which material, how dark) stays in `NookBridge.makeBackdrop(reduceTransparency:)`;
+    /// only the assignment lives in the conformance, so the Kit type never reaches a
+    /// call site.
+    func applyBackdrop(reduceTransparency: Bool)
 
     /// Applies window-level tweaks to the currently mounted window. Returns `false`
     /// when there is no live window — the surface tears its window down and rebuilds it
@@ -66,5 +95,14 @@ extension Nook: IslandSurfaceDriving {
     /// Assigning `presentation` is what triggers the surface's in-place window rebuild.
     func applyChromeStyle(_ style: IslandChromeStyle) {
         presentation = style.nookPresentation
+    }
+
+    func applySyntheticNotchWidth(_ width: CGFloat) {
+        syntheticNotchWidth = width
+    }
+
+    /// The single point where a Perch backdrop decision becomes a vendored `NookBackdrop`.
+    func applyBackdrop(reduceTransparency: Bool) {
+        backdrop = NookBridge.makeBackdrop(reduceTransparency: reduceTransparency)
     }
 }
