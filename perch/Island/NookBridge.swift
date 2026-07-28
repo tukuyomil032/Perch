@@ -71,7 +71,11 @@ final class NookBridge {
 
     private var isSurfaceExpanded = false
     private var collapseTask: Task<Void, Never>?
-    private var pendingHiddenReport: Task<Void, Never>?
+
+    /// Set while a bridge-initiated `expand()` / `compact()` is in flight. A hide seen in
+    /// that window is not necessarily the surface going away — see ``drive(_:)``.
+    private var isDrivingTransition = false
+    private var sawHideWhileDriving = false
     private var hoverSubscription: AnyCancellable?
     private var screenChangeSubscription: AnyCancellable?
 
@@ -91,8 +95,8 @@ final class NookBridge {
         // Convert straight between compact and expanded. Left at the vendored default the
         // surface dips through `.hidden` mid-conversion — visible as a blink, and reported
         // to this bridge as a hide, which would make the host tear the island down every
-        // time the user opens a card. `surfaceDidHide` defends against the report as well,
-        // but this is the setting that stops the blink itself.
+        // time the user opens a card. `drive(_:)` filters the report as well, but this is
+        // the setting that stops the blink itself.
         surface.skipsIntermediateHides = true
 
         // Perch owns collapse timing, so the surface must not compact itself the instant
@@ -143,7 +147,6 @@ final class NookBridge {
 
     deinit {
         collapseTask?.cancel()
-        pendingHiddenReport?.cancel()
     }
 
     // MARK: - Driving the surface
@@ -151,7 +154,7 @@ final class NookBridge {
     /// Expands the surface and waits until the transition has settled.
     func expand() async {
         cancelScheduledCollapse()
-        await surface.expand(on: nil)
+        await drive { await surface.expand(on: nil) }
     }
 
     /// Compacts the surface and waits until the transition has settled.
@@ -159,7 +162,33 @@ final class NookBridge {
     /// May settle as *hidden* rather than compact — see ``onSurfaceHidden``.
     func compact() async {
         cancelScheduledCollapse()
-        await surface.compact(on: nil)
+        await drive { await surface.compact(on: nil) }
+    }
+
+    /// Runs a transition this bridge initiated, and decides afterwards what any hide seen
+    /// along the way actually meant.
+    ///
+    /// Necessary because a hide is ambiguous while a conversion is running: left at the
+    /// vendored default, converting between compact and expanded dips through `.hidden`
+    /// for a quarter of a second before arriving. Reporting that dip upward would make the
+    /// host tear the island down and rebuild it on every card open. Deciding at the *end*
+    /// of the call is what makes the distinction sound: a dip is always followed by the
+    /// arriving transition, which clears the flag, while a `compact()` that collapses to a
+    /// full hide has nothing following it and is reported here.
+    ///
+    /// Deliberately not a timer. An earlier version deferred the report by one scheduler
+    /// hop, which only worked because the fake surface was synchronous — the real dip
+    /// hands the main actor over for `intermediateHideDuration`, so any hop-based filter
+    /// fires inside the gap and reports a hide that never happened.
+    private func drive(_ body: () async -> Void) async {
+        isDrivingTransition = true
+        sawHideWhileDriving = false
+        await body()
+        isDrivingTransition = false
+        if sawHideWhileDriving {
+            sawHideWhileDriving = false
+            onSurfaceHidden?()
+        }
     }
 
     /// Switches the chrome between the pseudo-notch and floating looks.
@@ -189,14 +218,15 @@ final class NookBridge {
     // MARK: - Surface callbacks
 
     private func surfaceDidExpand() {
-        cancelPendingHiddenReport()
+        // Arriving somewhere retroactively makes any hide on the way here a dip.
+        sawHideWhileDriving = false
         isSurfaceExpanded = true
         applyWindowChrome()
         onSurfaceExpanded?()
     }
 
     private func surfaceDidCompact() {
-        cancelPendingHiddenReport()
+        sawHideWhileDriving = false
         isSurfaceExpanded = false
         cancelScheduledCollapse()
         applyWindowChrome()
@@ -213,24 +243,16 @@ final class NookBridge {
         isSurfaceExpanded = false
         cancelScheduledCollapse()
 
-        // Reporting it upward is another matter. A surface left at the vendored default
-        // dips through `.hidden` while converting between compact and expanded, and a host
-        // told about that would drop the island on every single card open. The bridge
-        // turns that default off in `init`, and defers the report by one hop so it is
-        // still filtered if the setting is ever lost — a conversion's follow-up transition
-        // cancels this, an actual hide has nothing following it and lands.
-        pendingHiddenReport?.cancel()
-        pendingHiddenReport = Task { [weak self] in
-            await Task.yield()
-            guard !Task.isCancelled, let self else { return }
-            self.pendingHiddenReport = nil
-            self.onSurfaceHidden?()
+        // Reporting it upward is another matter. Inside a transition this bridge drove,
+        // the hide may be the mid-conversion dip rather than the surface going away, so
+        // the decision waits for the call to settle — see `drive(_:)`. A hide from
+        // anywhere else (an explicit `nook.hide()`, the surface dropping its window) has
+        // no such ambiguity and is reported straight away.
+        if isDrivingTransition {
+            sawHideWhileDriving = true
+        } else {
+            onSurfaceHidden?()
         }
-    }
-
-    private func cancelPendingHiddenReport() {
-        pendingHiddenReport?.cancel()
-        pendingHiddenReport = nil
     }
 
     /// Re-applies the window-level settings the vendored panel does not carry.

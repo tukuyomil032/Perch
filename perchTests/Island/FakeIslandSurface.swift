@@ -80,12 +80,12 @@ final class FakeIslandSurface: IslandSurfaceDriving {
 
     func expand(on screen: NSScreen?) async {
         expandCallCount += 1
-        transition(to: .expanded)
+        await transition(to: .expanded)
     }
 
     func compact(on screen: NSScreen?) async {
         compactCallCount += 1
-        transition(to: compactCollapsesToHide ? .hidden : .compact)
+        await transition(to: compactCollapsesToHide ? .hidden : .compact)
     }
 
     func applyChromeStyle(_ style: IslandChromeStyle) {
@@ -119,8 +119,8 @@ final class FakeIslandSurface: IslandSurfaceDriving {
 
     /// Plays back an explicit `hide()`: the real surface publishes the hidden state and
     /// clears hover inside the same animation block, in that order.
-    func simulateHide() {
-        transition(to: .hidden)
+    func simulateHide() async {
+        await transition(to: .hidden)
         hoverSubject.send(false)
     }
 
@@ -131,18 +131,28 @@ final class FakeIslandSurface: IslandSurfaceDriving {
         resetWindowToVendoredDefaults()
     }
 
-    private func transition(to newState: State) {
+    private func transition(to newState: State) async {
         // The real surface returns early rather than re-firing a lifecycle hook for a
         // transition that would not change anything.
         guard newState != state else { return }
+
+        // Evaluated before the dip below: the real surface's conversion path does not
+        // build a window (`needsNewWindow == false`), so passing through `.hidden`
+        // mid-conversion must not look like a rebuild here either.
+        let wasHidden = state == .hidden
 
         // The intermediate hide the real surface performs mid-conversion.
         if usesIntermediateHides, state != .hidden, newState != .hidden {
             state = .hidden
             onHide?()
+            // The real surface sleeps for `intermediateHideDuration` here (Nook.swift:653),
+            // releasing the main actor. Anything the host queued in response to `onHide`
+            // gets to run before the conversion completes — which a synchronous fake would
+            // hide entirely.
+            await Task.yield()
+            await Task.yield()
         }
 
-        let wasHidden = state == .hidden
         state = newState
         if wasHidden { simulateWindowRebuild() }
 

@@ -402,7 +402,7 @@ struct NookBridgeTests {
         bridge.onSurfaceHidden = { hiddenCount += 1 }
 
         await bridge.expand()
-        surface.simulateHide()
+        await surface.simulateHide()
         await settle()
 
         #expect(hiddenCount == 1)
@@ -423,7 +423,7 @@ struct NookBridgeTests {
 
         await bridge.expand()
         surface.setHovering(true)
-        surface.simulateHide()
+        await surface.simulateHide()
         await settle()
 
         #expect(hiddenCount == 1)
@@ -449,7 +449,7 @@ struct NookBridgeTests {
         await settle()
         #expect(sleeper.sleepCallCount == 1)
 
-        surface.simulateHide()
+        await surface.simulateHide()
         sleeper.releaseAll()
         await settle()
 
