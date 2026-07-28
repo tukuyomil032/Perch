@@ -33,6 +33,13 @@ final class FakeIslandSurface: IslandSurfaceDriving {
     var isHoveringPublisher: AnyPublisher<Bool, Never> { hoverSubject.eraseToAnyPublisher() }
 
     var staysExpandedOnHoverExit = false
+    var skipsIntermediateHides = false
+
+    /// Reproduces the vendored default (`skipIntermediateHides == false`), where
+    /// converting between compact and expanded dips through `.hidden` and fires `onHide`
+    /// on the way. Kept independent of ``skipsIntermediateHides`` so a test can force the
+    /// dip and prove the bridge filters the report even if the setting is ever lost.
+    var usesIntermediateHides = false
     var screenProvider: (@MainActor () -> NSScreen?)?
     var onExpand: (@MainActor () -> Void)?
     var onCompact: (@MainActor () -> Void)?
@@ -128,6 +135,13 @@ final class FakeIslandSurface: IslandSurfaceDriving {
         // The real surface returns early rather than re-firing a lifecycle hook for a
         // transition that would not change anything.
         guard newState != state else { return }
+
+        // The intermediate hide the real surface performs mid-conversion.
+        if usesIntermediateHides, state != .hidden, newState != .hidden {
+            state = .hidden
+            onHide?()
+        }
+
         let wasHidden = state == .hidden
         state = newState
         if wasHidden { simulateWindowRebuild() }

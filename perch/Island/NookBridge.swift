@@ -39,6 +39,11 @@ final class NookBridge {
     /// exactly instead of racing a wall-clock sleep.
     private let sleep: @Sendable (Duration) async throws -> Void
 
+    /// Read on every chrome application, so toggling the preference takes effect on the
+    /// next window rebuild. Injectable so tests can assert the "off" case without writing
+    /// to the shared `Defaults` suite.
+    private let showInAllSpaces: @MainActor () -> Bool
+
     /// Called when the surface has settled into its expanded / compact state, from any
     /// cause — a `NookBridge.expand()`, a hover, a file drag.
     var onSurfaceExpanded: (@MainActor () -> Void)?
@@ -66,6 +71,7 @@ final class NookBridge {
 
     private var isSurfaceExpanded = false
     private var collapseTask: Task<Void, Never>?
+    private var pendingHiddenReport: Task<Void, Never>?
     private var hoverSubscription: AnyCancellable?
     private var screenChangeSubscription: AnyCancellable?
 
@@ -74,11 +80,20 @@ final class NookBridge {
         collapseDelay: @escaping @MainActor () -> Duration = {
             NookBridge.collapseDelay(forConfiguredSeconds: Defaults[.autoCollapseDelay])
         },
+        showInAllSpaces: @escaping @MainActor () -> Bool = { Defaults[.showInAllSpaces] },
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) {
         self.surface = surface
         self.collapseDelay = collapseDelay
+        self.showInAllSpaces = showInAllSpaces
         self.sleep = sleep
+
+        // Convert straight between compact and expanded. Left at the vendored default the
+        // surface dips through `.hidden` mid-conversion — visible as a blink, and reported
+        // to this bridge as a hide, which would make the host tear the island down every
+        // time the user opens a card. `surfaceDidHide` defends against the report as well,
+        // but this is the setting that stops the blink itself.
+        surface.skipsIntermediateHides = true
 
         // Perch owns collapse timing, so the surface must not compact itself the instant
         // the cursor leaves. This replaces the old global `MouseEventMonitor`: hover now
@@ -112,9 +127,13 @@ final class NookBridge {
             .publisher(for: NSApplication.didChangeScreenParametersNotification)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                // Both observers hang off the same notification on the main run loop, and
-                // the surface's rebuild must land first — otherwise chrome is applied to
-                // the window that is about to be replaced. Yielding puts this behind it.
+                // Applied twice on purpose. The surface's rebuild orders the new panel on
+                // screen synchronously, so waiting a hop would leave one frame of
+                // vendored-default chrome visible; applying immediately covers the case
+                // where the surface's observer ran first. The deferred pass then covers
+                // the opposite order, which means correctness does not rest on the
+                // undocumented fact that the surface subscribed before this bridge did.
+                self?.applyWindowChrome()
                 Task { @MainActor [weak self] in
                     await Task.yield()
                     self?.applyWindowChrome()
@@ -124,6 +143,7 @@ final class NookBridge {
 
     deinit {
         collapseTask?.cancel()
+        pendingHiddenReport?.cancel()
     }
 
     // MARK: - Driving the surface
@@ -169,12 +189,14 @@ final class NookBridge {
     // MARK: - Surface callbacks
 
     private func surfaceDidExpand() {
+        cancelPendingHiddenReport()
         isSurfaceExpanded = true
         applyWindowChrome()
         onSurfaceExpanded?()
     }
 
     private func surfaceDidCompact() {
+        cancelPendingHiddenReport()
         isSurfaceExpanded = false
         cancelScheduledCollapse()
         applyWindowChrome()
@@ -182,14 +204,33 @@ final class NookBridge {
     }
 
     private func surfaceDidHide() {
-        // Must clear the expansion flag: the hidden transition also publishes
-        // `isHovering = false`, and without this the hover handler would read that as
-        // "cursor left an expanded surface", schedule a collapse, and the eventual
+        // Clearing the expansion flag is not optional: the hidden transition also
+        // publishes `isHovering = false`, and without this the hover handler would read
+        // that as "cursor left an expanded surface", schedule a collapse, and the eventual
         // `compact()` would build a *new* window — resurrecting an island the user just
-        // dismissed.
+        // dismissed. Safe to do eagerly, because every transition *out* of hidden sets it
+        // again.
         isSurfaceExpanded = false
         cancelScheduledCollapse()
-        onSurfaceHidden?()
+
+        // Reporting it upward is another matter. A surface left at the vendored default
+        // dips through `.hidden` while converting between compact and expanded, and a host
+        // told about that would drop the island on every single card open. The bridge
+        // turns that default off in `init`, and defers the report by one hop so it is
+        // still filtered if the setting is ever lost — a conversion's follow-up transition
+        // cancels this, an actual hide has nothing following it and lands.
+        pendingHiddenReport?.cancel()
+        pendingHiddenReport = Task { [weak self] in
+            await Task.yield()
+            guard !Task.isCancelled, let self else { return }
+            self.pendingHiddenReport = nil
+            self.onSurfaceHidden?()
+        }
+    }
+
+    private func cancelPendingHiddenReport() {
+        pendingHiddenReport?.cancel()
+        pendingHiddenReport = nil
     }
 
     /// Re-applies the window-level settings the vendored panel does not carry.
@@ -206,17 +247,20 @@ final class NookBridge {
     /// `backgroundColor`, `tabbingMode`, `isMovableByWindowBackground` are all either
     /// matched or intentionally left to the vendored panel):
     /// - `level`: the panel sits at `.statusBar + 8` where `IslandWindow` used
-    ///   `.statusWindow + 1`. Accepted, not overridden — both float above the menu bar,
-    ///   and the vendored value is the one its drag pipeline is tuned for (`.screenSaver`
-    ///   and above silently drops system drag sessions).
+    ///   `.statusWindow + 1`. Accepted, not overridden — but *not* because 26 would break
+    ///   anything: the panel's own note says any value strictly between `.statusBar` and
+    ///   `.screenSaver` behaves identically for drag delivery, and 26 qualifies. The real
+    ///   difference is z-ordering against other status-level overlays (menu bar extras,
+    ///   notification banners, tools like Bartender), which has not been checked on
+    ///   hardware. Staying on the vendored value keeps Perch aligned with upstream; see
+    ///   the A5 hand-off for the on-device check.
     /// - `tabbingMode` / `isMovableByWindowBackground`: accepted. A borderless `NSPanel`
     ///   is not tab-eligible, and background-dragging is already off by default.
-    /// - `isOpaque` / `isReleasedWhenClosed`: overridden below. The panel leaves both at
-    ///   their defaults, and the surface calls `close()` on teardown, so
-    ///   `isReleasedWhenClosed` decides whether that `close()` can free a window the
-    ///   surface still references.
+    /// - `isOpaque` / `isReleasedWhenClosed`: overridden below, defensively rather than to
+    ///   fix a known fault. The panel states no intent for either, and the surface tears
+    ///   down with `close()`; pinning them costs nothing and removes the question.
     func applyWindowChrome() {
-        let behavior = Self.desiredCollectionBehavior(showInAllSpaces: Defaults[.showInAllSpaces])
+        let behavior = Self.desiredCollectionBehavior(showInAllSpaces: showInAllSpaces())
         let applied = surface.configureWindow { window in
             window.collectionBehavior = behavior
             window.isOpaque = false

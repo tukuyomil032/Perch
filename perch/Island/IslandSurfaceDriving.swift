@@ -36,6 +36,12 @@ protocol IslandSurfaceDriving: AnyObject {
     /// surface falls back to the system main screen and the preference is inert.
     var screenProvider: (@MainActor () -> NSScreen?)? { get set }
 
+    /// When `true`, converting between compact and expanded goes straight across instead
+    /// of dipping through the hidden state on the way. Perch turns this on: the island
+    /// has always animated its frame directly, and a dip through hidden both looks wrong
+    /// and makes the surface report a hide that never conceptually happened.
+    var skipsIntermediateHides: Bool { get set }
+
     /// Fires on every transition *into* the expanded surface, whatever caused it.
     var onExpand: (@MainActor () -> Void)? { get set }
 
@@ -99,6 +105,11 @@ extension Nook: IslandSurfaceDriving {
 
     func applySyntheticNotchWidth(_ width: CGFloat) {
         syntheticNotchWidth = width
+    }
+
+    var skipsIntermediateHides: Bool {
+        get { transitionConfiguration.skipIntermediateHides }
+        set { transitionConfiguration.skipIntermediateHides = newValue }
     }
 
     /// The single point where a Perch backdrop decision becomes a vendored `NookBackdrop`.

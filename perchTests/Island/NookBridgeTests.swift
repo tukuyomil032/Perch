@@ -29,7 +29,10 @@ final class ManualSleeper {
     }
 }
 
-@Suite("NookBridge")
+/// `.serialized` because one test posts `didChangeScreenParametersNotification`, which
+/// `NotificationCenter.default` delivers to every live bridge in the process — including
+/// ones belonging to tests running in parallel.
+@Suite("NookBridge", .serialized)
 @MainActor
 struct NookBridgeTests {
 
@@ -37,11 +40,13 @@ struct NookBridgeTests {
     private func makeBridge(
         surface: FakeIslandSurface,
         sleeper: ManualSleeper,
-        delay: Duration = .seconds(3)
+        delay: Duration = .seconds(3),
+        showInAllSpaces: Bool = true
     ) -> NookBridge {
         NookBridge(
             surface: surface,
             collapseDelay: { delay },
+            showInAllSpaces: { showInAllSpaces },
             sleep: { duration in await sleeper.sleep(duration) }
         )
     }
@@ -130,11 +135,12 @@ struct NookBridgeTests {
 
     // MARK: - Surface driving (via the fake)
 
-    @Test("the bridge takes over collapse timing from the surface")
+    @Test("the bridge takes over collapse timing and turns off the mid-conversion blink")
     func bridgeOwnsCollapseTiming() {
         let surface = FakeIslandSurface()
         _ = makeBridge(surface: surface, sleeper: ManualSleeper())
         #expect(surface.staysExpandedOnHoverExit)
+        #expect(surface.skipsIntermediateHides)
     }
 
     @Test("a display preference is installed by default and can be replaced")
@@ -182,22 +188,21 @@ struct NookBridgeTests {
 
     // MARK: - Window chrome
 
-    @Test("chrome is restored after every window rebuild, not merely re-issued")
+    @Test("a user who turned off all-Spaces keeps it through every window rebuild")
     func chromeIsReappliedOnEveryTransition() async {
         let surface = FakeIslandSurface()
-        let bridge = makeBridge(surface: surface, sleeper: ManualSleeper())
+        let bridge = makeBridge(surface: surface, sleeper: ManualSleeper(), showInAllSpaces: false)
 
         await bridge.expand()
-        // The fake resets the window to `NookPanel`'s defaults as it builds it, so these
-        // values can only hold if the bridge wrote them back afterwards.
+        // The fake builds its window with `NookPanel`'s unconditional `.canJoinAllSpaces`,
+        // so this can only hold if the bridge wrote the preference back afterwards.
+        #expect(!surface.window.collectionBehavior.contains(.canJoinAllSpaces))
         #expect(!surface.window.isOpaque)
         #expect(!surface.window.isReleasedWhenClosed)
-        #expect(surface.window.collectionBehavior.contains(.fullScreenAuxiliary))
-        #expect(surface.window.collectionBehavior.contains(.stationary))
-        #expect(surface.window.collectionBehavior.contains(.ignoresCycle))
 
         surface.simulateWindowRebuild()
         await bridge.compact()
+        #expect(!surface.window.collectionBehavior.contains(.canJoinAllSpaces))
         #expect(!surface.window.isOpaque)
         #expect(!surface.window.isReleasedWhenClosed)
         _ = bridge
@@ -216,18 +221,19 @@ struct NookBridgeTests {
     /// Regression: C1 — a display change rebuilds the surface's window without any state
     /// transition, so neither `onExpand` nor `onCompact` fires and the fresh panel comes
     /// back with the vendored defaults.
-    @Test("a display change restores window chrome even though no transition fires")
+    @Test("a display change does not put the island back on every Space")
     func chromeSurvivesScreenParameterChange() async throws {
         let surface = FakeIslandSurface()
-        let bridge = makeBridge(surface: surface, sleeper: ManualSleeper())
+        let bridge = makeBridge(surface: surface, sleeper: ManualSleeper(), showInAllSpaces: false)
 
         await bridge.expand()
-        #expect(!surface.window.isReleasedWhenClosed)
+        #expect(!surface.window.collectionBehavior.contains(.canJoinAllSpaces))
 
         // What the vendored surface does on `didChangeScreenParameters`: rebuild the
-        // window in place, staying expanded.
+        // window in place, staying expanded — bringing back `NookPanel`'s unconditional
+        // `.canJoinAllSpaces`, which is the user-visible symptom.
         surface.simulateWindowRebuild()
-        #expect(surface.window.isReleasedWhenClosed)
+        #expect(surface.window.collectionBehavior.contains(.canJoinAllSpaces))
 
         NotificationCenter.default.post(
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
@@ -235,12 +241,13 @@ struct NookBridgeTests {
         var restored = false
         for _ in 0..<200 {
             try await Task.sleep(for: .milliseconds(10))
-            if !surface.window.isReleasedWhenClosed {
+            if !surface.window.collectionBehavior.contains(.canJoinAllSpaces) {
                 restored = true
                 break
             }
         }
         #expect(restored)
+        #expect(!surface.window.isReleasedWhenClosed)
         #expect(surface.state == .expanded)
         _ = bridge
     }
@@ -357,6 +364,51 @@ struct NookBridgeTests {
         #expect(surface.state == .expanded)
     }
 
+    /// Regression: N1 — left at the vendored default, converting between compact and
+    /// expanded dips through `.hidden`. Reporting that dip as a hide would make the host
+    /// tear the island down and rebuild it on every card open — the most common gesture
+    /// in the app. The bridge turns the dip off, and filters the report if it ever
+    /// returns, which is what this exercises.
+    @Test("an intermediate hide during a conversion is not reported as the surface hiding")
+    func intermediateHideIsNotReportedAsHidden() async {
+        let surface = FakeIslandSurface()
+        surface.usesIntermediateHides = true
+        let bridge = makeBridge(surface: surface, sleeper: ManualSleeper())
+        var hiddenCount = 0
+        var expandedCount = 0
+        var compactedCount = 0
+        bridge.onSurfaceHidden = { hiddenCount += 1 }
+        bridge.onSurfaceExpanded = { expandedCount += 1 }
+        bridge.onSurfaceCompacted = { compactedCount += 1 }
+
+        await bridge.expand()
+        await bridge.compact()
+        await bridge.expand()
+        await settle()
+
+        #expect(hiddenCount == 0)
+        #expect(expandedCount == 2)
+        #expect(compactedCount == 1)
+        #expect(surface.state == .expanded)
+    }
+
+    /// The other half of N1: filtering the intermediate hide must not swallow a real one.
+    @Test("a terminal hide is still reported when conversions dip through hidden")
+    func terminalHideIsStillReported() async {
+        let surface = FakeIslandSurface()
+        surface.usesIntermediateHides = true
+        let bridge = makeBridge(surface: surface, sleeper: ManualSleeper())
+        var hiddenCount = 0
+        bridge.onSurfaceHidden = { hiddenCount += 1 }
+
+        await bridge.expand()
+        surface.simulateHide()
+        await settle()
+
+        #expect(hiddenCount == 1)
+        #expect(surface.state == .hidden)
+    }
+
     /// Regression: C2 — hiding publishes `state = .hidden` *and* `isHovering = false`. A
     /// bridge that only watched expand/compact read the hover drop as "cursor left an
     /// expanded surface", scheduled a collapse, and the resulting `compact()` rebuilt a
@@ -422,6 +474,7 @@ struct NookBridgeTests {
 
         await bridge.expand()
         await bridge.compact()
+        await settle()
 
         #expect(compactedCount == 0)
         #expect(hiddenCount == 1)
