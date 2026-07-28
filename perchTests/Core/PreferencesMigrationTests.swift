@@ -10,14 +10,17 @@ import Testing
 ///
 /// A throwaway `UserDefaults(suiteName:)` looks like the tidier choice and is a trap: a
 /// suite instance's search list still includes the application domain, so reads fall
-/// through to whatever the developer (or a previous test) has in `standard`. The
-/// `guard object(forKey:) == nil` at the top of the migration would then see a real
-/// `islandChromeStyle` and bail, and the tests would pass or fail based on the machine
-/// they ran on.
+/// through to whatever is in `standard`. Worse for this particular type, declaring a
+/// `Defaults.Key` calls `suite.register(defaults:)` with the key's default value, which
+/// lands in the registration domain — so `object(forKey:)` returns non-nil for
+/// `islandChromeStyle` on a completely fresh install. Tests written against a suite would
+/// therefore pass or fail based on the machine they ran on, and could not distinguish
+/// "the user set this" from "the key was declared."
 ///
-/// `.serialized` because the tests share one store; `@MainActor` because the project
-/// builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which puts both
-/// `PreferencesMigration` and the `Defaults.Keys` statics on the main actor.
+/// `.serialized` because the tests share one store. Note that swift-testing runs *suites*
+/// in parallel: `rawStringRoundTripsThroughDefaults` writes `Defaults[.islandChromeStyle]`,
+/// so no other suite may read or write that key concurrently. Nothing else does today —
+/// if that changes, these tests need a shared lock rather than suite-local serialization.
 @Suite("PreferencesMigration", .serialized)
 @MainActor
 struct PreferencesMigrationTests {

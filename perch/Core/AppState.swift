@@ -19,6 +19,17 @@ final class AppState {
     /// would leave the app believing it was showing a pill that does not exist.
     private(set) var isSurfaceVisible = true
 
+    /// Which card the island shows when expanded.
+    ///
+    /// **Currently written but never read outside this type**, and that predates A5 — the
+    /// expanded view has been preset-driven (it renders the active `PresetLayout`'s widgets
+    /// by id) since the widget system landed, so no view has consulted `activeCard` or
+    /// `IslandPresentation.card` at any point. Verified against the pre-A5 tree: the only
+    /// `AppState` field the deleted chrome views read was `isPhysicalNotch`, which the
+    /// chrome unification removed outright.
+    ///
+    /// Kept rather than deleted because Phase B's module bar selects *which* card is shown,
+    /// which is exactly this. See the A6 hand-off.
     var activeCard: IslandCard = .idle
     var latestError: String?
 
@@ -75,6 +86,15 @@ final class AppState {
         }
 
         guard !requestedExpansion else { return }
+        // Nothing to drive means nothing will happen, and setting the intent anyway would
+        // break the invariant the flag exists for ("requestedExpansion is true only when a
+        // transition is queued") — leaving the next click to read a stale intent and
+        // collapse an island that never opened. Reachable at launch: `AppDelegate` builds
+        // `MenuBarController` before `IslandHost`, so there is a window with no driver.
+        guard driveSurfaceExpand != nil else {
+            logger.debug("expand requested before the island surface was connected — ignoring")
+            return
+        }
         requestedExpansion = true
         logger.debug("Expanding island to card: \(card)")
         enqueueTransition { [weak self] in
@@ -117,10 +137,29 @@ final class AppState {
     /// produces a queue rather than a pile-up, and the surface's own newest-wins generation
     /// counter resolves the rest.
     private func enqueueTransition(_ body: @escaping @MainActor () async -> Void) {
+        enqueuedTransitionCount += 1
         let previous = transitionTask
         transitionTask = Task { @MainActor in
             await previous?.value
             await body()
+        }
+    }
+
+    /// Number of transitions ever queued. Only used by ``settleTransitions()`` to tell
+    /// "the chain finished" from "the chain finished and queued more work".
+    private var enqueuedTransitionCount = 0
+
+    /// Awaits the serialized transition chain until it is genuinely idle.
+    ///
+    /// A test seam, and deliberately not a fixed number of `Task.yield()`s: the number of
+    /// hops a chain takes is an implementation detail of `enqueueTransition` and the driver
+    /// closures, so a yield count is a flake waiting for someone to add a suspension point.
+    /// Looping until no *new* work was queued is exact regardless.
+    func settleTransitions() async {
+        var lastSeen = -1
+        while lastSeen != enqueuedTransitionCount {
+            lastSeen = enqueuedTransitionCount
+            await transitionTask?.value
         }
     }
 

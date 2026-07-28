@@ -38,10 +38,11 @@ struct AppStateTests {
         }
     }
 
-    /// Lets the serialized transition chain drain. `enqueueTransition` awaits the previous
-    /// task, so a handful of yields covers a couple of chained transitions.
-    private func drain() async {
-        for _ in 0..<10 { await Task.yield() }
+    /// Lets the serialized transition chain drain, exactly. Delegates to `AppState`'s own
+    /// seam rather than counting `Task.yield()`s, which would silently become flaky the
+    /// moment a transition grew another suspension point.
+    private func drain(_ appState: AppState) async {
+        await appState.settleTransitions()
     }
 
     @Test("a fresh AppState is compact and visible")
@@ -67,7 +68,7 @@ struct AppStateTests {
         driver.attach(to: appState, reporting: false)
 
         appState.expand(to: .nowPlaying)
-        await drain()
+        await drain(appState)
 
         #expect(driver.expandCount == 1)
         // The surface never arrived, so neither did the state.
@@ -81,21 +82,21 @@ struct AppStateTests {
         FakeSurfaceDriver().attach(to: appState)
 
         appState.expand(to: .nowPlaying)
-        await drain()
+        await drain(appState)
 
         #expect(appState.presentation == .expanded(.nowPlaying))
         #expect(appState.isExpanded == true)
     }
 
-    @Test("collapse() returns to .compact and clears the active card")
+    @Test("collapse() returns to .compact but keeps the active card selected")
     func collapseReturnsToCompact() async {
         let appState = AppState()
         FakeSurfaceDriver().attach(to: appState)
 
         appState.expand(to: .nowPlaying)
-        await drain()
+        await drain(appState)
         appState.collapse()
-        await drain()
+        await drain(appState)
 
         #expect(appState.presentation == .compact)
         #expect(appState.isExpanded == false)
@@ -111,7 +112,7 @@ struct AppStateTests {
         driver.attach(to: appState)
 
         appState.collapse()
-        await drain()
+        await drain(appState)
 
         #expect(driver.compactCount == 0)
         #expect(appState.presentation == .compact)
@@ -126,7 +127,7 @@ struct AppStateTests {
         appState.expand(to: .nowPlaying)
         appState.collapse()
         appState.expand(to: .aiUsage)
-        await drain()
+        await drain(appState)
 
         // Each transition must fully close before the next opens. Overlap would let the
         // bridge's single-flag hide filter misclassify a mid-conversion dip as a real hide.
@@ -168,7 +169,7 @@ struct AppStateTests {
         // The surface expanded by itself (hover / drag) — no request went through AppState.
         appState.applySurfaceExpanded()
         appState.collapse()
-        await drain()
+        await drain(appState)
 
         #expect(driver.compactCount == 1)
         #expect(appState.presentation == .compact)
@@ -181,9 +182,9 @@ struct AppStateTests {
         driver.attach(to: appState)
 
         appState.expand(to: .nowPlaying)
-        await drain()
+        await drain(appState)
         appState.expand(to: .aiUsage)
-        await drain()
+        await drain(appState)
 
         // The surface is already expanded, so it is not driven a second time — it would
         // report nothing anyway, its state being unchanged.
@@ -205,7 +206,7 @@ struct AppStateTests {
         driver.attach(to: appState)
 
         appState.toggleExpansion()
-        await drain()
+        await drain(appState)
 
         #expect(driver.expandCount == 1)
         #expect(appState.presentation == .expanded(.nowPlaying))
@@ -218,9 +219,9 @@ struct AppStateTests {
         driver.attach(to: appState)
 
         appState.toggleExpansion()
-        await drain()
+        await drain(appState)
         appState.toggleExpansion()
-        await drain()
+        await drain(appState)
 
         #expect(driver.expandCount == 1)
         #expect(driver.compactCount == 1)
@@ -237,7 +238,7 @@ struct AppStateTests {
         // `presentation` would see `.compact` twice and open the island twice.
         appState.toggleExpansion()
         appState.toggleExpansion()
-        await drain()
+        await drain(appState)
 
         #expect(driver.expandCount == 1)
         #expect(driver.compactCount == 1)
@@ -251,11 +252,11 @@ struct AppStateTests {
         driver.attach(to: appState)
 
         appState.expand(to: .aiUsage)
-        await drain()
+        await drain(appState)
         appState.toggleExpansion()
-        await drain()
+        await drain(appState)
         appState.toggleExpansion()
-        await drain()
+        await drain(appState)
 
         #expect(appState.presentation == .expanded(.aiUsage))
     }
@@ -270,7 +271,27 @@ struct AppStateTests {
         // precisely what the user wants here — the expanded view is where the widgets are.
         #expect(appState.nowPlayingManager.currentState == nil)
         appState.toggleExpansion()
-        await drain()
+        await drain(appState)
+
+        #expect(driver.expandCount == 1)
+        #expect(appState.isExpanded == true)
+    }
+
+    @Test("an expand before the surface is connected does not strand the intent flag")
+    func expandBeforeSurfaceIsConnectedIsIgnored() async {
+        let appState = AppState()
+        // No driver yet — reachable at launch, where AppDelegate builds MenuBarController
+        // before IslandHost.
+        appState.toggleExpansion()
+        await drain(appState)
+        #expect(appState.presentation == .compact)
+
+        // The island connects, and the next click must still open it. If the ignored
+        // request had set the intent flag, this would be read as "already open" and collapse.
+        let driver = FakeSurfaceDriver()
+        driver.attach(to: appState)
+        appState.toggleExpansion()
+        await drain(appState)
 
         #expect(driver.expandCount == 1)
         #expect(appState.isExpanded == true)
