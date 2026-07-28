@@ -362,8 +362,8 @@ final class NookBridge {
         return behavior
     }
 
-    /// The backdrop the surface should paint, reproducing Perch's current chrome: the
-    /// `.hudWindow` vibrancy of `VibrancyBackground`, or a flat black fill when the user
+    /// The backdrop the surface should paint, reproducing Perch's pre-vendoring chrome: the
+    /// same `.hudWindow` vibrancy its own background view used, or a flat black fill when the user
     /// has asked the system to reduce transparency (where an `NSVisualEffectView` is both
     /// wasted work and against the accessibility setting's intent).
     ///
