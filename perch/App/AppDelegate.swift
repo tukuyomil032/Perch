@@ -4,9 +4,8 @@ import ScreenCaptureKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var windowController: IslandWindowController?
+    private var islandHost: IslandHost?
     private var menuBarController: MenuBarController?
-    private var mouseMonitor: MouseEventMonitor?
     let appState = AppState()
     private let logger = Logger(label: "com.tukuyomi032.perch.AppDelegate")
 
@@ -19,16 +18,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PreferencesMigration.runAll()
 
         menuBarController = MenuBarController(appState: appState)
-        windowController = IslandWindowController(appState: appState)
-        mouseMonitor = MouseEventMonitor(
-            appState: appState,
-            windowController: windowController!
-        )
-        mouseMonitor?.startMonitoring()
 
-        // Widget registration
+        // Widget registration must precede the island: the expanded content renders the
+        // active preset's widgets by id, and an unregistered id draws nothing.
         appState.widgetRegistry.register(NowPlayingWidget())
         appState.widgetRegistry.register(AIUsageWidget())
+
+        islandHost = IslandHost(appState: appState)
 
         appState.aiUsageStore.registerProvider(ClaudeProvider())
         appState.aiUsageStore.registerProvider(CodexProvider())

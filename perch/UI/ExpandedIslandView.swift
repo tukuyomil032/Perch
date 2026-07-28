@@ -1,65 +1,29 @@
 import SwiftUI
 
+/// The island's expanded content: header, then the active preset's widgets.
+///
+/// Draws no background, no shape, no stroke and sets no width. All four used to live here
+/// because the content sat inside a fixed-size window Perch positioned itself; the
+/// vendored surface owns the chrome now and sizes itself to whatever this view reports, so
+/// re-drawing a card in here would put a rounded rectangle inside the notch shape and
+/// pin the surface to a width its own geometry did not choose.
 struct ExpandedIslandView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        ZStack {
-            if #available(macOS 26, *) {
-                RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
-                    .fill(.clear)
-                    .glassEffect(
-                        .regular.tint(.black.opacity(0.7)), in: .rect(cornerRadius: DesignSystem.cardCornerRadius))
-            } else {
-                Color.black
-                    .clipShape(RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous))
-                VibrancyBackground()
-                    .opacity(0.35)
-                    .clipShape(RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous))
-            }
-            VStack(spacing: 0) {
-                header
-                Divider().opacity(0.15)
-                presetContent
-                    .animation(DesignSystem.springAnimation, value: appState.presetStore.activePresetID)
-            }
+        VStack(spacing: 0) {
+            header
+            Divider().opacity(0.15)
+            presetContent
+                .animation(DesignSystem.springAnimation, value: appState.presetStore.activePresetID)
         }
-        .clipShape(cardShape)
-        .overlay { cardStroke }
-        .frame(width: appState.isPhysicalNotch ? 460 : 420)
-    }
-
-    private var cardShape: AnyShape {
-        if appState.isPhysicalNotch {
-            return AnyShape(
-                UnevenRoundedRectangle(
-                    topLeadingRadius: 0,
-                    bottomLeadingRadius: DesignSystem.cardCornerRadius,
-                    bottomTrailingRadius: DesignSystem.cardCornerRadius,
-                    topTrailingRadius: 0,
-                    style: .continuous
-                )
-            )
-        }
-        return AnyShape(
-            RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
-        )
-    }
-
-    @ViewBuilder
-    private var cardStroke: some View {
-        if appState.isPhysicalNotch {
-            UnevenRoundedRectangle(
-                topLeadingRadius: 0,
-                bottomLeadingRadius: DesignSystem.cardCornerRadius,
-                bottomTrailingRadius: DesignSystem.cardCornerRadius,
-                topTrailingRadius: 0,
-                style: .continuous
-            )
-            .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
-        } else {
-            RoundedRectangle(cornerRadius: DesignSystem.cardCornerRadius, style: .continuous)
-                .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
+        // Content-driven, but not unbounded: the widgets are laid out for roughly this
+        // width, and without a floor the surface would shrink to the notch minimum on an
+        // empty preset.
+        .frame(minWidth: 420)
+        .onAppear {
+            appState.openSettingsAction = { openSettings() }
         }
     }
 
