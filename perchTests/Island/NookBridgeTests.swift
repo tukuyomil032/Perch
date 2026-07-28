@@ -39,7 +39,7 @@ struct NookBridgeTests {
     /// Builds a bridge whose collapse timing is fully under the test's control.
     private func makeBridge(
         surface: FakeIslandSurface,
-        sleeper: ManualSleeper,
+        sleeper: ManualSleeper = ManualSleeper(),
         delay: Duration = .seconds(3),
         showInAllSpaces: Bool = true
     ) -> NookBridge {
@@ -297,8 +297,11 @@ struct NookBridgeTests {
         let sleeper = ManualSleeper()
         let bridge = makeBridge(surface: surface, sleeper: sleeper, delay: .seconds(3))
 
-        await bridge.expand()
+        // Hovering *before* expanding, because that is the only way it happens: the click
+        // that opens the island puts the cursor on it. Expanding with the cursor elsewhere
+        // arms auto-collapse immediately — see `expandingWithoutHoverArmsAutoCollapse`.
         surface.setHovering(true)
+        await bridge.expand()
         surface.setHovering(false)
         await settle()
 
@@ -421,8 +424,8 @@ struct NookBridgeTests {
         var hiddenCount = 0
         bridge.onSurfaceHidden = { hiddenCount += 1 }
 
-        await bridge.expand()
         surface.setHovering(true)
+        await bridge.expand()
         await surface.simulateHide()
         await settle()
 
@@ -443,8 +446,8 @@ struct NookBridgeTests {
         let sleeper = ManualSleeper()
         let bridge = makeBridge(surface: surface, sleeper: sleeper)
 
-        await bridge.expand()
         surface.setHovering(true)
+        await bridge.expand()
         surface.setHovering(false)
         await settle()
         #expect(sleeper.sleepCallCount == 1)
@@ -472,6 +475,7 @@ struct NookBridgeTests {
         bridge.onSurfaceCompacted = { compactedCount += 1 }
         bridge.onSurfaceHidden = { hiddenCount += 1 }
 
+        surface.setHovering(true)
         await bridge.expand()
         await bridge.compact()
         await settle()
@@ -486,5 +490,170 @@ struct NookBridgeTests {
         surface.setHovering(false)
         await settle()
         #expect(sleeper.sleepCallCount == 0)
+    }
+
+    // MARK: - Window-rebuild paths (A5 review: C-1 / I-2 / I-4 / M-7)
+
+    /// Regression: C-1 — re-applying the *current* chrome style does not rebuild anything,
+    /// so it cannot be used to move the island to another display. The real surface guards
+    /// `presentation`'s `didSet` on `presentation != oldValue`; `FakeIslandSurface` mirrors
+    /// that guard, which is what makes this test able to fail.
+    @Test("re-applying the same chrome style does not rebuild the window")
+    func reapplyingSameChromeStyleIsANoOp() async {
+        let surface = FakeIslandSurface()
+        let bridge = makeBridge(surface: surface)
+        await bridge.compact()
+
+        bridge.applyChromeStyle(.notch)
+        surface.window.collectionBehavior = []
+        // Same value again: the surface must not rebuild, so the window we just scribbled
+        // on is still the live one and keeps what the bridge re-applied to it.
+        bridge.applyChromeStyle(.notch)
+
+        #expect(surface.appliedChromeStyles == [.notch, .notch])
+        #expect(surface.window.collectionBehavior.contains(.stationary))
+    }
+
+    /// Regression: C-1 — `relocate()` is the seam that *does* rebuild unconditionally,
+    /// which is what a display-preference change needs.
+    @Test("relocate rebuilds the window even when nothing else changed")
+    func relocateRebuildsUnconditionally() async {
+        let surface = FakeIslandSurface()
+        let bridge = makeBridge(surface: surface)
+        await bridge.compact()
+
+        bridge.relocate()
+        bridge.relocate()
+
+        #expect(surface.relocateCallCount == 2)
+    }
+
+    /// Regression: C-1 — and it re-applies window chrome, because the rebuild hands back a
+    /// panel carrying the vendored defaults.
+    @Test("relocate re-applies window chrome to the fresh panel")
+    func relocateReappliesWindowChrome() async {
+        let surface = FakeIslandSurface()
+        let bridge = makeBridge(surface: surface, showInAllSpaces: false)
+        await bridge.compact()
+
+        bridge.relocate()
+
+        // `.canJoinAllSpaces` is the vendored default that a user turning the preference
+        // off must not silently get back.
+        #expect(!surface.window.collectionBehavior.contains(.canJoinAllSpaces))
+    }
+
+    /// Regression: I-2 — a transition that lands in the state the surface was already in
+    /// still produces a new panel when the resolved screen changed, and the surface's state
+    /// publisher drops the duplicate so no lifecycle callback announces it. Chrome must be
+    /// re-applied anyway.
+    @Test("a transition re-applies window chrome even when no callback fires")
+    func transitionReappliesChromeWithoutACallback() async {
+        let surface = FakeIslandSurface()
+        let bridge = makeBridge(surface: surface, showInAllSpaces: false)
+        await bridge.compact()
+
+        var compactedCount = 0
+        bridge.onSurfaceCompacted = { compactedCount += 1 }
+
+        // Already compact: no state change, so no callback — but simulate the fresh panel
+        // a screen change would have produced underneath.
+        surface.simulateWindowRebuild()
+        await bridge.compact()
+
+        #expect(compactedCount == 0)
+        #expect(!surface.window.collectionBehavior.contains(.canJoinAllSpaces))
+    }
+
+    /// Regression: I-4 — auto-collapse used to be armed only by a hover *transition*, so a
+    /// surface expanded while the cursor was elsewhere never collapsed. Reachable as soon
+    /// as anything other than a click on the island can expand it.
+    @Test("expanding without the cursor on the surface still arms auto-collapse")
+    func expandingWithoutHoverArmsAutoCollapse() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper, delay: .seconds(3))
+
+        // No hover at any point — the cursor is somewhere else entirely.
+        await bridge.expand()
+        await settle()
+
+        #expect(sleeper.sleepCallCount == 1)
+
+        sleeper.releaseAll()
+        await settle()
+        #expect(surface.state == .compact)
+    }
+
+    /// Regression: I-4 — arming on expand must not fight the hover case: moving onto the
+    /// surface cancels the collapse that expanding armed.
+    @Test("hovering after an unhovered expand cancels the armed collapse")
+    func hoverAfterUnhoveredExpandCancelsCollapse() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper)
+
+        await bridge.expand()
+        await settle()
+        surface.setHovering(true)
+        sleeper.releaseAll()
+        await settle()
+
+        #expect(surface.state == .expanded)
+        _ = bridge
+    }
+
+    /// Regression: M-7 — changing the pseudo-notch width rebuilds the window, so anything
+    /// the host hung on it (the click recognizer) has to be re-applied.
+    @Test("a synthetic notch width change re-applies window chrome")
+    func syntheticNotchWidthChangeReappliesChrome() async {
+        let surface = FakeIslandSurface()
+        let bridge = makeBridge(surface: surface, showInAllSpaces: false)
+        await bridge.compact()
+
+        bridge.applySyntheticNotchWidth(240)
+
+        #expect(!surface.window.collectionBehavior.contains(.canJoinAllSpaces))
+    }
+
+    /// Regression: I-3 / M-7 — the host's per-window setup runs on every path that produces
+    /// a window, because it hangs off the chrome application the bridge already performs
+    /// everywhere. This is what makes "forgot to re-attach the click target" unrepresentable.
+    @Test("the host window configurator runs on every window-producing path")
+    func windowConfiguratorRunsOnEveryPath() async {
+        let surface = FakeIslandSurface()
+        let bridge = makeBridge(surface: surface)
+        var configuredCount = 0
+        bridge.windowConfigurator = { _ in configuredCount += 1 }
+
+        await bridge.compact()
+        let afterCompact = configuredCount
+        await bridge.expand()
+        let afterExpand = configuredCount
+        bridge.applyChromeStyle(.floating)
+        let afterChrome = configuredCount
+        bridge.applySyntheticNotchWidth(240)
+        let afterWidth = configuredCount
+        bridge.relocate()
+
+        #expect(afterCompact > 0)
+        #expect(afterExpand > afterCompact)
+        #expect(afterChrome > afterExpand)
+        #expect(afterWidth > afterChrome)
+        #expect(configuredCount > afterWidth)
+    }
+
+    /// Regression: I-5 — a surface that never managed to build a window reports it, so the
+    /// host can bring the island back instead of leaving the user with nothing until relaunch.
+    @Test("hasLiveWindow surfaces a window the island failed to build")
+    func hasLiveWindowReportsAMissingWindow() async {
+        let surface = FakeIslandSurface()
+        surface.hasLiveWindow = false
+        let bridge = makeBridge(surface: surface)
+
+        #expect(bridge.hasLiveWindow == false)
+
+        surface.hasLiveWindow = true
+        #expect(bridge.hasLiveWindow == true)
     }
 }

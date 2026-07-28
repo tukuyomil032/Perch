@@ -18,7 +18,10 @@ import Combine
 ///    which is what the real surface does when it has no compact content;
 /// 3. building a window resets its chrome to the vendored panel's defaults
 ///    (``simulateWindowRebuild()``), so "the bridge re-applied chrome" is observable as a
-///    property value rather than only as a call count.
+///    property value rather than only as a call count;
+/// 4. `applyChromeStyle` / `applySyntheticNotchWidth` rebuild the window only when the
+///    value actually changes, matching the `didSet` guards on `Nook.presentation` and
+///    `Nook.syntheticNotchWidth`.
 @MainActor
 final class FakeIslandSurface: IslandSurfaceDriving {
     enum State: Equatable {
@@ -49,6 +52,11 @@ final class FakeIslandSurface: IslandSurfaceDriving {
     private(set) var expandCallCount = 0
     private(set) var compactCallCount = 0
     private(set) var configureWindowCallCount = 0
+    private(set) var relocateCallCount = 0
+
+    /// Tracks the values the real surface compares against in its `didSet` guards.
+    private var currentChromeStyle: IslandChromeStyle?
+    private var currentSyntheticNotchWidth: CGFloat?
 
     /// Every chrome style handed to the surface, in order, so a test can assert on live
     /// switching rather than just the final value.
@@ -88,13 +96,34 @@ final class FakeIslandSurface: IslandSurfaceDriving {
         await transition(to: compactCollapsesToHide ? .hidden : .compact)
     }
 
+    /// Mirrors `Nook.presentation`'s `didSet`, which rebuilds the visible window only when
+    /// the value actually *changes* and the surface is not hidden
+    /// (`guard presentation != oldValue, state != .hidden`). Re-applying the current style
+    /// is a no-op on the real surface, so it has to be one here too — a fake that rebuilt
+    /// unconditionally would let a host "relocate the island by re-applying its style" pass
+    /// in tests while doing nothing at all in production.
     func applyChromeStyle(_ style: IslandChromeStyle) {
         appliedChromeStyles.append(style)
+        guard style != currentChromeStyle, state != .hidden else { return }
+        currentChromeStyle = style
         simulateWindowRebuild()
     }
 
+    /// Same early-return shape as ``applyChromeStyle(_:)`` — `Nook.syntheticNotchWidth`
+    /// carries the identical `didSet` guard.
     func applySyntheticNotchWidth(_ width: CGFloat) {
         appliedSyntheticNotchWidths.append(width)
+        guard width != currentSyntheticNotchWidth, state != .hidden else { return }
+        currentSyntheticNotchWidth = width
+        simulateWindowRebuild()
+    }
+
+    /// Unconditionally rebuilds the window on the resolved screen, the way
+    /// `Nook.rebuildVisibleWindow(on:)` does. No-op while hidden: there is no visible
+    /// window to rebuild.
+    func relocate() {
+        guard state != .hidden else { return }
+        relocateCallCount += 1
         simulateWindowRebuild()
     }
 

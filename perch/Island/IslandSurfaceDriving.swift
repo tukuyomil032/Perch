@@ -79,6 +79,22 @@ protocol IslandSurfaceDriving: AnyObject {
     /// visible window in place.
     func applySyntheticNotchWidth(_ width: CGFloat)
 
+    /// `true` while the surface has a window on screen. Hosts use it to notice that the
+    /// island has vanished — the surface can fail to build one (no screen resolves) and
+    /// never retries on its own.
+    var hasLiveWindow: Bool { get }
+
+    /// Rebuilds the visible window on the currently-resolved screen, *unconditionally*.
+    ///
+    /// Distinct from ``applyChromeStyle(_:)`` and ``applySyntheticNotchWidth(_:)``, which
+    /// only rebuild when the value they set actually changes. That difference is the whole
+    /// reason this exists: moving the island to a different display changes neither the
+    /// chrome style nor the notch width, so re-applying one of those to force a move is a
+    /// silent no-op — the surface stays exactly where it was.
+    ///
+    /// No-op while hidden: there is no visible window to rebuild.
+    func relocate()
+
     /// Paints the chrome's backdrop for the current transparency setting. The decision
     /// (which material, how dark) stays in `NookBridge.makeBackdrop(reduceTransparency:)`;
     /// only the assignment lives in the conformance, so the Kit type never reaches a
@@ -105,6 +121,15 @@ extension Nook: IslandSurfaceDriving {
 
     func applySyntheticNotchWidth(_ width: CGFloat) {
         syntheticNotchWidth = width
+    }
+
+    /// `rebuildVisibleWindow(on:)` is `internal` to the vendored module, which this
+    /// extension is inside — so the seam needs no change to `Vendor` source. It re-resolves
+    /// the screen through `resolvedScreen`, which is what makes this a *move* rather than
+    /// just a rebuild in place.
+    func relocate() {
+        guard state != .hidden, let screen = resolvedScreen else { return }
+        rebuildVisibleWindow(on: screen)
     }
 
     var skipsIntermediateHides: Bool {

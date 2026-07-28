@@ -73,14 +73,15 @@ final class IslandHost {
         // `ScreenLocator`'s fallback chain instead of stranding the island.
         bridge.screenProvider = { ScreenLocator.screen(matching: Defaults[.islandScreenPreference]) }
 
+        installWindowConfigurator()
         connectStateFlow()
         applyInitialConfiguration()
         observePreferences()
         observeReduceTransparency()
         observeScreenChanges()
 
-        // The surface starts hidden; nothing shows it implicitly. `attachTapTarget` runs
-        // off the arrival callback once this lands.
+        // The surface starts hidden; nothing shows it implicitly. The click recognizer is
+        // installed by the configurator when this produces a window.
         Task { await bridge.compact() }
     }
 
@@ -109,16 +110,8 @@ final class IslandHost {
         appState.driveSurfaceExpand = { [weak bridge] in await bridge?.expand() }
         appState.driveSurfaceCompact = { [weak bridge] in await bridge?.compact() }
 
-        // Each transition replaces the window, so the click target is re-attached on
-        // arrival as well as being applied up front.
-        bridge.onSurfaceExpanded = { [weak self] in
-            self?.appState.applySurfaceExpanded()
-            self?.attachTapTarget()
-        }
-        bridge.onSurfaceCompacted = { [weak self] in
-            self?.appState.applySurfaceCompacted()
-            self?.attachTapTarget()
-        }
+        bridge.onSurfaceExpanded = { [weak appState] in appState?.applySurfaceExpanded() }
+        bridge.onSurfaceCompacted = { [weak appState] in appState?.applySurfaceCompacted() }
         // Kept distinct from compacted on purpose — hidden means no pill and no window,
         // which is a different thing for `AppState` to believe than "showing the pill".
         bridge.onSurfaceHidden = { [weak self] in self?.appState.applySurfaceHidden() }
@@ -144,7 +137,6 @@ final class IslandHost {
         chromeStyleObservation = Defaults.observe(.islandChromeStyle) { [weak self] change in
             Task { @MainActor [weak self] in
                 self?.bridge.applyChromeStyle(change.newValue)
-                self?.attachTapTarget()
             }
         }
 
@@ -156,13 +148,14 @@ final class IslandHost {
             }
         }
 
-        // `screenProvider` reads the preference on each call, so the surface only needs a
-        // nudge to move: re-applying the current chrome style rebuilds the window on the
-        // newly-resolved screen.
+        // `screenProvider` reads the preference on each call, so the surface only needs to
+        // be told to rebuild. It must be `relocate()`, not a re-application of the current
+        // chrome style: the surface rebuilds on a style change only when the style actually
+        // *changes*, so re-applying the same value is a silent no-op and the island would
+        // never move.
         screenPreferenceObservation = Defaults.observe(.islandScreenPreference) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.bridge.applyChromeStyle(Defaults[.islandChromeStyle])
-                self?.attachTapTarget()
+                self?.bridge.relocate()
             }
         }
     }
@@ -187,15 +180,21 @@ final class IslandHost {
     /// returns no hit outside the visible shape, so clicks on the transparent area still
     /// pass through to whatever is behind — the recognizer only ever sees clicks on the
     /// chrome itself.
-    private func attachTapTarget() {
-        let attached = bridge.configureWindow { [tapRecognizer] window in
-            guard let contentView = window.contentView else { return }
-            guard tapRecognizer.view !== contentView else { return }
+    /// Registered once, as the bridge's per-window configurator, rather than called from
+    /// each site that can produce a new window. Enumerating those sites by hand is what an
+    /// earlier version did, and it is a losing game: both transition callbacks, both
+    /// `apply…` rebuilds, `relocate()`, and the screen-parameter observer all qualify, a
+    /// missed one leaves the recognizer on a dead panel — a *silently unclickable island* —
+    /// and nothing anywhere reports it. Hanging it off `applyWindowChrome()`, which the
+    /// bridge already calls from every one of those paths, makes "forgot to re-attach"
+    /// unrepresentable.
+    private func installWindowConfigurator() {
+        bridge.windowConfigurator = { [tapRecognizer] window in
+            guard let contentView = window.contentView,
+                tapRecognizer.view !== contentView
+            else { return }
             tapRecognizer.view?.removeGestureRecognizer(tapRecognizer)
             contentView.addGestureRecognizer(tapRecognizer)
-        }
-        if !attached {
-            logger.debug("click target not attached — no live surface window")
         }
     }
 
@@ -203,10 +202,24 @@ final class IslandHost {
         appState.toggleExpansion()
     }
 
+    /// Brings the island back if it has no window.
+    ///
+    /// `Nook.compact(on:)` returns silently when no screen resolves, and the surface's own
+    /// screen observer only tears the window *down* while hidden — it never restores it. So
+    /// a launch that raced display configuration, or a moment with no attached display,
+    /// would otherwise leave the island gone until the app is relaunched. The old
+    /// `IslandWindowController` force-unwrapped `NSScreen.main` here: it could crash, but it
+    /// could not silently disappear.
+    private func restoreSurfaceIfLost() {
+        guard !bridge.hasLiveWindow else { return }
+        logger.info("island has no window — re-showing")
+        Task { await bridge.compact() }
+    }
+
     /// A display change rebuilds the window without a state transition, so neither
-    /// `onSurfaceExpanded` nor `onSurfaceCompacted` fires and the recognizer would be left
-    /// on a window that no longer exists. Deferred a hop so it runs after the surface's own
-    /// observer has replaced the window.
+    /// transition callback fires. The bridge re-applies chrome (and with it this host's
+    /// configurator) on that notification already; what is left for the host is noticing
+    /// that the island has no window at all and bringing it back.
     private func observeScreenChanges() {
         screenChangeObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -215,7 +228,7 @@ final class IslandHost {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 await Task.yield()
-                self?.attachTapTarget()
+                self?.restoreSurfaceIfLost()
             }
         }
     }

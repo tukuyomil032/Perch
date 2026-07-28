@@ -185,6 +185,17 @@ final class NookBridge {
         sawHideWhileDriving = false
         await body()
         isDrivingTransition = false
+
+        // Unconditionally, not only from the transition callbacks. A transition that keeps
+        // the surface in the *same* state but resolves to a different screen still builds a
+        // brand-new panel — and the surface's state publisher drops duplicates, so neither
+        // `onCompact` nor `onExpand` fires to announce it. That path is reachable: with the
+        // display preference on `.main`, the resolved screen follows the active menu bar, so
+        // simply focusing an app on another display changes it. Without this, the fresh
+        // panel would keep the vendored defaults — re-enabling `.canJoinAllSpaces` for a
+        // user who turned it off, and stranding the host's window state on the dead panel.
+        applyWindowChrome()
+
         if sawHideWhileDriving {
             sawHideWhileDriving = false
             onSurfaceHidden?()
@@ -215,21 +226,28 @@ final class NookBridge {
         surface.applyBackdrop(reduceTransparency: reduceTransparency)
     }
 
-    /// Applies a host-supplied tweak to the surface's current window, returning `false`
-    /// when there is no live window to apply it to.
-    ///
-    /// Distinct from ``applyWindowChrome()``, which applies the fixed set of settings *this
-    /// bridge* is responsible for restoring. This is the open seam for settings the bridge
-    /// has no opinion about — currently the click recognizer `IslandHost` attaches, which
-    /// has to live on the window because the notch gap between Perch's two compact slots is
-    /// drawn by the vendored view and cannot carry a SwiftUI gesture.
-    ///
-    /// Callers must re-apply after anything that rebuilds the window, for the same reason
-    /// window chrome is re-applied: the surface builds a fresh panel each time.
-    @discardableResult
-    func configureWindow(_ apply: (NSWindow) -> Void) -> Bool {
-        surface.configureWindow(apply)
+    /// `true` while the surface has a window on screen. See ``IslandSurfaceDriving/hasLiveWindow``.
+    var hasLiveWindow: Bool { surface.hasLiveWindow }
+
+    /// Rebuilds the visible window on the currently-resolved screen. Use this to *move* the
+    /// island — re-applying the current chrome style does not, because the surface only
+    /// rebuilds when the style value changes.
+    func relocate() {
+        surface.relocate()
+        applyWindowChrome()
     }
+
+    /// Host-supplied per-window setup, re-applied by ``applyWindowChrome()`` every time a
+    /// new panel appears.
+    ///
+    /// This exists so hosts do not have to enumerate "every path that produces a new
+    /// window" for themselves. That list is long and easy to get wrong — both transition
+    /// callbacks, both `apply…` rebuilds, `relocate()`, and the screen-parameter observer —
+    /// and a missed entry leaves a host's window state stranded on a panel that is no longer
+    /// on screen, with no error anywhere. `IslandHost` uses it for the click recognizer,
+    /// which has to live on the window because the notch gap between Perch's two compact
+    /// slots is drawn by the vendored view and cannot carry a SwiftUI gesture.
+    var windowConfigurator: (@MainActor (NSWindow) -> Void)?
 
     // MARK: - Surface callbacks
 
@@ -239,6 +257,17 @@ final class NookBridge {
         isSurfaceExpanded = true
         applyWindowChrome()
         onSurfaceExpanded?()
+
+        // Auto-collapse is otherwise armed only by a hover *transition*, and the hover
+        // publisher drops duplicates — so a surface that expands while the cursor is
+        // already elsewhere never sees `true → false` and would stay open forever. Today
+        // the only way to expand is clicking the island, which guarantees the cursor is on
+        // it; the moment a menu-bar item, a keyboard shortcut or a notification can expand
+        // it, that guarantee is gone. Arming here costs nothing in the hover case, because
+        // `hoverDidChange(true)` cancels it immediately.
+        if !surface.isHovering {
+            scheduleCollapse()
+        }
     }
 
     private func surfaceDidCompact() {
@@ -303,6 +332,7 @@ final class NookBridge {
             window.collectionBehavior = behavior
             window.isOpaque = false
             window.isReleasedWhenClosed = false
+            windowConfigurator?(window)
         }
         if !applied {
             logger.debug("window chrome skipped — no live surface window")
@@ -330,6 +360,10 @@ final class NookBridge {
             // waited (the surface was hidden, or compacted by something else).
             guard !Task.isCancelled, let self, self.isSurfaceExpanded else { return }
             await self.surface.compact(on: nil)
+            // Same reason as the unconditional pass in `drive(_:)`: this collapse can land
+            // on a newly-resolved screen and produce a fresh panel without a state change
+            // to announce it. This path bypasses `drive(_:)`, so it needs its own.
+            self.applyWindowChrome()
         }
     }
 
