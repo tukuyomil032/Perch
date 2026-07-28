@@ -404,9 +404,31 @@ PresetStore / WidgetRegistry）は全部引き継ぐ。
 - [x] A1: macOS 15 Sequoia 引き上げ（pbxproj 4箇所 + CLAUDE.md + README）。Homebrew Cask は別リポジトリなので配布時に対応
 - [x] A2: `perch/Vendor/NookSurface/` に **21ファイル / 2,647行**取り込み（プランの見積 19/2,617 は誤り、実測が正）+ THIRD_PARTY_NOTICES.md に帰属追記
 - [x] A3: vendored の改変3点 — 疑似ノッチ幅を可変化（既定 195pt）/ `notchSize`・`menubarHeight` を public 化 / `NookHoverBehavior.expandsOnHover` 追加 + 改変を守るテスト
-- [ ] A4: `NookBridge` / `IslandSurfaceDriving` / `IslandChromeStyle` / `WidgetSizeMetrics` / `ScreenLocator` 追加 + テスト
+- [x] A4: `NookBridge` / `IslandSurfaceDriving` / `IslandChromeStyle` / `WidgetSizeMetrics` / `ScreenLocator` 追加 + テスト（3タスクに分割して実施。詳細は下記）
 - [ ] A5: `perch/Island/` 旧7ファイル削除 + AppState 縮退 + UI シェル層削除
 - [ ] A6: 既存テストの改廃（`IslandGeometryTests` / `NotchDetectorTests` 全削除、`AppStateTests` / `IslandPresentationTests` 改廃）
+
+#### A4 の内訳（サブエージェント駆動 + 二段レビューで実施）
+
+| # | 内容 | コミット |
+|---|---|---|
+| A4a | `IslandChromeStyle`（2値化 + `migrating(fromLegacy:)` + `nookPresentation`）/ `WidgetSizeMetrics`（`[WidgetSize: CGFloat]` 重複の一本化） | `b9b6aef` `aeb29b9` |
+| A4b | `ScreenLocator`（OpenNook `NookScreenLocator` を Apache-2.0 のままコピー、`NookDisplayStore` は Defaults と二重管理になるので持ち込まず） | `0543157` `8293663` `8fb3d6c` |
+| A4c | `IslandSurfaceDriving`（Kit 型を含まない seam）/ `NookBridge`（auto-collapse + window chrome 再適用）+ `FakeIslandSurface` | `10cf27e` `a7314d6` `f8e20b0` `2c3b6bf` `86ef617` |
+
+#### A4c のレビューで潰した実バグ（4ラウンド / 指摘18件）
+
+vendored の状態遷移を `onExpand`/`onCompact` の2本だけで捉えると穴が空く、というのが共通の根。
+
+| # | 症状 | 原因 |
+|---|---|---|
+| C1 | `showInAllSpaces = false` なのにディスプレイ抜き差しで島が全 Space に出る | `observeScreenParameters` → `rebuildVisibleWindow` は `state` を変えないので `onExpand`/`onCompact` が来ず、`NookPanel` が無条件で入れる `.canJoinAllSpaces` が復活する。bridge 側で `didChangeScreenParametersNotification` を購読して二重適用 |
+| C2 | 島を hide した数秒後に compact ピルがゾンビ復活 | `state = .hidden` は `onHide` を呼ぶ（`onCompact` ではない）。未購読だと `isSurfaceExpanded` が `true` のまま残り、直後の `isHovering = false` が collapse を予約 → `compact()` が窓を作り直す |
+| C3 | compact コンテンツ両側無効時に `onSurfaceCompacted` が永久に来ない | `_compact` が `.compact` を経由せず `_hide` に落ちる。`onSurfaceHidden` を別イベントとして新設（hidden を compact に丸めない） |
+| I4 | 表示ディスプレイ選択が丸ごと死ぬ | `screenProvider` seam が無く常に `NSScreen.main` フォールバック |
+| N1 | ピル→カード展開のたびに島が一瞬消える | `skipIntermediateHides` は既定 `false` で、conversion が `.hidden` を経由する。この中間 hide を終端 hide として報告していた |
+
+**得られた教訓**: N1 の一次修正は「hide 報告を1ホップ遅延して後続遷移で取り消す」だったが、実物の中間 hide は 250ms（`settleAnimationDuration * 0.625`）MainActor を手放すので**遅延方式は構造的に機能しない**。fake が dip を同期実行していたためテストだけが緑になっていた。fake に `await Task.yield()` を入れた瞬間に fail/pass が両方出てレースが可視化され、`drive(_:)` による**状態ベース**（`await body()` の戻りで判定）に作り直して解決。**fake の忠実度が足りないと、実物に効かない防御が緑のテストで保証されているように見える。**
 
 #### A0〜A3 で判明した追加事項
 
