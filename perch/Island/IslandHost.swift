@@ -81,9 +81,16 @@ final class IslandHost {
 
     /// Connects the two directions. `AppState` gets closures that drive the surface;
     /// the surface gets callbacks that report where it actually arrived.
+    ///
+    /// The bridge is captured weakly on the way down. The surface's content views hold
+    /// `AppState` strongly (they are handed it via `.environment`), so a strong capture
+    /// here would close the loop `AppState` → bridge → surface → content → `AppState`.
+    /// Both ends live for the lifetime of the app today, so nothing would actually leak —
+    /// but the cycle would quietly outlive any future change that made the island
+    /// tear-downable, which is a worse bug to find later than to prevent now.
     private func connectStateFlow() {
-        appState.driveSurfaceExpand = { [bridge] in await bridge.expand() }
-        appState.driveSurfaceCompact = { [bridge] in await bridge.compact() }
+        appState.driveSurfaceExpand = { [weak bridge] in await bridge?.expand() }
+        appState.driveSurfaceCompact = { [weak bridge] in await bridge?.compact() }
 
         bridge.onSurfaceExpanded = { [weak appState] in appState?.applySurfaceExpanded() }
         bridge.onSurfaceCompacted = { [weak appState] in appState?.applySurfaceCompacted() }
