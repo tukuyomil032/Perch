@@ -21,8 +21,6 @@ final class AppState {
 
     var activeCard: IslandCard = .idle
     var latestError: String?
-    var isPhysicalNotch: Bool = false
-    var compactWindowSize: CGSize = CGSize(width: 150, height: 34)
 
     let presetStore = PresetStore()
     let widgetRegistry = WidgetRegistry()
@@ -57,21 +55,6 @@ final class AppState {
     var isExpanded: Bool {
         presentation.expandsSurface
     }
-
-    var expandedWindowHeight: CGFloat {
-        guard let preset = presetStore.activePreset else { return 300 }
-        let widgetTotal = preset.widgets.map { WidgetSizeMetrics.height(for: $0.size) }.reduce(0, +)
-        let hasSidebar = preset.widgets.contains { $0.position != .main }
-        return 40 + widgetTotal + (hasSidebar ? 1 : 0)
-    }
-
-    var compactWindowWidth: CGFloat {
-        let isMusicActive = nowPlayingManager.currentState != nil
-        let isAIActive = aiUsageStore.activeUsage != nil
-        return (isMusicActive && isAIActive) ? 190 : 170
-    }
-
-    var compactWindowHeight: CGFloat { 34 }
 
     // MARK: - Requests
 

@@ -105,11 +105,11 @@ final class NookBridge {
         // shape instead of a window rectangle, and needs no input monitoring at all.
         surface.staysExpandedOnHoverExit = true
 
-        // Preserves `IslandWindowController`'s display choice (built-in display first,
-        // system main as fallback) so vendoring does not silently move the island onto a
-        // different monitor. A5 replaces this with the persisted `ScreenPreference`
-        // resolved through `ScreenLocator`, at which point `NotchDetector` can go.
-        surface.screenProvider = { NSScreen.perchPreferredScreen }
+        // Preserves the old `IslandWindowController` display choice — built-in display
+        // first, system main as fallback — which is exactly `ScreenPreference.builtIn`'s
+        // resolution order. `IslandHost` overrides this with the *persisted* preference;
+        // the default is what a bridge built without one (notably in tests) resolves to.
+        surface.screenProvider = { ScreenLocator.screen(matching: .builtIn) }
 
         surface.onExpand = { [weak self] in self?.surfaceDidExpand() }
         surface.onCompact = { [weak self] in self?.surfaceDidCompact() }
