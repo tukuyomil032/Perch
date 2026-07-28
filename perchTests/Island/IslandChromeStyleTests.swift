@@ -14,19 +14,24 @@ struct IslandChromeStyleTests {
         #expect(IslandChromeStyle.floating.nookPresentation == .floating)
     }
 
+    // The three legacy raw values are spelled as string literals because
+    // `NotchSimulationMode` no longer exists — A5 deleted it. That is exactly what makes
+    // these assertions worth keeping: they now pin the *on-disk* strings shipped builds
+    // wrote into `UserDefaults`, which no amount of Swift-side refactoring can change.
+
     @Test("legacy .auto migrates to .notch")
     func legacyAutoMigratesToNotch() {
-        #expect(IslandChromeStyle.migrating(fromLegacy: NotchSimulationMode.auto.rawValue) == .notch)
+        #expect(IslandChromeStyle.migrating(fromLegacy: "auto") == .notch)
     }
 
     @Test("legacy .forceNotched migrates to .notch")
     func legacyForceNotchedMigratesToNotch() {
-        #expect(IslandChromeStyle.migrating(fromLegacy: NotchSimulationMode.forceNotched.rawValue) == .notch)
+        #expect(IslandChromeStyle.migrating(fromLegacy: "forceNotched") == .notch)
     }
 
     @Test("legacy .forceNonNotched migrates to .floating")
     func legacyForceNonNotchedMigratesToFloating() {
-        #expect(IslandChromeStyle.migrating(fromLegacy: NotchSimulationMode.forceNonNotched.rawValue) == .floating)
+        #expect(IslandChromeStyle.migrating(fromLegacy: "forceNonNotched") == .floating)
     }
 
     @Test("unrecognized legacy raw value falls back to .notch")

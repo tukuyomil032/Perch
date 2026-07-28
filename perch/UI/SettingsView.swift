@@ -44,30 +44,14 @@ private struct GeneralTab: View {
 
 private struct IslandTab: View {
     @Binding var autoCollapseDelay: Double
-    @Default(.pillSize) private var pillSize
-    @Default(.pillBackgroundStyle) private var pillBgStyle
-    @Default(.notchSimulationMode) private var notchSimulationMode
+    @Default(.islandChromeStyle) private var islandChromeStyle
 
     var body: some View {
         Form {
-            Picker(L10n.string("settings.pill_size"), selection: $pillSize) {
-                ForEach(PillSizePreset.allCases, id: \.self) {
-                    Text($0.displayName).tag($0)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            Picker("Pill Background", selection: $pillBgStyle) {
-                ForEach(PillBackgroundStyle.allCases, id: \.self) {
-                    Text($0.displayName).tag($0)
-                }
-            }
-            .pickerStyle(.segmented)
-
             Section(L10n.string("settings.island_position")) {
-                Picker(L10n.string("settings.island_position"), selection: $notchSimulationMode) {
-                    ForEach(NotchSimulationMode.allCases, id: \.self) { mode in
-                        Text(L10n.string(mode.displayNameKey)).tag(mode)
+                Picker(L10n.string("settings.island_position"), selection: $islandChromeStyle) {
+                    ForEach(IslandChromeStyle.allCases, id: \.self) { style in
+                        Text(L10n.string(style.displayNameKey)).tag(style)
                     }
                 }
                 .pickerStyle(.segmented)

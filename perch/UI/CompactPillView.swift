@@ -1,16 +1,15 @@
-import Defaults
 import SwiftUI
 
 struct CompactPillView: View {
     @Environment(AppState.self) private var appState
     @State private var isHovered = false
-    @Default(.pillSize) private var pillSize
-    @Default(.pillBackgroundStyle) private var pillBgStyle
 
     private var isMusicActive: Bool { appState.nowPlayingManager.currentState != nil }
     private var isIdle: Bool { !isMusicActive }
-    private var pillW: CGFloat { pillSize.pillWidth }
-    private var pillH: CGFloat { pillSize.pillHeight }
+    // Frozen at the retired `PillSizePreset.medium` dimensions. This whole capsule is
+    // deleted in the same phase, once the vendored surface's chrome takes over.
+    private var pillW: CGFloat { 150 }
+    private var pillH: CGFloat { 34 }
 
     var body: some View {
         singlePillView
@@ -31,8 +30,7 @@ struct CompactPillView: View {
             .frame(width: pillW, height: pillH)
             .background {
                 if #available(macOS 26, *) {
-                    let tint: Color = pillBgStyle == .glassWhite ? .clear : .black
-                    Capsule().fill(.clear).glassEffect(.regular.tint(tint), in: .capsule)
+                    Capsule().fill(.clear).glassEffect(.regular.tint(.black), in: .capsule)
                 } else {
                     Capsule().fill(Color.black)
                     VibrancyBackground()

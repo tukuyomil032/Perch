@@ -17,7 +17,6 @@
 "settings.show_all_spaces" = "全スペースに表示";
 
 /* Settings — Island */
-"settings.pill_size" = "ピルサイズ";
 "settings.auto_collapse" = "自動折りたたみ";
 
 /* Settings — Now Playing */
@@ -32,7 +31,6 @@
 
 /* Settings — Island Position */
 "settings.island_position" = "アイランド位置";
-"settings.island_position.auto" = "自動";
 "settings.island_position.notch" = "ノッチ";
 "settings.island_position.floating" = "フローティング";
 

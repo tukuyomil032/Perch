@@ -34,7 +34,7 @@ final class IslandWindowController: NSWindowController {
             "initializing island window",
             metadata: [
                 "screen": .string(screen.localizedName),
-                "simulationMode": .string(Defaults[.notchSimulationMode].rawValue),
+                "chromeStyle": .string(Defaults[.islandChromeStyle].rawValue),
                 "mode": .string("\(mode)"),
                 "frame": .string("\(frame)"),
             ])
@@ -179,12 +179,10 @@ final class IslandWindowController: NSWindowController {
 
     private static func resolveScreenEnvironment() -> (ScreenEnvironment, NSScreen) {
         let screen = NSScreen.perchPreferredScreen ?? NSScreen.main!
-        switch Defaults[.notchSimulationMode] {
-        case .auto:
-            return (ScreenEnvironment.live(screen: screen), screen)
-        case .forceNotched:
+        switch Defaults[.islandChromeStyle] {
+        case .notch:
             return (ScreenEnvironment.mockNotchedMacBook(frame: screen.frame), screen)
-        case .forceNonNotched:
+        case .floating:
             return (ScreenEnvironment.mockNonNotchedMac(frame: screen.frame), screen)
         }
     }
@@ -197,7 +195,7 @@ final class IslandWindowController: NSWindowController {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
-        notchModeObservation = Defaults.observe(.notchSimulationMode) { [weak self] _ in
+        notchModeObservation = Defaults.observe(.islandChromeStyle) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.scheduleLayoutUpdate()
             }

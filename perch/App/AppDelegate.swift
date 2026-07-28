@@ -14,6 +14,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         logger.info("Perch launching")
         NSApp.setActivationPolicy(.accessory)
 
+        // Before anything reads a preference: carries pre-A5 installs over to the renamed
+        // island keys and drops the retired ones.
+        PreferencesMigration.runAll()
+
         menuBarController = MenuBarController(appState: appState)
         windowController = IslandWindowController(appState: appState)
         mouseMonitor = MouseEventMonitor(
