@@ -19,9 +19,10 @@ import Combine
 /// 3. building a window resets its chrome to the vendored panel's defaults
 ///    (``simulateWindowRebuild()``), so "the bridge re-applied chrome" is observable as a
 ///    property value rather than only as a call count;
-/// 4. `applyChromeStyle` / `applySyntheticNotchWidth` rebuild the window only when the
-///    value actually changes, matching the `didSet` guards on `Nook.presentation` and
-///    `Nook.syntheticNotchWidth`.
+/// 4. `applyChromeStyle` / `applySyntheticNotchWidth` *record* the value unconditionally
+///    but rebuild the window only when it actually changes, matching the `didSet` guards on
+///    the stored `Nook.presentation` and `Nook.syntheticNotchWidth` — including while
+///    hidden, where the assignment still lands even though nothing is rebuilt.
 @MainActor
 final class FakeIslandSurface: IslandSurfaceDriving {
     enum State: Equatable {
@@ -53,6 +54,13 @@ final class FakeIslandSurface: IslandSurfaceDriving {
     private(set) var compactCallCount = 0
     private(set) var configureWindowCallCount = 0
     private(set) var relocateCallCount = 0
+
+    /// How many times a fresh panel was built. Exists because "the bridge re-applied chrome"
+    /// and "the surface rebuilt the window" are otherwise indistinguishable from the window's
+    /// properties alone: `applyWindowChrome()` runs on every path and restores the same
+    /// values a rebuild reset, so a chrome assertion passes whether or not the rebuild
+    /// happened. Tests that mean to pin *rebuild* behaviour must read this instead.
+    private(set) var windowRebuildCount = 0
 
     /// Tracks the values the real surface compares against in its `didSet` guards.
     private var currentChromeStyle: IslandChromeStyle?
@@ -104,17 +112,24 @@ final class FakeIslandSurface: IslandSurfaceDriving {
     /// in tests while doing nothing at all in production.
     func applyChromeStyle(_ style: IslandChromeStyle) {
         appliedChromeStyles.append(style)
-        guard style != currentChromeStyle, state != .hidden else { return }
+        // The vendored property is *stored*: the assignment always lands, and the `didSet`
+        // guard only skips the rebuild. Updating the tracked value unconditionally is what
+        // keeps the hidden case honest — `IslandHost.applyInitialConfiguration()` applies a
+        // style before the surface is ever shown, and a fake that dropped that value would
+        // rebuild on the next identical application while the real surface would not.
+        let changed = style != currentChromeStyle
         currentChromeStyle = style
+        guard changed, state != .hidden else { return }
         simulateWindowRebuild()
     }
 
     /// Same early-return shape as ``applyChromeStyle(_:)`` — `Nook.syntheticNotchWidth`
-    /// carries the identical `didSet` guard.
+    /// carries the identical `didSet` guard, and is likewise a stored property.
     func applySyntheticNotchWidth(_ width: CGFloat) {
         appliedSyntheticNotchWidths.append(width)
-        guard width != currentSyntheticNotchWidth, state != .hidden else { return }
+        let changed = width != currentSyntheticNotchWidth
         currentSyntheticNotchWidth = width
+        guard changed, state != .hidden else { return }
         simulateWindowRebuild()
     }
 
@@ -157,6 +172,7 @@ final class FakeIslandSurface: IslandSurfaceDriving {
     /// presentation change, or a display change. The new panel carries `NookPanel`'s own
     /// defaults, which is precisely why the bridge has to re-apply chrome.
     func simulateWindowRebuild() {
+        windowRebuildCount += 1
         resetWindowToVendoredDefaults()
     }
 

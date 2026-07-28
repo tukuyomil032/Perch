@@ -498,6 +498,11 @@ struct NookBridgeTests {
     /// so it cannot be used to move the island to another display. The real surface guards
     /// `presentation`'s `didSet` on `presentation != oldValue`; `FakeIslandSurface` mirrors
     /// that guard, which is what makes this test able to fail.
+    ///
+    /// Asserted on ``FakeIslandSurface/windowRebuildCount`` rather than on the window's
+    /// chrome: `applyChromeStyle` ends in `applyWindowChrome()` either way, so a chrome
+    /// assertion here would pass even against a fake that rebuilt unconditionally — i.e.
+    /// against the very bug C-1 was.
     @Test("re-applying the same chrome style does not rebuild the window")
     func reapplyingSameChromeStyleIsANoOp() async {
         let surface = FakeIslandSurface()
@@ -505,13 +510,49 @@ struct NookBridgeTests {
         await bridge.compact()
 
         bridge.applyChromeStyle(.notch)
-        surface.window.collectionBehavior = []
-        // Same value again: the surface must not rebuild, so the window we just scribbled
-        // on is still the live one and keeps what the bridge re-applied to it.
+        let rebuildsAfterFirst = surface.windowRebuildCount
         bridge.applyChromeStyle(.notch)
 
         #expect(surface.appliedChromeStyles == [.notch, .notch])
+        #expect(surface.windowRebuildCount == rebuildsAfterFirst)
+        // The window that survived is still the live one, and still carries what the bridge
+        // applied to it.
         #expect(surface.window.collectionBehavior.contains(.stationary))
+    }
+
+    /// Regression: N-1 — the vendored `presentation` is a *stored* property, so a style
+    /// applied while hidden is remembered even though nothing is rebuilt. This is the exact
+    /// order `IslandHost` runs in: `applyInitialConfiguration()` sets the style before the
+    /// `Task { await bridge.compact() }` that first shows the surface.
+    @Test("a chrome style applied while hidden is remembered, so re-applying it later is still a no-op")
+    func chromeStyleAppliedWhileHiddenIsRemembered() async {
+        let surface = FakeIslandSurface()
+        let bridge = makeBridge(surface: surface)
+
+        bridge.applyChromeStyle(.notch)
+        #expect(surface.windowRebuildCount == 0)
+
+        await bridge.compact()
+        let rebuildsAfterShowing = surface.windowRebuildCount
+
+        bridge.applyChromeStyle(.notch)
+
+        #expect(surface.windowRebuildCount == rebuildsAfterShowing)
+    }
+
+    /// Same shape for the pseudo-notch width, which carries the identical `didSet` guard.
+    @Test("re-applying the same synthetic notch width does not rebuild the window")
+    func reapplyingSameSyntheticNotchWidthIsANoOp() async {
+        let surface = FakeIslandSurface()
+        let bridge = makeBridge(surface: surface)
+        await bridge.compact()
+
+        bridge.applySyntheticNotchWidth(240)
+        let rebuildsAfterFirst = surface.windowRebuildCount
+        bridge.applySyntheticNotchWidth(240)
+
+        #expect(surface.appliedSyntheticNotchWidths == [240, 240])
+        #expect(surface.windowRebuildCount == rebuildsAfterFirst)
     }
 
     /// Regression: C-1 — `relocate()` is the seam that *does* rebuild unconditionally,
@@ -521,11 +562,13 @@ struct NookBridgeTests {
         let surface = FakeIslandSurface()
         let bridge = makeBridge(surface: surface)
         await bridge.compact()
+        let rebuildsBefore = surface.windowRebuildCount
 
         bridge.relocate()
         bridge.relocate()
 
         #expect(surface.relocateCallCount == 2)
+        #expect(surface.windowRebuildCount == rebuildsBefore + 2)
     }
 
     /// Regression: C-1 — and it re-applies window chrome, because the rebuild hands back a
