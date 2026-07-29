@@ -47,6 +47,19 @@ final class NookBridge {
     /// §7.2's `HoverGate`), not something a user tunes. Injectable purely for tests.
     private let hoverExpandDelay: Duration
 
+    /// How long the cursor must be off the expanded surface before a hover-driven exit
+    /// collapses it.
+    ///
+    /// Deliberately its own short constant rather than reusing `collapseDelay`
+    /// (`autoCollapseDelay`, 1-10s user-configurable): that preference exists for "I clicked
+    /// this open, walk away, and it should eventually close on its own" — three-plus
+    /// seconds by design. A hover-driven close wants the opposite feel, symmetric with
+    /// `hoverExpandDelay`: the handbook's `HoverGate` example pairs a 300ms open with a
+    /// 100ms close, which is what this defaults to. `collapseDelay` still governs the one
+    /// case with no hover signal to react to at all — `surfaceDidExpand()` arming a
+    /// collapse when the surface expanded with the cursor already elsewhere.
+    private let hoverCollapseDelay: Duration
+
     /// Read on every chrome application, so toggling the preference takes effect on the
     /// next window rebuild. Injectable so tests can assert the "off" case without writing
     /// to the shared `Defaults` suite.
@@ -103,13 +116,15 @@ final class NookBridge {
         },
         showInAllSpaces: @escaping @MainActor () -> Bool = { Defaults[.showInAllSpaces] },
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
-        hoverExpandDelay: Duration = .milliseconds(300)
+        hoverExpandDelay: Duration = .milliseconds(300),
+        hoverCollapseDelay: Duration = .milliseconds(100)
     ) {
         self.surface = surface
         self.collapseDelay = collapseDelay
         self.showInAllSpaces = showInAllSpaces
         self.sleep = sleep
         self.hoverExpandDelay = hoverExpandDelay
+        self.hoverCollapseDelay = hoverCollapseDelay
 
         // Convert straight between compact and expanded. Left at the vendored default the
         // surface dips through `.hidden` mid-conversion — visible as a blink, and reported
@@ -290,8 +305,12 @@ final class NookBridge {
         // it; the moment a menu-bar item, a keyboard shortcut or a notification can expand
         // it, that guarantee is gone. Arming here costs nothing in the hover case, because
         // `hoverDidChange(true)` cancels it immediately.
+        //
+        // Uses `collapseDelay()` (the user-configurable `autoCollapseDelay`), not
+        // `hoverCollapseDelay` — there is no hover signal at all in this branch, so the
+        // short hover-symmetric delay would not mean anything here.
         if !surface.isHovering {
-            scheduleCollapse()
+            scheduleCollapse(after: collapseDelay())
         }
     }
 
@@ -386,7 +405,7 @@ final class NookBridge {
         } else {
             cancelScheduledExpand()
             if isSurfaceExpanded {
-                scheduleCollapse()
+                scheduleCollapse(after: hoverCollapseDelay)
             }
         }
     }
@@ -423,9 +442,11 @@ final class NookBridge {
         expandTask = nil
     }
 
-    private func scheduleCollapse() {
+    /// Schedules a collapse after `delay`. Two distinct callers pass two distinct delays —
+    /// see the doc comments on `hoverCollapseDelay` and `collapseDelay` for why a single
+    /// shared delay would be wrong for one of them.
+    private func scheduleCollapse(after delay: Duration) {
         collapseTask?.cancel()
-        let delay = collapseDelay()
         collapseTask = Task { [weak self] in
             try? await self?.sleep(delay)
             // `isSurfaceExpanded` is re-checked *after* the wait, not just before it:

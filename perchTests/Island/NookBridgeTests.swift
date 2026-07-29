@@ -42,14 +42,16 @@ struct NookBridgeTests {
         sleeper: ManualSleeper = ManualSleeper(),
         delay: Duration = .seconds(3),
         showInAllSpaces: Bool = true,
-        hoverExpandDelay: Duration = .milliseconds(300)
+        hoverExpandDelay: Duration = .milliseconds(300),
+        hoverCollapseDelay: Duration = .milliseconds(100)
     ) -> NookBridge {
         NookBridge(
             surface: surface,
             collapseDelay: { delay },
             showInAllSpaces: { showInAllSpaces },
             sleep: { duration in await sleeper.sleep(duration) },
-            hoverExpandDelay: hoverExpandDelay
+            hoverExpandDelay: hoverExpandDelay,
+            hoverCollapseDelay: hoverCollapseDelay
         )
     }
 
@@ -377,10 +379,38 @@ struct NookBridgeTests {
 
         // Two sleeps land here now, not one: hovering-in before the click also schedules
         // (and, once the click expands first, abandons) a hover-expand — see
-        // `hoverExitCancelsScheduledExpand` for that path in isolation.
+        // `hoverExitCancelsScheduledExpand` for that path in isolation. The second sleep is
+        // `hoverCollapseDelay` (100ms), not the injected `delay` (3s) — the hover-out branch
+        // uses its own short constant, distinct from `collapseDelay()`.
         #expect(sleeper.sleepCallCount == 2)
-        #expect(sleeper.requestedDurations == [.milliseconds(300), .seconds(3)])
+        #expect(sleeper.requestedDurations == [.milliseconds(300), .milliseconds(100)])
         #expect(surface.compactCallCount == 0)
+
+        sleeper.releaseAll()
+        await settle()
+        #expect(surface.compactCallCount == 1)
+        #expect(surface.state == .compact)
+    }
+
+    @Test(
+        "hover-exit collapse uses hoverCollapseDelay, not the user-configurable autoCollapseDelay"
+    )
+    func hoverExitUsesItsOwnShortDelayNotAutoCollapseDelay() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        // A long autoCollapseDelay and a short, distinct hoverCollapseDelay — if the
+        // hover-exit path used the former by mistake, this test would hang forever waiting
+        // for a 10s sleep call that never happens.
+        let bridge = makeBridge(
+            surface: surface, sleeper: sleeper, delay: .seconds(10),
+            hoverCollapseDelay: .milliseconds(50))
+
+        surface.setHovering(true)
+        await bridge.expand()
+        surface.setHovering(false)
+        await settle()
+
+        #expect(sleeper.requestedDurations.last == .milliseconds(50))
 
         sleeper.releaseAll()
         await settle()
@@ -704,6 +734,9 @@ struct NookBridgeTests {
         await settle()
 
         #expect(sleeper.sleepCallCount == 1)
+        // The no-hover arm uses `collapseDelay()` (the injected 3s), not the short
+        // `hoverCollapseDelay` — there is no hover signal here for the short one to react to.
+        #expect(sleeper.requestedDurations == [.seconds(3)])
 
         sleeper.releaseAll()
         await settle()
