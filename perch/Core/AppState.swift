@@ -40,6 +40,7 @@ final class AppState {
 
     let nowPlayingManager = NowPlayingManager()
     let aiUsageStore = AIUsageStore()
+    let systemStatusMonitor = SystemStatusMonitor()
 
     private let logger = Logger(label: "com.tukuyomi032.perch.AppState")
 
