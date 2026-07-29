@@ -318,7 +318,8 @@ struct NookBridgeTests {
         sleeper.releaseAll()
         await settle()
         #expect(surface.expandCallCount == 0)
-        #expect(surface.state == .compact)
+        // Never transitioned, so the fake stays at its default rather than becoming compact.
+        #expect(surface.state == .hidden)
         _ = bridge
     }
 
@@ -374,8 +375,11 @@ struct NookBridgeTests {
         surface.setHovering(false)
         await settle()
 
-        #expect(sleeper.sleepCallCount == 1)
-        #expect(sleeper.requestedDurations == [.seconds(3)])
+        // Two sleeps land here now, not one: hovering-in before the click also schedules
+        // (and, once the click expands first, abandons) a hover-expand — see
+        // `hoverExitCancelsScheduledExpand` for that path in isolation.
+        #expect(sleeper.sleepCallCount == 2)
+        #expect(sleeper.requestedDurations == [.milliseconds(300), .seconds(3)])
         #expect(surface.compactCallCount == 0)
 
         sleeper.releaseAll()
@@ -414,7 +418,9 @@ struct NookBridgeTests {
         surface.setHovering(false)
         await settle()
 
-        #expect(sleeper.sleepCallCount == 0)
+        // The hover-in still schedules (and the hover-out then cancels) a hover-expand
+        // attempt — that sleep call is expected. What must stay at zero is any *collapse*.
+        #expect(sleeper.sleepCallCount == 1)
         #expect(surface.compactCallCount == 0)
         _ = bridge
     }
@@ -499,7 +505,9 @@ struct NookBridgeTests {
         await settle()
 
         #expect(hiddenCount == 1)
-        #expect(sleeper.sleepCallCount == 0)
+        // The hover-in's hover-expand attempt still made its one sleep call before the
+        // click superseded it; what matters is that it does not turn into a second expand.
+        #expect(sleeper.sleepCallCount == 1)
 
         sleeper.releaseAll()
         await settle()
@@ -519,7 +527,9 @@ struct NookBridgeTests {
         await bridge.expand()
         surface.setHovering(false)
         await settle()
-        #expect(sleeper.sleepCallCount == 1)
+        // One sleep from the hover-in's (soon abandoned) hover-expand attempt, one from the
+        // collapse the hover-out armed.
+        #expect(sleeper.sleepCallCount == 2)
 
         await surface.simulateHide()
         sleeper.releaseAll()
@@ -554,11 +564,14 @@ struct NookBridgeTests {
         #expect(surface.state == .hidden)
 
         // And the bridge's own notion of expansion followed, so a later hover exit does
-        // not schedule a collapse against a surface that is already gone.
+        // not schedule a collapse — nor does a later hover-*in* schedule an expand — against
+        // a surface that is already gone: `isSurfaceHidden` short-circuits `scheduleExpand()`
+        // before it ever calls `sleep`, so the count below stays at the one call the
+        // hover-in made before the surface hid.
         surface.setHovering(true)
         surface.setHovering(false)
         await settle()
-        #expect(sleeper.sleepCallCount == 0)
+        #expect(sleeper.sleepCallCount == 1)
     }
 
     // MARK: - Window-rebuild paths (A5 review: C-1 / I-2 / I-4 / M-7)

@@ -81,6 +81,14 @@ final class NookBridge {
     private var collapseTask: Task<Void, Never>?
     private var expandTask: Task<Void, Never>?
 
+    /// `true` once the surface has gone away entirely (``surfaceDidHide()``), cleared by
+    /// any transition out of it. Distinct from `!isSurfaceExpanded`, which is equally true
+    /// while compact — `scheduleExpand()` needs to tell "compact, hover away to open" from
+    /// "hidden, nothing to hover" apart, so a stray hover-expand timer never resurrects an
+    /// island the user dismissed (the same principle `surfaceDidHide()` already applies to
+    /// the collapse timer above).
+    private var isSurfaceHidden = false
+
     /// Set while a bridge-initiated `expand()` / `compact()` is in flight. A hide seen in
     /// that window is not necessarily the surface going away — see ``drive(_:)``.
     private var isDrivingTransition = false
@@ -267,6 +275,11 @@ final class NookBridge {
         // Arriving somewhere retroactively makes any hide on the way here a dip.
         sawHideWhileDriving = false
         isSurfaceExpanded = true
+        isSurfaceHidden = false
+        // A pending hover-expand (if this arrival came from a click rather than the timer
+        // itself firing) is now moot — `scheduleExpand()`'s own guard would no-op it
+        // anyway, but cancelling outright is cheaper than leaving a dead Task to unwind.
+        cancelScheduledExpand()
         applyWindowChrome()
         onSurfaceExpanded?()
 
@@ -285,7 +298,12 @@ final class NookBridge {
     private func surfaceDidCompact() {
         sawHideWhileDriving = false
         isSurfaceExpanded = false
+        isSurfaceHidden = false
         cancelScheduledCollapse()
+        // A hover-expand can still be pending here (the cursor never left, but something
+        // else — an explicit `compact()` — closed the island). Without this, that timer
+        // would fire later and silently reopen an island the user just closed.
+        cancelScheduledExpand()
         applyWindowChrome()
         onSurfaceCompacted?()
     }
@@ -298,7 +316,15 @@ final class NookBridge {
         // dismissed. Safe to do eagerly, because every transition *out* of hidden sets it
         // again.
         isSurfaceExpanded = false
+        isSurfaceHidden = true
         cancelScheduledCollapse()
+        // Same reasoning as `surfaceDidCompact()`, and more urgent here: a hover-expand
+        // scheduled before the surface hid would otherwise fire later and resurrect an
+        // island the user dismissed entirely — a "zombie expand" mirroring the "zombie
+        // collapse" this bridge already guards against below. `isSurfaceHidden` on top of
+        // cancelling the in-flight task closes the gap where the *next* hover-in schedules
+        // a brand new expand while the surface is still gone.
+        cancelScheduledExpand()
 
         // Reporting it upward is another matter. Inside a transition this bridge drove,
         // the hide may be the mid-conversion dip rather than the surface going away, so
@@ -373,7 +399,10 @@ final class NookBridge {
     /// boundaries. `IslandHost` deliberately never includes `.expandsOnHover` in
     /// `hoverBehavior`; this timer is what actually drives hover-to-expand instead.
     private func scheduleExpand() {
-        guard !isSurfaceExpanded else { return }
+        // `isSurfaceHidden` stops a hover from resurrecting an island the user dismissed —
+        // there is no visible pill to have hovered in the first place once the surface is
+        // gone, so scheduling an expand here would only matter for a stray publisher event.
+        guard !isSurfaceExpanded, !isSurfaceHidden else { return }
         expandTask?.cancel()
         expandTask = Task { [weak self] in
             guard let self else { return }
@@ -382,7 +411,9 @@ final class NookBridge {
             // its own conditions: cancellation does not reach into an in-flight `expand()`,
             // so the state check is what stops an expand whose reason (the cursor still
             // being on the surface) disappeared while it waited.
-            guard !Task.isCancelled, !self.isSurfaceExpanded, self.surface.isHovering else { return }
+            guard !Task.isCancelled, !self.isSurfaceExpanded, !self.isSurfaceHidden,
+                self.surface.isHovering
+            else { return }
             await self.expand()
         }
     }
