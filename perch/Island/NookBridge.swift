@@ -35,9 +35,17 @@ final class NookBridge {
     /// not depend on (or mutate) the shared `Defaults` suite.
     private let collapseDelay: @MainActor () -> Duration
 
-    /// How the scheduled collapse waits. Injectable so tests control the release point
-    /// exactly instead of racing a wall-clock sleep.
+    /// How the scheduled collapse (and, since Phase B, the scheduled hover-expand) waits.
+    /// Injectable so tests control the release point exactly instead of racing a
+    /// wall-clock sleep.
     private let sleep: @Sendable (Duration) async throws -> Void
+
+    /// How long the cursor must stay on the compact pill before hovering expands it.
+    ///
+    /// Deliberately not a `Defaults`-backed preference like `collapseDelay` — this is a
+    /// fixed hysteresis constant (see docs/SwiftUI-Animation-Architecture-Handbook-ja.md
+    /// §7.2's `HoverGate`), not something a user tunes. Injectable purely for tests.
+    private let hoverExpandDelay: Duration
 
     /// Read on every chrome application, so toggling the preference takes effect on the
     /// next window rebuild. Injectable so tests can assert the "off" case without writing
@@ -71,6 +79,7 @@ final class NookBridge {
 
     private var isSurfaceExpanded = false
     private var collapseTask: Task<Void, Never>?
+    private var expandTask: Task<Void, Never>?
 
     /// Set while a bridge-initiated `expand()` / `compact()` is in flight. A hide seen in
     /// that window is not necessarily the surface going away — see ``drive(_:)``.
@@ -85,12 +94,14 @@ final class NookBridge {
             NookBridge.collapseDelay(forConfiguredSeconds: Defaults[.autoCollapseDelay])
         },
         showInAllSpaces: @escaping @MainActor () -> Bool = { Defaults[.showInAllSpaces] },
-        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+        hoverExpandDelay: Duration = .milliseconds(300)
     ) {
         self.surface = surface
         self.collapseDelay = collapseDelay
         self.showInAllSpaces = showInAllSpaces
         self.sleep = sleep
+        self.hoverExpandDelay = hoverExpandDelay
 
         // Convert straight between compact and expanded. Left at the vendored default the
         // surface dips through `.hidden` mid-conversion — visible as a blink, and reported
@@ -147,6 +158,7 @@ final class NookBridge {
 
     deinit {
         collapseTask?.cancel()
+        expandTask?.cancel()
     }
 
     // MARK: - Driving the surface
@@ -344,9 +356,40 @@ final class NookBridge {
     private func hoverDidChange(_ isHovering: Bool) {
         if isHovering {
             cancelScheduledCollapse()
-        } else if isSurfaceExpanded {
-            scheduleCollapse()
+            scheduleExpand()
+        } else {
+            cancelScheduledExpand()
+            if isSurfaceExpanded {
+                scheduleCollapse()
+            }
         }
+    }
+
+    /// Debounced hover-to-expand — the mirror image of ``scheduleCollapse()``.
+    ///
+    /// Not the vendored surface's own `.expandsOnHover` (`Nook.updateHoverState`), which
+    /// converts instantly with zero debounce the moment `.onHover` reports a change —
+    /// exactly the "immediate open/close" the handbook's §7.2 warns bounces at region
+    /// boundaries. `IslandHost` deliberately never includes `.expandsOnHover` in
+    /// `hoverBehavior`; this timer is what actually drives hover-to-expand instead.
+    private func scheduleExpand() {
+        guard !isSurfaceExpanded else { return }
+        expandTask?.cancel()
+        expandTask = Task { [weak self] in
+            guard let self else { return }
+            try? await self.sleep(self.hoverExpandDelay)
+            // Re-checked after the wait for the same reason `scheduleCollapse()` re-checks
+            // its own conditions: cancellation does not reach into an in-flight `expand()`,
+            // so the state check is what stops an expand whose reason (the cursor still
+            // being on the surface) disappeared while it waited.
+            guard !Task.isCancelled, !self.isSurfaceExpanded, self.surface.isHovering else { return }
+            await self.expand()
+        }
+    }
+
+    private func cancelScheduledExpand() {
+        expandTask?.cancel()
+        expandTask = nil
     }
 
     private func scheduleCollapse() {

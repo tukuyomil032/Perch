@@ -41,13 +41,15 @@ struct NookBridgeTests {
         surface: FakeIslandSurface,
         sleeper: ManualSleeper = ManualSleeper(),
         delay: Duration = .seconds(3),
-        showInAllSpaces: Bool = true
+        showInAllSpaces: Bool = true,
+        hoverExpandDelay: Duration = .milliseconds(300)
     ) -> NookBridge {
         NookBridge(
             surface: surface,
             collapseDelay: { delay },
             showInAllSpaces: { showInAllSpaces },
-            sleep: { duration in await sleeper.sleep(duration) }
+            sleep: { duration in await sleeper.sleep(duration) },
+            hoverExpandDelay: hoverExpandDelay
         )
     }
 
@@ -281,6 +283,79 @@ struct NookBridgeTests {
 
         #expect(surface.appliedSyntheticNotchWidths == [208])
         #expect(!surface.window.isReleasedWhenClosed)
+    }
+
+    // MARK: - Hover-to-expand
+
+    @Test("hovering the compact surface expands it after the delay")
+    func hoverExpandsAfterDelay() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper)
+
+        surface.setHovering(true)
+        await settle()
+        #expect(surface.expandCallCount == 0)
+
+        sleeper.releaseAll()
+        await settle()
+        #expect(surface.expandCallCount == 1)
+        #expect(surface.state == .expanded)
+        _ = bridge
+    }
+
+    @Test("leaving before the delay elapses cancels the scheduled expand")
+    func hoverExitCancelsScheduledExpand() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper)
+
+        surface.setHovering(true)
+        surface.setHovering(false)
+        await settle()
+
+        // Releasing proves the expand task is dead rather than merely still waiting.
+        sleeper.releaseAll()
+        await settle()
+        #expect(surface.expandCallCount == 0)
+        #expect(surface.state == .compact)
+        _ = bridge
+    }
+
+    @Test("rapid hover in/out does not queue more than one pending expand")
+    func rapidHoverInOutDoesNotDoubleExpand() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper)
+
+        surface.setHovering(true)
+        surface.setHovering(false)
+        surface.setHovering(true)
+        surface.setHovering(false)
+        surface.setHovering(true)
+        await settle()
+
+        sleeper.releaseAll()
+        await settle()
+        #expect(surface.expandCallCount == 1)
+        #expect(surface.state == .expanded)
+        _ = bridge
+    }
+
+    @Test("hovering an already-expanded surface schedules nothing")
+    func hoverWhileAlreadyExpandedSchedulesNoExtraExpand() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper)
+
+        await bridge.expand()
+        surface.setHovering(true)
+        await settle()
+
+        // Only the hover-exit auto-collapse timer should be live; no expand task queued.
+        sleeper.releaseAll()
+        await settle()
+        #expect(surface.expandCallCount == 1)
     }
 
     // MARK: - Auto-collapse
