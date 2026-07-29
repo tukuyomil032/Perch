@@ -12,10 +12,19 @@ struct ExpandedIslandView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            IslandTopBar()
+            if IslandModuleContent.showsPresetTabBar(for: appState.activeCard) {
+                HStack {
+                    Spacer()
+                    PresetTabBar()
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
+            }
             Divider().opacity(0.15)
-            presetContent
+            moduleContent
                 .animation(DesignSystem.springAnimation, value: appState.presetStore.activePresetID)
+                .animation(DesignSystem.springAnimation, value: appState.activeCard)
         }
         // Content-driven, but not unbounded: the widgets are laid out for roughly this
         // width, and without a floor the surface would shrink to the notch minimum on an
@@ -23,24 +32,18 @@ struct ExpandedIslandView: View {
         .frame(minWidth: 420)
     }
 
-    // MARK: - Header
+    // MARK: - Module Content
 
-    private var header: some View {
-        HStack {
-            Button {
-                appState.collapse()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.tertiary)
-                    .imageScale(.medium)
-            }
-            .buttonStyle(.plain)
-            Spacer()
-            PresetTabBar()
+    /// Routes to the active module's content. `.nowPlaying` (Home) renders the active
+    /// preset's widgets; `.aiUsage` bypasses presets entirely and shows the full AI
+    /// usage screen. See `IslandModuleContent` for the pure mapping this switches on.
+    @ViewBuilder
+    private var moduleContent: some View {
+        switch IslandModuleContent.content(for: appState.activeCard) {
+        case .presetDriven: presetContent
+        case .aiUsageDirect: AIUsageFullView()
+        case .empty: EmptyView()
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
     }
 
     // MARK: - Preset Content (dynamic from WidgetRegistry)
