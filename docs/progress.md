@@ -364,3 +364,187 @@
 - [ ] T6-6: HUD（バッテリー、音量表示）
 - [ ] T6-7: README / Docs整備
 - [ ] T6-8: パフォーマンス最適化
+
+---
+
+## Phase A / B / C: OpenNook 移行 + Atoll 風 UI + 波形修理
+
+**Branch**: `feat/island-opennook-vendored`
+**Last Updated**: 2026-07-27
+**設計書**: `docs/opennook-migration-plan.md`（判断背景・制約・検証済み事実の全文）
+
+### 目標
+
+Island 層の独自実装（`perch/Island/` 595行）を vendored NookSurface に置き換え、展開UIを
+作り直し、実音波形を実際に動かす。機能ロジック（NowPlaying / AIUsage / Providers /
+PresetStore / WidgetRegistry）は全部引き継ぐ。
+
+### 検証済み事実（PoC 実測、`~/tmp/nook-poc`）
+
+| 項目 | 結果 |
+|---|---|
+| 既存 `@main struct App` + `@NSApplicationDelegateAdaptor` に低レベル `Nook` だけ差し込む | **可**（`NookApp.main()` を呼ばずに動作。docs に記載のない使い方） |
+| 半画面パネル（画面上半分全体、level 33）がクリックを食うか | **食わない**。`.contentShape(NookShape)` が AppKit のヒットテストまで効き、可視形状の外は透過。DynamicNotchKit Issue #48 は再現せず |
+| `configureWindow` で `showInAllSpaces` を再現できるか | **可**。ただし窓が作り直されるたびリセットされるので `onExpand`/`onCompact` から毎回再適用が必要 |
+| `AppState` の名前衝突 | 起きない（自モジュール優先で解決） |
+| 疑似ノッチの実寸（非ノッチ機） | **300 × 30pt**。実ノッチは 185〜208pt |
+
+### vendoring した理由
+
+疑似ノッチ幅 `arbitraryWidth = 300`（`NSScreen+Extensions.swift:53`）は internal 定数で、
+`screenProvider` / `configureWindow` / `NookStyle` のいずれからも変更できない。
+かつ NookKit の UI 部品（`NookTopBar` は internal で構造固定、モジュール切替は横並び
+アイコンバーではなく Menu ポップアップ、ステータスは全幅バナー、バッテリー/WiFi/BT の
+部品は皆無）が Atoll 風 UI の要件に合わず、どのみち UI を自作するため NookKit を使う
+実利が小さい。NookSurface は 2,617行・外部依存ゼロ・MIT なので取り込みコストが低い。
+
+### Phase A タスク（基盤置換 / 見た目は現行維持）
+
+- [x] A0: デッドコード削除（`NotchExpandedView` 223 / `NowPlayingMorphContent` 244 / `MetalLiquidBlobView`+`LiquidBlob.metal` 54 / `IslandCardContainer` 13 / デッド Defaults 5件 / 効かない animationSpeed Slider / KeyboardShortcuts 依存）**実績 -590行**
+- [x] A1: macOS 15 Sequoia 引き上げ（pbxproj 4箇所 + CLAUDE.md + README）。Homebrew Cask は別リポジトリなので配布時に対応
+- [x] A2: `perch/Vendor/NookSurface/` に **21ファイル / 2,647行**取り込み（プランの見積 19/2,617 は誤り、実測が正）+ THIRD_PARTY_NOTICES.md に帰属追記
+- [x] A3: vendored の改変3点 — 疑似ノッチ幅を可変化（既定 195pt）/ `notchSize`・`menubarHeight` を public 化 / `NookHoverBehavior.expandsOnHover` 追加 + 改変を守るテスト
+- [x] A4: `NookBridge` / `IslandSurfaceDriving` / `IslandChromeStyle` / `WidgetSizeMetrics` / `ScreenLocator` 追加 + テスト（3タスクに分割して実施。詳細は下記）
+- [x] A5: `perch/Island/` 旧7ファイル削除 + AppState 縮退 + UI シェル層削除
+- [x] A6: 既存テストの改廃（`IslandGeometryTests` / `NotchDetectorTests` 全削除、`AppStateTests` / `IslandPresentationTests` 改廃）+ A5 レビュー積み残し4件の回収
+
+#### A4 の内訳（サブエージェント駆動 + 二段レビューで実施）
+
+| # | 内容 | コミット |
+|---|---|---|
+| A4a | `IslandChromeStyle`（2値化 + `migrating(fromLegacy:)` + `nookPresentation`）/ `WidgetSizeMetrics`（`[WidgetSize: CGFloat]` 重複の一本化） | `b9b6aef` `aeb29b9` |
+| A4b | `ScreenLocator`（OpenNook `NookScreenLocator` を Apache-2.0 のままコピー、`NookDisplayStore` は Defaults と二重管理になるので持ち込まず） | `0543157` `8293663` `8fb3d6c` |
+| A4c | `IslandSurfaceDriving`（Kit 型を含まない seam）/ `NookBridge`（auto-collapse + window chrome 再適用）+ `FakeIslandSurface` | `10cf27e` `a7314d6` `f8e20b0` `2c3b6bf` `86ef617` |
+
+#### A4c のレビューで潰した実バグ（4ラウンド / 指摘18件）
+
+vendored の状態遷移を `onExpand`/`onCompact` の2本だけで捉えると穴が空く、というのが共通の根。
+
+| # | 症状 | 原因 |
+|---|---|---|
+| C1 | `showInAllSpaces = false` なのにディスプレイ抜き差しで島が全 Space に出る | `observeScreenParameters` → `rebuildVisibleWindow` は `state` を変えないので `onExpand`/`onCompact` が来ず、`NookPanel` が無条件で入れる `.canJoinAllSpaces` が復活する。bridge 側で `didChangeScreenParametersNotification` を購読して二重適用 |
+| C2 | 島を hide した数秒後に compact ピルがゾンビ復活 | `state = .hidden` は `onHide` を呼ぶ（`onCompact` ではない）。未購読だと `isSurfaceExpanded` が `true` のまま残り、直後の `isHovering = false` が collapse を予約 → `compact()` が窓を作り直す |
+| C3 | compact コンテンツ両側無効時に `onSurfaceCompacted` が永久に来ない | `_compact` が `.compact` を経由せず `_hide` に落ちる。`onSurfaceHidden` を別イベントとして新設（hidden を compact に丸めない） |
+| I4 | 表示ディスプレイ選択が丸ごと死ぬ | `screenProvider` seam が無く常に `NSScreen.main` フォールバック |
+| N1 | ピル→カード展開のたびに島が一瞬消える | `skipIntermediateHides` は既定 `false` で、conversion が `.hidden` を経由する。この中間 hide を終端 hide として報告していた |
+
+**得られた教訓**: N1 の一次修正は「hide 報告を1ホップ遅延して後続遷移で取り消す」だったが、実物の中間 hide は 250ms（`settleAnimationDuration * 0.625`）MainActor を手放すので**遅延方式は構造的に機能しない**。fake が dip を同期実行していたためテストだけが緑になっていた。fake に `await Task.yield()` を入れた瞬間に fail/pass が両方出てレースが可視化され、`drive(_:)` による**状態ベース**（`await body()` の戻りで判定）に作り直して解決。**fake の忠実度が足りないと、実物に効かない防御が緑のテストで保証されているように見える。**
+
+#### A5: 配線 + 旧層削除 + AppState 縮退（13コミット、2段レビュー×2ラウンド）
+
+`AppDelegate` に vendored `Nook` + `NookBridge` を差し込み、旧 `perch/Island/` 7ファイル（641行）と UI シェル層（`IslandGlassSurface` / `RootIslandView` / `CompactPillView` の独自クローム）を削除。`AppState.presentation` を `Nook.state` からの一方向派生に降格し、`transitionGeneration` / 110ms・500ms タイマー / サイズ計算5プロパティを全廃。
+
+**ユーザー承認が要った設計判断**（AskUserQuestion で確認）:
+- クロームは Perch 独自の浮遊カプセル（シェイプ・vibrancy・影・固定420/460pt）を廃し、vendored `NookShape`+`NookBackdrop` のノッチ形状に一本化。表示**内容**は不変、**外枠**が変わる
+- コンパクト表示は左=アートワーク+タイトル／右=波形の2スロット
+- 音楽なしの待機時も常にノッチ形状を表示（`AppState` に idle→hide の経路は足さない）
+
+**レビューで潰した実バグ**:
+| # | 症状 | 原因 |
+|---|---|---|
+| M1（致命的） | 島を開く手段がコードから消えていた | 旧 `onTapGesture` は削除済みファイルにしかなく、vendored 側も SwiftUI ジェスチャの当たり先を持たない（中央ギャップは vendored 側の描画、idle 時はスロットが0サイズ）。`NSClickGestureRecognizer` を surface の contentView に直接付ける方式に変更 |
+| C-1 | ディスプレイ設定変更で島が実際には動かない | `applyChromeStyle` は値が変わらない限り vendored 側の `didSet` guard で即 return。同じ値を再適用しても窓は動かない。`relocate()` という無条件 rebuild 専用 seam を追加 |
+| I-2/I-3 | 窓が作り直される経路の一部で chrome 再適用・クリックターゲット再アタッチが漏れる | 「窓を生む経路」を手で列挙するとバグる。`NookBridge.windowConfigurator` フックを追加し、`applyWindowChrome()`（既に全経路から呼ばれる）に一本化。呼び忘れというバグクラスごと消した |
+| I-4 | メニューバー等クリック以外の展開経路では auto-collapse が武装されない | hover の**遷移**でしか予約しない設計だったため、カーソルが最初から島の上にない場合に予約が起きない。展開時に hover 状態を明示チェックして武装するよう修正 |
+| I-5 | ディスプレイを全部外して戻すと島がアプリ再起動まで復活しない | `compact()` は解決画面が nil だと黙って return。screen 変更通知で `hasLiveWindow` を見て再投入する復帰経路を追加 |
+
+**得られた教訓（2回目）**: fake が実物より寛容だと（例: 値が同じでも無条件で rebuild する）、テストは通るのに実物では効かない防御ができる。A4c の N1 と同じパターンが `applyChromeStyle` の fake 実装で再発した（C-1）。**「窓を生む経路」のようなイベント駆動の副作用は、手で列挙して各所から呼ぶより、単一の再適用関数に一本化して『呼び忘れられない』構造にするほうが安全。**
+
+#### A6: テスト改廃 + A5 積み残し4件の回収（4コミット）
+
+設計書のテスト改廃要求（`IslandGeometryTests`/`NotchDetectorTests` 全削除、`AppStateTests`/`IslandPresentationTests` の書き換え）は A5 側で先行完了しており、A6 での追加対応は不要だった。
+
+A5 最終レビューの Minor 積み残し4件を回収:
+- **N-1/N-2**: fake の `applyChromeStyle`/`applySyntheticNotchWidth` が hidden 中の値更新を飛ばしていた（vendored は格納プロパティなので代入は常に起きる、guard は rebuild だけをスキップ）。加えて既存のトートロジーテスト（chrome 再適用の副作用を見るだけで rebuild 有無を見ていない）を rebuild カウンタで実効化
+- **N-3**: `scheduleCollapse` の sleep 明け再チェックに `!isHovering` を追加。当初想定したシナリオ（hidden→expand で必ず誤武装）は既に別ガードで塞がれていたが、実際の穴は「武装後にカーソルが島に戻っても `.onHover` イベントが欠落するとキャンセルされない」側だった
+- **N-4**: `restoreSurfaceIfLost` が `isSurfaceVisible` を見ずに `hasLiveWindow` だけで復帰させていた。将来 hide 経路が使われたときユーザーが明示的に消した島を復活させる潜在バグ
+
+テスト190件全パス。`perchUITests` の `CFBundleIdentifier` 未読み込みバグ（既存・A0以前から）は原因（`INFOPLIST_FILE` 手書き plist に bundle 系キー欠落）を特定したが、Phase A スコープ外として未修正。
+
+**Phase A（A0〜A6）完了。** Island 層は独自実装からvendored `NookSurface` + アダプタ層（`NookBridge`/`IslandSurfaceDriving`/`ScreenLocator`/`IslandChromeStyle`）に完全移行。次は Phase B（Atoll 風展開UI）。
+
+#### A0〜A3 で判明した追加事項
+
+- **lefthook の pre-commit が `swift-format format --in-place` + `stage_fixed: true` を走らせる。**
+  vendored ファイルが意図せず整形されたため `lefthook.yml` と CI lint の両方で
+  `perch/Vendor/**` を除外した。上流との同一性は
+  `diff -rq <upstream>/Sources/NookSurface perch/Vendor/NookSurface` で常に検証できる
+- `.swift-format-ignore` は swift-format 602 でディレクトリを明示指定した場合に効かない。
+  CI 側は `git ls-files '*.swift' | grep -v '^perch/Vendor/' | xargs swift-format lint` で回避
+- **`perchUITests` は `perch.app` の `CFBundleIdentifier` を読めず失敗する既存バグがある。**
+  ソースの `Info.plist` に当該キーが無いのが原因で、A0 の変更前から再現する（stash して確認済み）。
+  Phase A のスコープ外だが、UI テストを実際に書く前に解消が必要。
+  当面の検証は `xcodebuild test -only-testing:perchTests` で行う
+
+### Phase B タスク（Atoll 風展開UI）
+
+`/hallmark` と `/ui-ux-pro-max` を必ず適用。Atoll の OSS 版は **GPL-3.0 なのでソースは読まない**
+（読むこと自体が派生物認定のリスク）。スクリーンショットから読み取れるレイアウト構造の
+着想のみ参考にし、視覚言語は Perch 独自にする。
+
+- [ ] B1: `IslandTopBar` — 左にモジュールアイコン列、右にステータスクラスタ
+- [ ] B2: `SystemStatusCluster` — バッテリー（IOKit、権限不要）/ WiFi（CoreWLAN、**SSID は出さない**＝ Location 権限を回避）/ Bluetooth（`IOBluetoothHostController.powerState` のみ＝ `NSBluetoothAlwaysUsageDescription` を回避）。**権限ダイアログをゼロにする構成**
+- [ ] B3: `PerchModule` enum + ルーティング（Kit の `NookModule` は使わない）
+- [ ] B4: NowPlaying 展開の再デザイン（既存 `NowPlayingCard.swift` 374行の資産を活かす）
+- [ ] B5: `compactLeading`/`compactTrailing` のレジストリ駆動化（`WidgetLayout.pillPrimary`/`pillSecondary` を配線。**A0 で削除しないこと**）
+- [ ] B6: File Shelf モジュール（Shelf モデル4ファイル 607行をコピー、View は自作）
+- [ ] B7: Timer モジュール
+
+> モジュール（ホーム / File Shelf / Timer / AI Usage）とプリセット（Daily / Dev）は**別概念**。
+> 上部バーはモジュール、プリセットはホームモジュール内のウィジェット配置として残す。
+
+### Phase C タスク（波形の実音キャプチャ修理）
+
+**原因はすべて特定済み。** 現状は ScreenCaptureKit のアプリ別音声キャプチャで、以下が壊れている:
+
+| # | 箇所 | 内容 |
+|---|---|---|
+| 1 | `NowPlayingManager.swift:415-419` | `ytmBrowserBundleId` が「起動中の最初のブラウザ」の当てずっぽう。Safari 常駐時は Chrome の YTM を永久に拾えない。正しい bundleId は `MediaRemoteBridge.swift:53` にあるのに `NowPlayingState.swift:276` が捨てている |
+| 2 | `NowPlayingManager.swift:478` | `.mrMediaRemote` は `captureBundleId = nil` → **この経路では実音波形が構造的に一度も動かない** |
+| 3 | `AudioCaptureService.swift:73` | `SCStream(delegate: nil)` でストリーム死亡を検知できず、`:34` の guard で再接続が永久ブロック |
+| 4 | `AudioCaptureService.swift:132-138` | デコードエラーの完全握りつぶし（`AudioPCMDecoder` は6種の `LocalizedError` を定義しているのに一件も表に出ない） |
+| 5 | `AudioCaptureService.swift:33-35` | `startCapturing` に再入ガードなし。孤児 SCStream が残りうる |
+
+`WaveformView.swift:41-69` が失敗時に合成波形へフォールバックするため、**壊れていても
+「滑らかに動いている」ように見え、成功と区別がつかない**。git log にも
+`88e744f fix: pure synthetic waveform`（一度降参）→ `4cdcddd`（実音に再挑戦）→
+`87172f0 fix: gate waveform levels on hasReceivedAudio`（実音が来ない前提のゲート追加）
+という往復が残っている。**原因に手を付けないままゲートで隠したのが再発の構造的理由。**
+
+- [ ] C0: 切り分け — `:132` の catch にログ / `:38` の `content.applications.count` をログ / **Spotify で試す**（bundleId が正しいので、動けば YTM のブラウザ誤選択が犯人と確定）
+- [ ] C1: `NowPlayingState` に `sourceBundleId` を追加し MediaRemote の bundleIdentifier を伝搬
+- [ ] C2: `ytmBrowserBundleId` の当てずっぽうを削除
+- [ ] C3: `.mrMediaRemote` でもキャプチャする
+- [ ] C4: `SCStreamDelegate` 実装（`didStopWithError` で再接続可能に）
+- [ ] C5: エラーを握りつぶさずログ
+- [ ] C6: `startCapturing` の再入ガード
+- [ ] C7: **BF4 回収** — `CGPreflightScreenCaptureAccess` / `CGRequestScreenCaptureAccess` + 拒否時の Settings 導線
+- [ ] C8: **診断表示** — Settings に「波形が実音か合成か」を出す。再発を即座に検知できるようにする
+- [ ] C9: テスト追加（`AudioPCMDecoder` 各フォーマット / `AudioSpectrumAnalyzer` 既知入力 / `WaveformView.blendedLevels` の3分岐）。**現状 Audio 系のテストはゼロ**
+
+### 将来（Phase 4）: Core Audio Taps への載せ替え
+
+Phase C で SCK が直っても、**macOS 15 以降のオレンジ収録インジケータ常時点灯と定期的な
+権限再確認ダイアログは残る**（`com.apple.developer.persistent-content-capture` entitlement は
+特別承認が必要で一般アプリには下りない）。常駐アプリとして痛いので Core Audio Process Taps
+（macOS 14.2+）に載せ替える。インジケータなし・仮想デバイス不要。見積 8〜11人日。
+
+参照実装は **AudioCap (BSD-2)** と **iqualize (MIT)** のみ。boring.notch / Atoll は GPL-3.0 で参照不可。
+（参考: boring.notch 10k★ の波形は `CGFloat.random(in: 0.35...1.0)` の純乱数）
+
+既知の罠: `isExclusive` を触ると無音 / アグリゲートは「実出力デバイス=main、tap=sub-tap、
+`TapAutoStart=true`」でないとエラーなしのゼロサンプル / `AVAudioEngine` への retarget は
+`noErr` を返すのに既定入力を読み続ける / IOProc の queue に `nil` を渡すと macOS 26 で
+サイレント失敗 / 署名なしビルドでは TCC ダイアログがそもそも出ない / macOS 26 に
+「長時間稼働で全サンプルが 0 になる」未解決 OS バグ（Apple Forums #825780、Apple 未回答）
+→ 連続ゼロ検知でタップ+アグリゲートを両方破棄して再作成するウォッチドッグ必須
+
+### 既知の制限 / 仕様変更
+
+- **hover で自動展開する**（`Nook.updateHoverState` が無条件で `_expand` を呼ぶ）。従来はタップのみ。vendoring したのでオプション化は可能だが、Phase A では既定挙動を受け入れる
+- **「外側クリックで即収縮」が無くなる**（hover 展開と喧嘩するため）
+- **`Defaults[.pillSize]` を削除**。`.notch` 固定にすると floating pill の概念が消え、高さは
+  `notchSize.height`、幅は content-driven になるため設定の意味が失われる
+- **同じ Perch でもマシンによってノッチ幅が変わる**（実ノッチ機は実寸、非ノッチ機は疑似 195pt）
+- `perchUITests/` は Xcode テンプレートのまま実質空。UI リグレッションは手動チェックリスト
+  （設計書の E-1 節）で担保する

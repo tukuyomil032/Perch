@@ -3,7 +3,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @Default(.launchAtLogin) var launchAtLogin
-    @Default(.animationSpeed) var animationSpeed
     @Default(.autoCollapseDelay) var autoCollapseDelay
     @Default(.showInAllSpaces) var showInAllSpaces
     @Default(.languageCode) var languageCode
@@ -12,7 +11,7 @@ struct SettingsView: View {
         TabView {
             GeneralTab(launchAtLogin: $launchAtLogin, showInAllSpaces: $showInAllSpaces)
                 .tabItem { Label(L10n.string("settings.general"), systemImage: "gearshape") }
-            IslandTab(animationSpeed: $animationSpeed, autoCollapseDelay: $autoCollapseDelay)
+            IslandTab(autoCollapseDelay: $autoCollapseDelay)
                 .tabItem { Label(L10n.string("settings.island"), systemImage: "rectangle.topthird.inset.filled") }
             NowPlayingTab()
                 .tabItem { Label(L10n.string("settings.nowplaying"), systemImage: "music.note") }
@@ -44,44 +43,19 @@ private struct GeneralTab: View {
 }
 
 private struct IslandTab: View {
-    @Binding var animationSpeed: Double
     @Binding var autoCollapseDelay: Double
-    @Default(.pillSize) private var pillSize
-    @Default(.pillBackgroundStyle) private var pillBgStyle
-    @Default(.notchSimulationMode) private var notchSimulationMode
+    @Default(.islandChromeStyle) private var islandChromeStyle
 
     var body: some View {
         Form {
-            Picker(L10n.string("settings.pill_size"), selection: $pillSize) {
-                ForEach(PillSizePreset.allCases, id: \.self) {
-                    Text($0.displayName).tag($0)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            Picker("Pill Background", selection: $pillBgStyle) {
-                ForEach(PillBackgroundStyle.allCases, id: \.self) {
-                    Text($0.displayName).tag($0)
-                }
-            }
-            .pickerStyle(.segmented)
-
             Section(L10n.string("settings.island_position")) {
-                Picker(L10n.string("settings.island_position"), selection: $notchSimulationMode) {
-                    ForEach(NotchSimulationMode.allCases, id: \.self) { mode in
-                        Text(L10n.string(mode.displayNameKey)).tag(mode)
+                Picker(L10n.string("settings.island_position"), selection: $islandChromeStyle) {
+                    ForEach(IslandChromeStyle.allCases, id: \.self) { style in
+                        Text(L10n.string(style.displayNameKey)).tag(style)
                     }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-            }
-
-            Slider(value: $animationSpeed, in: 0.5...2.0, step: 0.1) {
-                Text(L10n.string("settings.animation_speed"))
-            } minimumValueLabel: {
-                Text(L10n.string("settings.animation_slow"))
-            } maximumValueLabel: {
-                Text(L10n.string("settings.animation_fast"))
             }
 
             Slider(value: $autoCollapseDelay, in: 1.0...10.0, step: 0.5) {

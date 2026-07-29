@@ -1,47 +1,22 @@
-// perch/Features/NowPlaying/NowPlayingCompact.swift
 import SwiftUI
 
-struct NowPlayingCompact: View {
-    let state: NowPlayingState
-    var waveformLevels: [Float]? = nil
-    var usesSyntheticFallback = false
+/// The two halves of the compact Now Playing strip, as standalone views.
+///
+/// They used to be private members of `NowPlayingCompact`, which drew artwork, title and
+/// waveform as one horizontal strip inside Perch's own capsule. The vendored surface lays
+/// compact content out around the notch gap instead, so the strip has to be split across
+/// two slots — which means these two pieces need to be separately mountable. The drawing
+/// is carried over unchanged; only the ownership moved.
 
-    @State private var thumbScale: CGFloat = 1.0
-    @State private var thumbOpacity: Double = 1.0
-    @State private var waveformPalette = ArtworkPalette.fallback
+/// Album artwork at compact size, with the cross-fade it has always played when the track
+/// changes.
+struct NowPlayingArtworkThumbnail: View {
+    let state: NowPlayingState
+
+    @State private var scale: CGFloat = 1.0
+    @State private var opacity: Double = 1.0
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            HStack(alignment: .center, spacing: 6) {
-                Color.clear.frame(width: 22, height: 22)
-                scrollingTitle
-                WaveformView(
-                    isPlaying: state.isPlaying,
-                    colors: waveformPalette.gradientColors,
-                    externalLevels: waveformLevels,
-                    usesSyntheticFallback: usesSyntheticFallback
-                )
-                .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
-            }
-            .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            artworkThumbnail
-                .padding(.leading, 8)
-        }
-        .task(id: state.artworkID) {
-            waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
-            // artwork fetch is async — if nil at artworkID change, re-check after
-            // a brief window so the thumbnail updates once the fetch completes.
-            if state.artwork == nil {
-                try? await Task.sleep(for: .milliseconds(600))
-                waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var artworkThumbnail: some View {
         Group {
             if let artwork = state.artwork {
                 Image(nsImage: artwork)
@@ -57,35 +32,54 @@ struct NowPlayingCompact: View {
                     .accessibilityLabel(state.isAd ? "Spotify Ad" : "No album art")
             }
         }
-        .scaleEffect(thumbScale)
-        .opacity(thumbOpacity)
+        .scaleEffect(scale)
+        .opacity(opacity)
         .onChange(of: state.artworkID) { _, _ in
             Task { @MainActor in
                 withAnimation(.easeIn(duration: 0.12)) {
-                    thumbScale = 0.75
-                    thumbOpacity = 0.0
+                    scale = 0.75
+                    opacity = 0.0
                 }
                 try? await Task.sleep(for: .milliseconds(120))
                 withAnimation(.spring(response: 0.22, dampingFraction: 0.75)) {
-                    thumbScale = 1.0
-                    thumbOpacity = 1.0
+                    scale = 1.0
+                    opacity = 1.0
                 }
             }
         }
     }
-
-    private var trackLabel: String {
-        if state.isAd { return "Spotify Ad" }
-        return state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)"
-    }
-
-    private var scrollingTitle: some View {
-        MarqueeText(text: trackLabel, font: .system(size: 11, weight: .medium))
-            .foregroundStyle(.white)
-            .frame(maxWidth: 120, maxHeight: 16)
-    }
 }
 
+/// The compact waveform, tinted from the current artwork.
+///
+/// The palette re-read after 600ms is carried over verbatim: artwork is fetched
+/// asynchronously, so it is often still `nil` at the moment `artworkID` changes, and
+/// without the second look the waveform would keep the fallback palette for the whole
+/// track.
+struct NowPlayingCompactWaveform: View {
+    let state: NowPlayingState
+    let levels: [Float]?
+    let usesSyntheticFallback: Bool
+
+    @State private var palette = ArtworkPalette.fallback
+
+    var body: some View {
+        WaveformView(
+            isPlaying: state.isPlaying,
+            colors: palette.gradientColors,
+            externalLevels: levels,
+            usesSyntheticFallback: usesSyntheticFallback
+        )
+        .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
+        .task(id: state.artworkID) {
+            palette = state.artwork?.dynamicIslandPalette() ?? .fallback
+            if state.artwork == nil {
+                try? await Task.sleep(for: .milliseconds(600))
+                palette = state.artwork?.dynamicIslandPalette() ?? .fallback
+            }
+        }
+    }
+}
 // MARK: - TextWidthKey PreferenceKey
 private struct TextWidthKey: PreferenceKey {
     static let defaultValue: CGFloat = 0

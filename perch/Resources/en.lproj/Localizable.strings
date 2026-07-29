@@ -17,10 +17,6 @@
 "settings.show_all_spaces" = "Show on all Spaces";
 
 /* Settings — Island */
-"settings.pill_size" = "Pill size";
-"settings.animation_speed" = "Animation speed";
-"settings.animation_slow" = "Slow";
-"settings.animation_fast" = "Fast";
 "settings.auto_collapse" = "Auto-collapse delay";
 
 /* Settings — Now Playing */
@@ -35,7 +31,6 @@
 
 /* Settings — Island Position */
 "settings.island_position" = "Island Position";
-"settings.island_position.auto" = "Auto";
 "settings.island_position.notch" = "Notch";
 "settings.island_position.floating" = "Floating";
 

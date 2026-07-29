@@ -1,61 +1,29 @@
 import Defaults
 import Foundation
 
-enum PillBackgroundStyle: String, CaseIterable, Defaults.Serializable {
-    case glassBlack
-    case glassWhite
-    var displayName: String {
-        switch self {
-        case .glassBlack: return "Glass Black"
-        case .glassWhite: return "Glass White"
-        }
-    }
-}
-
-enum PillSizePreset: String, CaseIterable, Defaults.Serializable {
-    case small, medium, large
-    var pillWidth: CGFloat {
-        switch self {
-        case .small: 130
-        case .medium: 150
-        case .large: 170
-        }
-    }
-    var pillHeight: CGFloat {
-        switch self {
-        case .small: 30
-        case .medium: 34
-        case .large: 38
-        }
-    }
-    var musicCapsuleWidth: CGFloat { pillWidth - 42 }
-    var displayName: String {
-        switch self {
-        case .small: "S"
-        case .medium: "M"
-        case .large: "L"
-        }
-    }
-}
+/// Persisted through `Defaults` rather than upstream's own JSON blob store — see the
+/// modification note at the top of `ScreenLocator.swift`. The conformance lives here, not
+/// in that file, so the vendored-adjacent source stays free of Perch's persistence choice.
+extension ScreenPreference: Defaults.Serializable {}
 
 extension Defaults.Keys {
     static let launchAtLogin = Key<Bool>("launchAtLogin", default: false)
-    static let islandMode = Key<String>("islandMode", default: "auto")
-    static let windowLevel = Key<String>("windowLevel", default: "statusBar+1")
-    static let animationSpeed = Key<Double>("animationSpeed", default: 1.0)
     static let showInAllSpaces = Key<Bool>("showInAllSpaces", default: true)
     static let autoCollapseDelay = Key<Double>("autoCollapseDelay", default: 3.0)
-    static let displayScreen = Key<Int>("displayScreen", default: -1)
     static let showNowPlayingSource = Key<Bool>("showNowPlayingSource", default: false)
     static let enableSpotify = Key<Bool>("enableSpotify", default: true)
     static let enableAppleMusic = Key<Bool>("enableAppleMusic", default: true)
     static let enableYouTubeMusic = Key<Bool>("enableYouTubeMusic", default: true)
     static let languageCode = Key<String>("languageCode", default: "en")
     static let aiRefreshInterval = Key<RefreshInterval>("aiRefreshInterval", default: .fiveMinutes)
-    static let notchSimulationMode = Key<NotchSimulationMode>("notchSimulationMode", default: .auto)
-    static let pillSize = Key<PillSizePreset>("pillSize", default: .medium)
-    static let showSatelliteCircle = Key<Bool>("showSatelliteCircle", default: false)
-    static let pillBackgroundStyle = Key<PillBackgroundStyle>("pillBackgroundStyle", default: .glassBlack)
+    /// How the island chrome presents itself. Replaces `notchSimulationMode`; existing
+    /// installs are migrated once at launch by `PreferencesMigration`.
+    static let islandChromeStyle = Key<IslandChromeStyle>("islandChromeStyle", default: .notch)
+
+    /// Which display the island lives on. Resolved through `ScreenLocator` and handed to
+    /// the vendored surface as its `screenProvider`.
+    static let islandScreenPreference = Key<ScreenPreference>(
+        "islandScreenPreference", default: .default)
     static let claudeSessionTokenLimit = Key<Int>("claudeSessionTokenLimit", default: 88_000)
     static let claudeWeeklyTokenLimit = Key<Int>("claudeWeeklyTokenLimit", default: 500_000)
     static let claudeDailyTokenLimit = Key<Int>("claudeDailyTokenLimit", default: 88_000)
