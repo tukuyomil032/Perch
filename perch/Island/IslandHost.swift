@@ -58,9 +58,11 @@ final class IslandHost {
         // on it.
         //
         // `compactTopCornerRadius`/`compactBottomCornerRadius` round the compact pill
-        // further than the vendored default (6, 14) — an Atoll-inspired look. Values are a
-        // starting point pending the vfr-derived animation pass (see
-        // docs/SwiftUI-Animation-Architecture-Handbook-ja.md task 9 in the Phase B plan).
+        // further than the vendored default (6, 14) — an Atoll-inspired look. A `/vfr`
+        // pass over the user's reference recording didn't yield frame-accurate spring
+        // constants (the capture's resolution/compression obscured the shell's exact
+        // timing), so these — and `DesignSystem.shellOpen`/`shellClose` below — are the
+        // animation handbook's own recommended values rather than measurements.
         //
         // Erased to `AnyView` so the generic parameters do not spread into this type's
         // stored properties and from there into every signature that touches it.
@@ -76,6 +78,11 @@ final class IslandHost {
             compactLeading: { AnyView(IslandCompactLeading().environment(appState)) },
             compactTrailing: { AnyView(IslandCompactTrailing().environment(appState)) }
         )
+        // Overrides the vendored NookStyle defaults (`.bouncy`/`.smooth`, both a fixed
+        // 0.4s) with the handbook's asymmetric pair: a slightly underdamped open and a
+        // critically damped close, so the shell settles rather than wobbling shut.
+        nook.transitionConfiguration.openingAnimation = DesignSystem.shellOpen
+        nook.transitionConfiguration.closingAnimation = DesignSystem.shellClose
         self.surface = nook
         self.bridge = NookBridge(surface: nook)
 
