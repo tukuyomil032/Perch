@@ -16,33 +16,23 @@ nonisolated struct NowPlayingWidget: PerchWidget {
     }
 }
 
-// MARK: - Mini (compact-pill slot: artwork thumbnail + marquee title/artist)
+// MARK: - Mini (compact-pill slot: artwork thumbnail only)
 
 /// The compact leading slot's now-playing content.
 ///
-/// This is what `IslandCompactLeading` used to draw inline before Phase B made the
-/// slot registry-driven (see `IslandCompactSlots.swift`) — moved here verbatim so
-/// selecting "now-playing" as `pillPrimary` reproduces the exact previous look.
+/// Artwork only, deliberately — the title/artist marquee this used to show alongside it
+/// is gone. The compact pill is glanceable chrome, not a place to read text; the track
+/// name belongs to the expanded view, one hover or click away.
 struct NowPlayingMiniWidget: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
         if let state = appState.nowPlayingManager.currentState {
-            HStack(spacing: 6) {
-                NowPlayingArtworkThumbnail(state: state)
-                MarqueeText(text: compactLabel(for: state), font: .system(size: 11, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: 120, maxHeight: 16)
-            }
-            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            NowPlayingArtworkThumbnail(state: state)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
         } else {
             Color.clear.frame(width: 0, height: 0)
         }
-    }
-
-    private func compactLabel(for state: NowPlayingState) -> String {
-        if state.isAd { return "Spotify Ad" }
-        return state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)"
     }
 }
 
