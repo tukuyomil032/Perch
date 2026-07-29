@@ -210,8 +210,15 @@ final class IslandHost {
     /// would otherwise leave the island gone until the app is relaunched. The old
     /// `IslandWindowController` force-unwrapped `NSScreen.main` here: it could crash, but it
     /// could not silently disappear.
+    ///
+    /// Gated on `AppState.isSurfaceVisible` as well as on the missing window, because the
+    /// two reasons a window can be absent are opposite: the island *failed* to appear
+    /// (restore it) or the island was *dismissed* (leave it alone). `hasLiveWindow` cannot
+    /// tell them apart. No hide path is reachable today, so this changes nothing now — it
+    /// fixes the intent in place, before a future `hide()` turns "restore on every display
+    /// change" into an island the user cannot get rid of.
     private func restoreSurfaceIfLost() {
-        guard !bridge.hasLiveWindow else { return }
+        guard appState.isSurfaceVisible, !bridge.hasLiveWindow else { return }
         logger.info("island has no window — re-showing")
         Task { await bridge.compact() }
     }
