@@ -20,6 +20,9 @@ extension Defaults.Keys {
     /// installs are migrated once at launch by `PreferencesMigration`.
     static let islandChromeStyle = Key<IslandChromeStyle>("islandChromeStyle", default: .notch)
 
+    /// Rich (Atoll-inspired, default) vs Minimal (the original preset-driven widget list).
+    static let uiMode = Key<UIMode>("uiMode", default: .rich)
+
     /// Which display the island lives on. Resolved through `ScreenLocator` and handed to
     /// the vendored surface as its `screenProvider`.
     static let islandScreenPreference = Key<ScreenPreference>(
