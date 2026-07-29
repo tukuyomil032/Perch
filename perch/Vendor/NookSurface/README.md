@@ -36,6 +36,8 @@ commitment.
 | `Internal/NSScreen+Extensions.swift` | `notchFrameWithMenubarAsBackup` takes a `syntheticWidth` parameter instead of hardcoding 300pt |
 | `Nook.swift` | Adds `syntheticNotchWidth` (default 195); publishes `notchSize` / `menubarHeight`; gates hover-driven expand/compact on `.expandsOnHover` |
 | `NookHoverBehavior.swift` | Adds `.expandsOnHover`, included in `.all` so upstream defaults behave the same |
+| `NookStyle.swift` | Adds `compactTopCornerRadius`/`compactBottomCornerRadius` (default 6/14, matching the previous hardcoded values) so a host can tune the compact pill's roundedness |
+| `Internal/NookView.swift` | `compactCornerRadii` reads the two new `NookStyle` properties instead of a hardcoded `(6, 14)` |
 
 ## Verifying against upstream
 
@@ -44,4 +46,4 @@ git clone --depth 1 --branch v0.4.0 https://github.com/athledev-labs/opennook /t
 diff -rq /tmp/opennook/Sources/NookSurface perch/Vendor/NookSurface
 ```
 
-Only the three files above should differ (plus this README).
+Only the five files above should differ (plus this README).

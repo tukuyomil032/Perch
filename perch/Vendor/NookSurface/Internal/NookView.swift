@@ -55,8 +55,11 @@ where Expanded: View, CompactLeading: View, CompactTrailing: View {
         (top: nook.style.topCornerRadius, bottom: nook.style.bottomCornerRadius)
     }
 
+    // Modified for Perch: read from `nook.style` instead of a hardcoded (6, 14) — hosts can
+    // now tune the compact pill's roundedness via `NookStyle.compactTopCornerRadius` /
+    // `compactBottomCornerRadius`.
     private var compactCornerRadii: (top: CGFloat, bottom: CGFloat) {
-        (top: 6, bottom: 14)
+        (top: nook.style.compactTopCornerRadius, bottom: nook.style.compactBottomCornerRadius)
     }
 
     /// Floating panels use convex corners - a card when expanded, a capsule when
