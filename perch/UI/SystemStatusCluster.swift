@@ -1,10 +1,14 @@
 import SwiftUI
 
-/// Three glyphs, right side of `IslandTopBar`: battery, Wi-Fi, Bluetooth.
+/// Two glyphs, right side of `IslandTopBar`: battery, Wi-Fi.
 ///
-/// Deliberately capped at these three (hallmark: don't raise information density). No
-/// SSID, no RSSI bars, no paired-device names — see `docs/opennook-migration-plan.md`
-/// B-3 for why each of those was left out (Location permission, extra TCC prompts).
+/// Deliberately capped at these two (hallmark: don't raise information density). No
+/// SSID, no RSSI bars — see `docs/opennook-migration-plan.md` B-3 for why those were
+/// left out (Location permission, extra TCC prompts). Bluetooth was dropped entirely:
+/// SF Symbols has no official Bluetooth glyph (confirmed by searching the SF Symbols
+/// app directly — likely omitted for Bluetooth SIG trademark reasons), and a
+/// circled-letter substitute or a private system image were both rejected rather than
+/// shipped as a stand-in.
 struct SystemStatusCluster: View {
     @Environment(AppState.self) private var appState
 
@@ -28,11 +32,6 @@ struct SystemStatusCluster: View {
             }
             Image(systemName: SystemStatusIcons.wifiSymbolName(isPoweredOn: monitor.wifi.isPoweredOn))
                 .font(.system(size: 11, weight: .medium))
-            Image(
-                systemName: SystemStatusIcons.bluetoothSymbolName(
-                    isPoweredOn: monitor.bluetooth.isPoweredOn)
-            )
-            .font(.system(size: 11, weight: .medium))
         }
         .foregroundStyle(.white.opacity(0.45))
     }

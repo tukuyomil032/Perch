@@ -8,21 +8,17 @@ import Foundation
 nonisolated enum SystemStatusIcons {
     static func batterySymbolName(percentage: Int?, isCharging: Bool, isPresent: Bool) -> String? {
         guard isPresent, let percentage else { return nil }
-        if isCharging { return "battery.100.bolt" }
+        if isCharging { return "battery.100percent.bolt" }
         switch percentage {
-        case ..<10: return "battery.0"
-        case ..<35: return "battery.25"
-        case ..<60: return "battery.50"
-        case ..<90: return "battery.75"
-        default: return "battery.100"
+        case ..<10: return "battery.0percent"
+        case ..<35: return "battery.25percent"
+        case ..<60: return "battery.50percent"
+        case ..<90: return "battery.75percent"
+        default: return "battery.100percent"
         }
     }
 
     static func wifiSymbolName(isPoweredOn: Bool) -> String {
         isPoweredOn ? "wifi" : "wifi.slash"
-    }
-
-    static func bluetoothSymbolName(isPoweredOn: Bool) -> String {
-        isPoweredOn ? "b.circle.fill" : "b.circle"
     }
 }

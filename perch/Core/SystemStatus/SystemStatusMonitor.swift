@@ -10,5 +10,4 @@ import Foundation
 final class SystemStatusMonitor {
     let battery = BatteryMonitor()
     let wifi = WiFiMonitor()
-    let bluetooth = BluetoothMonitor()
 }

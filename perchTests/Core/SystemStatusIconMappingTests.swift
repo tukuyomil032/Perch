@@ -23,22 +23,22 @@ struct SystemStatusIconMappingTests {
     func chargingTakesPriority() {
         #expect(
             SystemStatusIcons.batterySymbolName(percentage: 5, isCharging: true, isPresent: true)
-                == "battery.100.bolt")
+                == "battery.100percent.bolt")
     }
 
     @Test("percentage tiers map to the expected glyph")
     func percentageTiers() {
         let cases: [(Int, String)] = [
-            (0, "battery.0"),
-            (9, "battery.0"),
-            (10, "battery.25"),
-            (34, "battery.25"),
-            (35, "battery.50"),
-            (59, "battery.50"),
-            (60, "battery.75"),
-            (89, "battery.75"),
-            (90, "battery.100"),
-            (100, "battery.100"),
+            (0, "battery.0percent"),
+            (9, "battery.0percent"),
+            (10, "battery.25percent"),
+            (34, "battery.25percent"),
+            (35, "battery.50percent"),
+            (59, "battery.50percent"),
+            (60, "battery.75percent"),
+            (89, "battery.75percent"),
+            (90, "battery.100percent"),
+            (100, "battery.100percent"),
         ]
         for (percentage, expected) in cases {
             #expect(
@@ -51,11 +51,5 @@ struct SystemStatusIconMappingTests {
     func wifiSymbol() {
         #expect(SystemStatusIcons.wifiSymbolName(isPoweredOn: true) == "wifi")
         #expect(SystemStatusIcons.wifiSymbolName(isPoweredOn: false) == "wifi.slash")
-    }
-
-    @Test("bluetooth symbol reflects power state")
-    func bluetoothSymbol() {
-        #expect(SystemStatusIcons.bluetoothSymbolName(isPoweredOn: true) == "b.circle.fill")
-        #expect(SystemStatusIcons.bluetoothSymbolName(isPoweredOn: false) == "b.circle")
     }
 }
