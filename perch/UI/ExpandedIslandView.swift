@@ -1,6 +1,7 @@
+import Defaults
 import SwiftUI
 
-/// The island's expanded content: header, then the active preset's widgets.
+/// The island's expanded content: header, then the active module's content.
 ///
 /// Draws no background, no shape, no stroke and sets no width. All four used to live here
 /// because the content sat inside a fixed-size window Perch positioned itself; the
@@ -9,11 +10,15 @@ import SwiftUI
 /// pin the surface to a width its own geometry did not choose.
 struct ExpandedIslandView: View {
     @Environment(AppState.self) private var appState
+    @Default(.uiMode) private var uiMode
 
     var body: some View {
         VStack(spacing: 0) {
             IslandTopBar()
-            if IslandModuleContent.showsPresetTabBar(for: appState.activeCard) {
+            // Preset switching is a Minimal-mode-only concept — Rich mode's Home module is
+            // a fixed layout (`AtollStyleExpandedView`), not preset-driven, so there is
+            // nothing for a preset tab bar to switch between.
+            if uiMode == .minimal, IslandModuleContent.showsPresetTabBar(for: appState.activeCard) {
                 HStack {
                     Spacer()
                     PresetTabBar()
@@ -34,13 +39,20 @@ struct ExpandedIslandView: View {
 
     // MARK: - Module Content
 
-    /// Routes to the active module's content. `.nowPlaying` (Home) renders the active
-    /// preset's widgets; `.aiUsage` bypasses presets entirely and shows the full AI
-    /// usage screen. See `IslandModuleContent` for the pure mapping this switches on.
+    /// Routes to the active module's content. `.nowPlaying` (Home) renders
+    /// `AtollStyleExpandedView` in Rich mode or the active preset's widgets in Minimal
+    /// mode; `.aiUsage` bypasses both entirely and shows the full AI usage screen
+    /// regardless of `uiMode` — it was never preset-driven to begin with. See
+    /// `IslandModuleContent` for the pure mapping this switches on.
     @ViewBuilder
     private var moduleContent: some View {
         switch IslandModuleContent.content(for: appState.activeCard) {
-        case .presetDriven: presetContent
+        case .presetDriven:
+            if uiMode == .rich {
+                AtollStyleExpandedView()
+            } else {
+                presetContent
+            }
         case .aiUsageDirect: AIUsageFullView()
         case .empty: EmptyView()
         }
