@@ -409,19 +409,21 @@ final class NookBridge {
         return behavior
     }
 
-    /// The backdrop the surface should paint, reproducing Perch's pre-vendoring chrome: the
-    /// same `.hudWindow` vibrancy its own background view used, or a flat black fill when the user
-    /// has asked the system to reduce transparency (where an `NSVisualEffectView` is both
-    /// wasted work and against the accessibility setting's intent).
+    /// The backdrop the surface should paint: a single flat opaque black, always.
+    ///
+    /// Previously varied with Reduce Transparency between a `.hudWindow` vibrancy (normal)
+    /// and `.solidBlack` (reduced) — but `darkenOpacity: 0` on that vibrancy drew no black
+    /// overlay at all, so the "normal" case rendered as a barely-tinted live blur of
+    /// whatever was behind the panel rather than the solid black chrome Perch wants (see
+    /// docs/SwiftUI-Animation-Architecture-Handbook-ja.md §4.1: keep one continuous black
+    /// surface, not a vibrancy that reads as transparent). `.solid` never touches
+    /// `NSVisualEffectView`, so there is nothing left for Reduce Transparency to disable.
     ///
     /// The decision lives here, in Perch; the assignment lives in
     /// `Nook.applyBackdrop(reduceTransparency:)`, which is the only place the `NookBackdrop`
     /// type is touched. Pure, but not `nonisolated`: `NookBackdrop`'s members inherit the
     /// project's default `MainActor` isolation and the vendored source is off-limits.
     static func makeBackdrop(reduceTransparency: Bool) -> NookBackdrop {
-        guard !reduceTransparency else { return .solidBlack }
-        return .vibrancy(
-            NookBackdrop.Vibrancy(material: .hudWindow, blendingMode: .behindWindow, darkenOpacity: 0)
-        )
+        .solidBlack
     }
 }

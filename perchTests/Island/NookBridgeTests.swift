@@ -104,20 +104,14 @@ struct NookBridgeTests {
 
     // MARK: - makeBackdrop
 
-    @Test("the default backdrop is the hudWindow vibrancy Perch renders today")
-    func backdropVibrancy() throws {
-        guard case .vibrancy(let vibrancy) = NookBridge.makeBackdrop(reduceTransparency: false) else {
-            Issue.record("expected a vibrancy backdrop")
+    @Test("the backdrop is solid black regardless of Reduce Transparency")
+    func backdropIsAlwaysSolidBlack() {
+        guard case .solid = NookBridge.makeBackdrop(reduceTransparency: false) else {
+            Issue.record("expected a solid backdrop")
             return
         }
-        #expect(vibrancy.material == .hudWindow)
-        #expect(vibrancy.blendingMode == .behindWindow)
-    }
-
-    @Test("Reduce Transparency drops the visual effect view entirely")
-    func backdropReduceTransparency() {
         guard case .solid = NookBridge.makeBackdrop(reduceTransparency: true) else {
-            Issue.record("expected a solid backdrop when transparency is reduced")
+            Issue.record("expected a solid backdrop")
             return
         }
     }
