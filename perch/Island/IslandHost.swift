@@ -190,12 +190,24 @@ final class IslandHost {
     /// unrepresentable.
     private func installWindowConfigurator() {
         bridge.windowConfigurator = { [tapRecognizer] window in
-            guard let contentView = window.contentView,
-                tapRecognizer.view !== contentView
-            else { return }
-            tapRecognizer.view?.removeGestureRecognizer(tapRecognizer)
-            contentView.addGestureRecognizer(tapRecognizer)
+            Self.attach(tapRecognizer, to: window)
         }
+    }
+
+    /// Moves `recognizer` onto `window`'s content view, detaching it from wherever it was.
+    ///
+    /// Split out of the configurator closure so it can be tested: everything it needs is an
+    /// `NSWindow` and a recognizer, neither of which requires a screen or a live surface,
+    /// while `IslandHost` itself cannot be built in a test without mounting a real panel.
+    /// The two properties worth pinning are both silent when broken — a re-attach that
+    /// stacked a second recognizer would fire the toggle twice per click, and a move that
+    /// failed to detach would leave the island responding to clicks on a dead panel.
+    static func attach(_ recognizer: NSGestureRecognizer, to window: NSWindow) {
+        guard let contentView = window.contentView,
+            recognizer.view !== contentView
+        else { return }
+        recognizer.view?.removeGestureRecognizer(recognizer)
+        contentView.addGestureRecognizer(recognizer)
     }
 
     @objc private func islandWasClicked() {
