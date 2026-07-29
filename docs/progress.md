@@ -405,8 +405,8 @@ PresetStore / WidgetRegistry）は全部引き継ぐ。
 - [x] A2: `perch/Vendor/NookSurface/` に **21ファイル / 2,647行**取り込み（プランの見積 19/2,617 は誤り、実測が正）+ THIRD_PARTY_NOTICES.md に帰属追記
 - [x] A3: vendored の改変3点 — 疑似ノッチ幅を可変化（既定 195pt）/ `notchSize`・`menubarHeight` を public 化 / `NookHoverBehavior.expandsOnHover` 追加 + 改変を守るテスト
 - [x] A4: `NookBridge` / `IslandSurfaceDriving` / `IslandChromeStyle` / `WidgetSizeMetrics` / `ScreenLocator` 追加 + テスト（3タスクに分割して実施。詳細は下記）
-- [ ] A5: `perch/Island/` 旧7ファイル削除 + AppState 縮退 + UI シェル層削除
-- [ ] A6: 既存テストの改廃（`IslandGeometryTests` / `NotchDetectorTests` 全削除、`AppStateTests` / `IslandPresentationTests` 改廃）
+- [x] A5: `perch/Island/` 旧7ファイル削除 + AppState 縮退 + UI シェル層削除
+- [x] A6: 既存テストの改廃（`IslandGeometryTests` / `NotchDetectorTests` 全削除、`AppStateTests` / `IslandPresentationTests` 改廃）+ A5 レビュー積み残し4件の回収
 
 #### A4 の内訳（サブエージェント駆動 + 二段レビューで実施）
 
@@ -429,6 +429,39 @@ vendored の状態遷移を `onExpand`/`onCompact` の2本だけで捉えると�
 | N1 | ピル→カード展開のたびに島が一瞬消える | `skipIntermediateHides` は既定 `false` で、conversion が `.hidden` を経由する。この中間 hide を終端 hide として報告していた |
 
 **得られた教訓**: N1 の一次修正は「hide 報告を1ホップ遅延して後続遷移で取り消す」だったが、実物の中間 hide は 250ms（`settleAnimationDuration * 0.625`）MainActor を手放すので**遅延方式は構造的に機能しない**。fake が dip を同期実行していたためテストだけが緑になっていた。fake に `await Task.yield()` を入れた瞬間に fail/pass が両方出てレースが可視化され、`drive(_:)` による**状態ベース**（`await body()` の戻りで判定）に作り直して解決。**fake の忠実度が足りないと、実物に効かない防御が緑のテストで保証されているように見える。**
+
+#### A5: 配線 + 旧層削除 + AppState 縮退（13コミット、2段レビュー×2ラウンド）
+
+`AppDelegate` に vendored `Nook` + `NookBridge` を差し込み、旧 `perch/Island/` 7ファイル（641行）と UI シェル層（`IslandGlassSurface` / `RootIslandView` / `CompactPillView` の独自クローム）を削除。`AppState.presentation` を `Nook.state` からの一方向派生に降格し、`transitionGeneration` / 110ms・500ms タイマー / サイズ計算5プロパティを全廃。
+
+**ユーザー承認が要った設計判断**（AskUserQuestion で確認）:
+- クロームは Perch 独自の浮遊カプセル（シェイプ・vibrancy・影・固定420/460pt）を廃し、vendored `NookShape`+`NookBackdrop` のノッチ形状に一本化。表示**内容**は不変、**外枠**が変わる
+- コンパクト表示は左=アートワーク+タイトル／右=波形の2スロット
+- 音楽なしの待機時も常にノッチ形状を表示（`AppState` に idle→hide の経路は足さない）
+
+**レビューで潰した実バグ**:
+| # | 症状 | 原因 |
+|---|---|---|
+| M1（致命的） | 島を開く手段がコードから消えていた | 旧 `onTapGesture` は削除済みファイルにしかなく、vendored 側も SwiftUI ジェスチャの当たり先を持たない（中央ギャップは vendored 側の描画、idle 時はスロットが0サイズ）。`NSClickGestureRecognizer` を surface の contentView に直接付ける方式に変更 |
+| C-1 | ディスプレイ設定変更で島が実際には動かない | `applyChromeStyle` は値が変わらない限り vendored 側の `didSet` guard で即 return。同じ値を再適用しても窓は動かない。`relocate()` という無条件 rebuild 専用 seam を追加 |
+| I-2/I-3 | 窓が作り直される経路の一部で chrome 再適用・クリックターゲット再アタッチが漏れる | 「窓を生む経路」を手で列挙するとバグる。`NookBridge.windowConfigurator` フックを追加し、`applyWindowChrome()`（既に全経路から呼ばれる）に一本化。呼び忘れというバグクラスごと消した |
+| I-4 | メニューバー等クリック以外の展開経路では auto-collapse が武装されない | hover の**遷移**でしか予約しない設計だったため、カーソルが最初から島の上にない場合に予約が起きない。展開時に hover 状態を明示チェックして武装するよう修正 |
+| I-5 | ディスプレイを全部外して戻すと島がアプリ再起動まで復活しない | `compact()` は解決画面が nil だと黙って return。screen 変更通知で `hasLiveWindow` を見て再投入する復帰経路を追加 |
+
+**得られた教訓（2回目）**: fake が実物より寛容だと（例: 値が同じでも無条件で rebuild する）、テストは通るのに実物では効かない防御ができる。A4c の N1 と同じパターンが `applyChromeStyle` の fake 実装で再発した（C-1）。**「窓を生む経路」のようなイベント駆動の副作用は、手で列挙して各所から呼ぶより、単一の再適用関数に一本化して『呼び忘れられない』構造にするほうが安全。**
+
+#### A6: テスト改廃 + A5 積み残し4件の回収（4コミット）
+
+設計書のテスト改廃要求（`IslandGeometryTests`/`NotchDetectorTests` 全削除、`AppStateTests`/`IslandPresentationTests` の書き換え）は A5 側で先行完了しており、A6 での追加対応は不要だった。
+
+A5 最終レビューの Minor 積み残し4件を回収:
+- **N-1/N-2**: fake の `applyChromeStyle`/`applySyntheticNotchWidth` が hidden 中の値更新を飛ばしていた（vendored は格納プロパティなので代入は常に起きる、guard は rebuild だけをスキップ）。加えて既存のトートロジーテスト（chrome 再適用の副作用を見るだけで rebuild 有無を見ていない）を rebuild カウンタで実効化
+- **N-3**: `scheduleCollapse` の sleep 明け再チェックに `!isHovering` を追加。当初想定したシナリオ（hidden→expand で必ず誤武装）は既に別ガードで塞がれていたが、実際の穴は「武装後にカーソルが島に戻っても `.onHover` イベントが欠落するとキャンセルされない」側だった
+- **N-4**: `restoreSurfaceIfLost` が `isSurfaceVisible` を見ずに `hasLiveWindow` だけで復帰させていた。将来 hide 経路が使われたときユーザーが明示的に消した島を復活させる潜在バグ
+
+テスト190件全パス。`perchUITests` の `CFBundleIdentifier` 未読み込みバグ（既存・A0以前から）は原因（`INFOPLIST_FILE` 手書き plist に bundle 系キー欠落）を特定したが、Phase A スコープ外として未修正。
+
+**Phase A（A0〜A6）完了。** Island 層は独自実装からvendored `NookSurface` + アダプタ層（`NookBridge`/`IslandSurfaceDriving`/`ScreenLocator`/`IslandChromeStyle`）に完全移行。次は Phase B（Atoll 風展開UI）。
 
 #### A0〜A3 で判明した追加事項
 
