@@ -646,6 +646,58 @@ struct NookBridgeTests {
         _ = bridge
     }
 
+    /// Regression: N-3 — the collapse re-reads the surface's live hover state after the
+    /// wait, so a cursor sitting on the island keeps it open even when no hover *event*
+    /// ever arrived to cancel the timer.
+    ///
+    /// Not redundant with `hoverAfterUnhoveredExpandCancelsCollapse`, which cancels via the
+    /// publisher. The gap this closes is the cancelling *event* going missing: the collapse
+    /// is armed correctly (the cursor really was elsewhere), the cursor then arrives, and
+    /// SwiftUI's `.onHover` does not deliver the `true` — which it does not promise to do
+    /// when a hosting view appears beneath a cursor that never moved, and which
+    /// `Nook.updateHoverState`'s `guard state != .hidden` makes likelier still on the
+    /// hidden → expanded path I-4 armed for.
+    @Test("a collapse whose cursor is still on the island is abandoned after the wait")
+    func collapseIsAbandonedWhenTheCursorIsStillOnTheSurface() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper)
+
+        // Cursor elsewhere: expanding arms the collapse, as I-4 intends.
+        await bridge.expand()
+        await settle()
+        #expect(sleeper.sleepCallCount == 1)
+
+        // The cursor arrives on the island, but the hover event is dropped, so the
+        // publisher-driven cancellation never runs.
+        surface.suppressesHoverEvents = true
+        surface.setHovering(true)
+
+        sleeper.releaseAll()
+        await settle()
+
+        #expect(surface.state == .expanded)
+        #expect(surface.compactCallCount == 0)
+    }
+
+    /// The complement: with the cursor genuinely gone, the same path still collapses. Guards
+    /// against "fix" N-3 by never collapsing at all.
+    @Test("a collapse whose cursor has left still runs after the wait")
+    func collapseStillRunsWhenTheCursorHasLeft() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper)
+
+        await bridge.expand()
+        await settle()
+        #expect(sleeper.sleepCallCount == 1)
+
+        sleeper.releaseAll()
+        await settle()
+
+        #expect(surface.state == .compact)
+    }
+
     /// Regression: M-7 — changing the pseudo-notch width rebuilds the window, so anything
     /// the host hung on it (the click recognizer) has to be re-applied.
     @Test("a synthetic notch width change re-applies window chrome")

@@ -33,7 +33,18 @@ final class FakeIslandSurface: IslandSurfaceDriving {
 
     private let hoverSubject = CurrentValueSubject<Bool, Never>(false)
 
-    var isHovering: Bool { hoverSubject.value }
+    /// Held separately from ``hoverSubject`` so ``suppressesHoverEvents`` can drive the two
+    /// apart. On the real surface they are also distinct: `isHovering` is a stored property
+    /// that SwiftUI's `.onHover` writes, and `.onHover` makes no promise to fire for a
+    /// cursor that was already resting over the region when the hosting view appeared
+    /// beneath it — so "hovering, but no event was ever delivered" is a real state.
+    private var hoverState = false
+
+    /// When set, ``setHovering(_:)`` updates the surface's live hover state without
+    /// publishing it, reproducing the dropped `.onHover` above.
+    var suppressesHoverEvents = false
+
+    var isHovering: Bool { hoverState }
     var isHoveringPublisher: AnyPublisher<Bool, Never> { hoverSubject.eraseToAnyPublisher() }
 
     var staysExpandedOnHoverExit = false
@@ -156,8 +167,11 @@ final class FakeIslandSurface: IslandSurfaceDriving {
 
     // MARK: - Test drivers
 
-    /// Plays back a hover transition the way the real surface publishes it.
+    /// Plays back a hover transition the way the real surface publishes it — or, with
+    /// ``suppressesHoverEvents`` set, the way it fails to.
     func setHovering(_ hovering: Bool) {
+        hoverState = hovering
+        guard !suppressesHoverEvents else { return }
         hoverSubject.send(hovering)
     }
 
@@ -165,6 +179,7 @@ final class FakeIslandSurface: IslandSurfaceDriving {
     /// clears hover inside the same animation block, in that order.
     func simulateHide() async {
         await transition(to: .hidden)
+        hoverState = false
         hoverSubject.send(false)
     }
 

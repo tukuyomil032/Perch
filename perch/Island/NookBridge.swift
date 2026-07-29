@@ -358,7 +358,20 @@ final class NookBridge {
             // cancellation does not reach into `surface.compact`, so the state check is
             // the only thing that stops a collapse whose reason disappeared while it
             // waited (the surface was hidden, or compacted by something else).
-            guard !Task.isCancelled, let self, self.isSurfaceExpanded else { return }
+            //
+            // `isHovering` is re-checked for the same reason, and is not redundant with the
+            // cancellation `hoverDidChange(true)` performs. `surfaceDidExpand` arms this
+            // timer whenever the surface reports expansion with the cursor apparently
+            // elsewhere — and `Nook.updateHoverState` returns early while hidden, so an
+            // expand straight out of hidden *always* reads as unhovered. SwiftUI's
+            // `.onHover` does not promise a `true` for a cursor that was already stationary
+            // over the region when the hosting view appeared beneath it, so the arming
+            // signal can be wrong and no hover event will ever arrive to correct it. Reading
+            // the surface's live hover state at the moment of collapse is the check that
+            // does not depend on an event having been delivered — and it matches the
+            // `.keepVisible` policy the vendored surface applies to its own hides.
+            guard !Task.isCancelled, let self, self.isSurfaceExpanded, !self.surface.isHovering
+            else { return }
             await self.surface.compact(on: nil)
             // Same reason as the unconditional pass in `drive(_:)`: this collapse can land
             // on a newly-resolved screen and produce a fresh panel without a state change
