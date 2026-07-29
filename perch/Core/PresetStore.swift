@@ -86,14 +86,16 @@ final class PresetStore {
             widgets: [
                 WidgetPlacement(widgetId: "now-playing", size: .standard, position: .main),
                 WidgetPlacement(widgetId: "ai-usage", size: .compact, position: .sidebar),
-            ]
+            ],
+            pillPrimary: "now-playing"
         )
         let dev = PresetLayout(
             name: "Dev",
             widgets: [
                 WidgetPlacement(widgetId: "ai-usage", size: .full, position: .main),
                 WidgetPlacement(widgetId: "now-playing", size: .compact, position: .bottom),
-            ]
+            ],
+            pillPrimary: "now-playing"
         )
         presets = [daily, dev]
         activePresetID = daily.id

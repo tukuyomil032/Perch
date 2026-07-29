@@ -16,36 +16,33 @@ nonisolated struct NowPlayingWidget: PerchWidget {
     }
 }
 
-// MARK: - Mini (one-liner: icon + "Title · Artist")
+// MARK: - Mini (compact-pill slot: artwork thumbnail + marquee title/artist)
 
+/// The compact leading slot's now-playing content.
+///
+/// This is what `IslandCompactLeading` used to draw inline before Phase B made the
+/// slot registry-driven (see `IslandCompactSlots.swift`) — moved here verbatim so
+/// selecting "now-playing" as `pillPrimary` reproduces the exact previous look.
 struct NowPlayingMiniWidget: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        let state = appState.nowPlayingManager.currentState
-        HStack(spacing: 6) {
-            if let artwork = state?.artwork {
-                Image(nsImage: artwork)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 18, height: 18)
-                    .clipShape(RoundedRectangle(cornerRadius: 3))
-            } else {
-                Image(systemName: "music.note")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.4))
-                    .frame(width: 18, height: 18)
+        if let state = appState.nowPlayingManager.currentState {
+            HStack(spacing: 6) {
+                NowPlayingArtworkThumbnail(state: state)
+                MarqueeText(text: compactLabel(for: state), font: .system(size: 11, weight: .medium))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: 120, maxHeight: 16)
             }
-            if let s = state {
-                Text(s.artist.isEmpty ? s.title : "\(s.title) · \(s.artist)")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .lineLimit(1)
-            }
-            Spacer()
+            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+        } else {
+            Color.clear.frame(width: 0, height: 0)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+    }
+
+    private func compactLabel(for state: NowPlayingState) -> String {
+        if state.isAd { return "Spotify Ad" }
+        return state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)"
     }
 }
 

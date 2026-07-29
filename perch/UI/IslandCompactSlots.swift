@@ -4,35 +4,32 @@ import SwiftUI
 ///
 /// The vendored surface lays compact content out as `[leading][notch gap][trailing]`, so
 /// the single ~150pt strip Perch used to draw inside its own capsule has to be split.
-/// Artwork and title go leading, the waveform goes trailing — the Dynamic Island idiom,
-/// and the split that keeps every existing subview untouched.
 ///
 /// Neither slot paints a background, a shape or a stroke. That chrome belongs to the
 /// surface now (`NookShape` + `NookBackdrop`); drawing a capsule in here would render a
 /// pill inside the notch shape.
+///
+/// `IslandCompactLeading` is registry-driven: it renders whichever widget the active
+/// preset names as `pillPrimary`, defaulting to `"now-playing"` for presets that don't
+/// set one (both shipped presets do, via `PresetStore.injectDefaults()`). This is what
+/// `PresetLayout.pillPrimary` was added for — see `docs/opennook-migration-plan.md`
+/// Phase B. `IslandCompactTrailing` stays hard-coded to the now-playing waveform: it
+/// reads `AudioCaptureService.rmsLevels` directly, a live audio-capture signal no
+/// `PerchWidget` declares, so genericizing it has no real second widget to serve yet.
 struct IslandCompactLeading: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        // No music: the slot collapses to nothing and the notch shape closes up around
-        // the gap on its own. An `EmptyView` would do, but a zero-size `Color.clear`
-        // keeps the surface's width measurement well-defined.
-        if let state = appState.nowPlayingManager.currentState {
-            HStack(spacing: 6) {
-                NowPlayingArtworkThumbnail(state: state)
-                MarqueeText(text: compactLabel(for: state), font: .system(size: 11, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: 120, maxHeight: 16)
-            }
-            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+        let widgetId = appState.presetStore.activePreset?.pillPrimary ?? "now-playing"
+        if let widget = appState.widgetRegistry.widget(forId: widgetId) {
+            widget.body(size: .mini)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
         } else {
+            // No widget registered for the id (or no music, which `NowPlayingMiniWidget`
+            // itself already collapses to nothing for): keep the surface's width
+            // measurement well-defined with a zero-size view rather than `EmptyView`.
             Color.clear.frame(width: 0, height: 0)
         }
-    }
-
-    private func compactLabel(for state: NowPlayingState) -> String {
-        if state.isAd { return "Spotify Ad" }
-        return state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)"
     }
 }
 

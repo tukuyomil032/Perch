@@ -28,6 +28,13 @@ struct PresetStoreTests {
         #expect(store.activePreset?.name == "Daily")
     }
 
+    @Test("default Daily and Dev presets both name now-playing as pillPrimary")
+    func defaultPresetsSetPillPrimary() {
+        let store = PresetStore()
+        #expect(store.presets[0].pillPrimary == "now-playing")
+        #expect(store.presets[1].pillPrimary == "now-playing")
+    }
+
     @Test("selectNext moves to Dev from Daily")
     func selectNextAdvances() {
         let store = PresetStore()
