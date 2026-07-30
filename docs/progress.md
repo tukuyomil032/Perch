@@ -499,10 +499,9 @@ B7（Timer）は対応フェーズ未定のまま保留として切り出し、�
       代替アイコンで妥協せず、バッテリー＋WiFiの2点のみに確定
 - [x] B3: モジュールルーティング。**新規 `PerchModule` enum は作らず**、Phase A で「モジュール
       バーが選ぶ対象」として温存済みの `IslandCard` を再利用（当初の設計意図と一致する代替実装）
-- [ ] B4: NowPlaying 展開の再デザイン（既存 `NowPlayingCard.swift` 374行の資産を活かす）—
-      **次の NowPlaying フェーズへ移管**。`AtollStyleExpandedView` は既存 `NowPlayingCard` を
-      そのままラップしただけで、カード自体の再デザインは未着手。
-      **2026-07-30 追記**: 下記「Phase B4+」として本格着手
+- [x] B4: NowPlaying 展開の再デザイン（既存 `NowPlayingCard.swift` 374行の資産を活かす）—
+      当初「次の NowPlaying フェーズへ移管」としていたが、**2026-07-30 に「Phase B4+」
+      として本格着手・完了**（詳細は下記セクション参照）
 - [x] B5: `compactLeading` のレジストリ駆動化（`pillPrimary` を配線）。**`compactTrailing`
       （`pillSecondary`）は意図的に見送り** — waveform が生の音声キャプチャ状態（
       `AudioCaptureService.rmsLevels`）に直接依存しており、`PerchWidget` プロトコルの
@@ -558,38 +557,41 @@ Phase Cに進む前に、Phase Bで積み残していたB4（NowPlaying展開の
 設計の詳細・判断背景は `docs/superpowers/specs/`（未作成の場合はプラン file
 `phasec-phaseb-b-docs-playful-cocoa.md` 相当の内容）を参照。
 
-- [ ] BP1: 設定画面が開かないバグ修正（最優先）— `MenuBarController.openSettings()` が
+- [x] BP1: 設定画面が開かないバグ修正（最優先）— `MenuBarController.openSettings()` が
       `NookPanel`（Island自体の常駐クロムウィンドウ、`canBecomeKey: true` かつ常時
       `isVisible: true`）を誤って「最初のkeyable+visibleウィンドウ」として掴んでしまい、
       本物のSettingsウィンドウにフォーカスできていなかったのが真因。`SettingsWindowSelector`
       という純粋関数に選定ロジックを切り出しNookPanelを除外
-- [ ] BP2: モジュールアイコン差し替え — `.nowPlaying`(Home相当)を`music.note`→`house.fill`、
+- [x] BP2: モジュールアイコン差し替え — `.nowPlaying`(Home相当)を`music.note`→`house.fill`、
       `.aiUsage`を`sparkles`→`chart.bar.horizontal.page`、`.fileShelf`を`tray`→
       `square.and.arrow.up.on.square`（将来のFile Shelf用、未到達のまま）。Timer用
       `"timer"`はコメント予約のみ（対応するIslandCaseは無い、B7が保留中のため新規case追加せず）
-- [ ] BP3: Rich modeホームからAIUsageフォールバック除去 — `AtollStyleExpandedView.mainActivity`
+- [x] BP3: Rich modeホームからAIUsageフォールバック除去 — `AtollStyleExpandedView.mainActivity`
       がNowPlaying無し時に`AIUsageStandardView()`を暗黙表示していた実装を、新規`NoActivityView`
       （素直な空状態）に置き換え。AI Usageは`ModuleSwitcher`経由の独立画面(`AIUsageFullView`)
       として引き続きアクセス可能
-- [ ] BP4: NowPlayingCard再デザイン + 3カラム化（B4本体）— Rich mode展開画面を
+- [x] BP4: NowPlayingCard再デザイン + 3カラム化（B4本体）— Rich mode展開画面を
       「左=NowPlayingCard(大アートワーク化)／中央=歌詞(複数行、Perch独自のこだわり)／
       右=CalendarWidget」の3カラムに再構成。Mirror（カメラプレビュー）はAtoll機能だが
       実装しないと確認済み（Phase Bスコープ追加時点で既にスコープ外）——ただしその分の
       余白は捨てず中央カラム(歌詞)に転用する、という設計判断
-  - [ ] BP4-1: `CalendarMonthGrid`新規（EventKit非依存の純粋日付計算構造体）+ テスト
-  - [ ] BP4-2: `CalendarWidget`ホバーグリッド統合（カーソルなし=シンプル表示、
+  - [x] BP4-1: `CalendarMonthGrid`新規（EventKit非依存の純粋日付計算構造体）+ テスト
+  - [x] BP4-2: `CalendarWidget`ホバーグリッド統合（カーソルなし=シンプル表示、
         ホバー中=月間グリッド表示にクロスフェード）
-  - [ ] BP4-3: `NowPlayingLyricsColumn`新規切り出し（歌詞取得ライフサイクルを
+  - [x] BP4-3: `NowPlayingLyricsColumn`新規切り出し（歌詞取得ライフサイクルを
         `NowPlayingCard`から`AtollStyleExpandedView`に引き上げ）+ 全画面歌詞表示
         (`lyricsFullView`)削除（中央カラムに常時複数行歌詞が出るため重複と判断、
-        ユーザー確認済み）
-  - [ ] BP4-4: `NowPlayingCard`横長レイアウト再構成（大アートワーク化、歌詞出し分け
+        ユーザー確認済み）。実装中に`NowPlayingCard`は`NowPlayingWidget`経由でMinimal
+        modeのプリセットウィジェットとしても使われていたことが判明（計画時の見落とし）。
+        ユーザー確認の上、Minimal modeでは歌詞なしとし、歌詞はRich modeの専用カラムに
+        一本化する方針に決定
+  - [x] BP4-4: `NowPlayingCard`横長レイアウト再構成（大アートワーク化、歌詞出し分け
         ロジック撤去で単純化）。shuffleボタンは追加しない（既存API無し、スコープ外と確認済み）
-  - [ ] BP4-5: `AtollStyleExpandedView`の3カラムHStack配線
-  - [ ] BP4-6: `ExpandedIslandView`の展開幅を条件分岐（Rich mode+presetDriven時のみ
-        `minWidth`をAtoll相当(目安680pt、`DesignSystem`にトークン化)に拡大。
+  - [x] BP4-5: `AtollStyleExpandedView`の3カラムHStack配線
+  - [x] BP4-6: `ExpandedIslandView`の展開幅を条件分岐（Rich mode+presetDriven時のみ
+        `minWidth`をAtoll相当(680pt、`DesignSystem.richModeMinWidth`にトークン化)に拡大。
         Minimal mode/AIUsage直行画面は既存420ptを維持）
-- [ ] BP5: コンパクトピル（未展開状態）— ユーザー確認の結果、現状維持でスコープ外
+- [x] BP5: コンパクトピル（未展開状態）— ユーザー確認の結果、現状維持でスコープ外
       （2026-07-30 AskUserQuestionで確認：「ノッチを開いてない状態」の理解で合っており、
       変更不要と回答）
 
