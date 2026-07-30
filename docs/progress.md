@@ -722,8 +722,8 @@ Phase B5完了後、実機で追加のフィードバックが8件出た。う�
       `lineLimit(2)→1`、アルバムを`lineLimit(1)→2`に変更。コミット`653c6e6`。
 - [x] B6-6: シークバー位置調整 — `progressSection`のVStack spacingを4→10に拡大し、
       秒数表示に近づける。コミット`26358a2`。
-- [ ] B6-7: コントロールボタン間隔・サイズ拡大 — spacing 8→14、prev/next 30→36pt、
-      play/pause 40→46pt
+- [x] B6-7: コントロールボタン間隔・サイズ拡大 — spacing 8→14、prev/next 30→36pt、
+      play/pause 40→46pt。コミット`77c8871`。
 - [ ] B6-8: 再生元アイコンをブランドロゴに差し替え — Apple Music/Spotify/YouTube Music
       のSVG/PNGをAssets.xcassetsに追加し、`sourceBadge`をブランドロゴ表示に変更。
       `.mrMediaRemote`はSF Symbolフォールバックを維持
