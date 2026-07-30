@@ -9,6 +9,16 @@ enum MusicSource: String, Sendable, Equatable {
     case mrMediaRemote = "MRMediaRemote"
 
     var displayName: String { rawValue }
+
+    /// SF Symbol for `NowPlayingCard`'s source badge (handbook §11.2 "再生元アイコン").
+    /// None of these apps have an official SF Symbol, so this uses generic glyphs
+    /// rather than guessing at brand marks that don't exist in the symbol set.
+    var symbolName: String {
+        switch self {
+        case .spotify, .appleMusic, .mrMediaRemote: "music.note"
+        case .youTubeMusic: "play.rectangle.fill"
+        }
+    }
 }
 
 @MainActor

@@ -11,6 +11,7 @@ struct NowPlayingCard: View {
     @State private var isScrubbing: Bool = false
     @State private var scrubProgress: Double = 0
     @State private var waveformPalette = ArtworkPalette.fallback
+    @State private var sourceBadgeVisible = false
 
     var body: some View {
         twoColumnView
@@ -43,27 +44,23 @@ struct NowPlayingCard: View {
     // MARK: - Artwork
 
     private var artworkView: some View {
-        Group {
-            if let img = displayedArtwork {
-                Image(nsImage: img)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 128, height: 128)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .accessibilityLabel("Album art: \(state.album ?? state.title)")
-            } else {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.white.opacity(0.12))
-                    .frame(width: 128, height: 128)
-                    .overlay {
-                        Image(systemName: state.isAd ? "megaphone.fill" : "music.note")
-                            .font(.system(size: 44, weight: .light))
-                            .foregroundStyle(.white.opacity(0.4))
-                    }
-                    .accessibilityLabel(state.isAd ? "Spotify Ad" : "No album art")
-            }
+        ZStack(alignment: .bottomTrailing) {
+            // Glow: a blurred, oversized copy of the same artwork behind it, per
+            // docs/macOS-Expanded-Surface-Layout-Handbook-ja.md §11.2. Hit-testing is
+            // disabled so it never steals clicks meant for the artwork itself.
+            artworkBody
+                .scaleEffect(x: 1.3, y: 1.4)
+                .rotationEffect(.degrees(92))
+                .blur(radius: 40)
+                .opacity(state.isPlaying ? 0.5 : 0)
+                .allowsHitTesting(false)
+                .animation(.easeInOut(duration: 0.3), value: state.isPlaying)
+
+            artworkBody
+
+            sourceBadge
+                .offset(x: 10, y: 10)
         }
-        .rotation3DEffect(.degrees(artworkAngle), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
         .onAppear {
             displayedArtwork = state.artwork
             displayedArtworkID = state.artworkID
@@ -84,6 +81,54 @@ struct NowPlayingCard: View {
                 withAnimation(.easeOut(duration: 0.18)) { artworkAngle = 0 }
             }
         }
+    }
+
+    private var artworkBody: some View {
+        Group {
+            if let img = displayedArtwork {
+                Image(nsImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 128, height: 128)
+                    .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                    .accessibilityLabel("Album art: \(state.album ?? state.title)")
+            } else {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(.white.opacity(0.12))
+                    .frame(width: 128, height: 128)
+                    .overlay {
+                        Image(systemName: state.isAd ? "megaphone.fill" : "music.note")
+                            .font(.system(size: 44, weight: .light))
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
+                    .accessibilityLabel(state.isAd ? "Spotify Ad" : "No album art")
+            }
+        }
+        .rotation3DEffect(.degrees(artworkAngle), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
+    }
+
+    /// Small badge naming where the track is playing from. Bounces in 0.3s after the
+    /// card appears (handbook §11.2) so it doesn't compete with the artwork itself for
+    /// attention the instant the card mounts.
+    private var sourceBadge: some View {
+        Circle()
+            .fill(.black.opacity(0.7))
+            .frame(width: 36, height: 36)
+            .overlay {
+                Image(systemName: state.source.symbolName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .scaleEffect(sourceBadgeVisible ? 1 : 0.6)
+            .opacity(sourceBadgeVisible ? 1 : 0)
+            .accessibilityLabel(state.source.displayName)
+            .task(id: state.artworkID) {
+                sourceBadgeVisible = false
+                try? await Task.sleep(for: .milliseconds(300))
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                    sourceBadgeVisible = true
+                }
+            }
     }
 
     // MARK: - Track Info
