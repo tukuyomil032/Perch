@@ -12,10 +12,6 @@ struct NowPlayingCard: View {
     @State private var scrubProgress: Double = 0
     @State private var waveformPalette = ArtworkPalette.fallback
 
-    private var capture: AudioCaptureService {
-        manager.audioCaptureService
-    }
-
     var body: some View {
         twoColumnView
             .task(id: state.artworkID) {
@@ -37,25 +33,6 @@ struct NowPlayingCard: View {
                     trackInfo
                 }
                 .frame(height: 128)
-                HStack(spacing: 0) {
-                    WaveformView(
-                        isPlaying: state.isPlaying,
-                        colors: waveformPalette.gradientColors,
-                        externalLevels: capture.isCaptureActive && capture.hasReceivedAudio
-                            ? capture.rmsLevels
-                            : nil,
-                        usesSyntheticFallback: !capture.isCaptureActive
-                            || !capture.hasReceivedAudio
-                    )
-                    .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
-                    .padding(.trailing, 6)
-                    Text(state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.7))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Spacer(minLength: 8)
-                }
                 progressSection
                 controlsSection
             }
