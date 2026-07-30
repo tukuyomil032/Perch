@@ -18,17 +18,28 @@ import SwiftUI
 /// `PerchWidget` declares, so genericizing it has no real second widget to serve yet.
 struct IslandCompactLeading: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        let widgetId = appState.presetStore.activePreset?.pillPrimary ?? "now-playing"
-        if let widget = appState.widgetRegistry.widget(forId: widgetId) {
-            widget.body(size: .mini)
-                .transition(.opacity.combined(with: .scale(scale: 0.95)))
-        } else {
-            // No widget registered for the id (or no music, which `NowPlayingMiniWidget`
-            // itself already collapses to nothing for): keep the surface's width
-            // measurement well-defined with a zero-size view rather than `EmptyView`.
-            Color.clear.frame(width: 0, height: 0)
+        Group {
+            let widgetId = appState.presetStore.activePreset?.pillPrimary ?? "now-playing"
+            if let widget = appState.widgetRegistry.widget(forId: widgetId) {
+                widget.body(size: .mini)
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            } else {
+                // No widget registered for the id (or no music, which `NowPlayingMiniWidget`
+                // itself already collapses to nothing for): keep the surface's width
+                // measurement well-defined with a zero-size view rather than `EmptyView`.
+                Color.clear.frame(width: 0, height: 0)
+            }
+        }
+        // This slot mounts as soon as the Island itself exists — compact or expanded,
+        // whether or not the user has ever opened the expanded half — so it is the one
+        // reliable place to capture SwiftUI's real `openSettings` action (see
+        // `AppState.openSettingsAction`'s doc comment for why AppKit-only routes to the
+        // Settings scene stopped working).
+        .onAppear {
+            appState.openSettingsAction = { openSettings() }
         }
     }
 }

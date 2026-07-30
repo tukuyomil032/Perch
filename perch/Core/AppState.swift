@@ -36,6 +36,12 @@ final class AppState {
     let presetStore = PresetStore()
     let widgetRegistry = WidgetRegistry()
 
+    /// Set from `IslandCompactSlots.swift`'s `IslandCompactLeading`, the one SwiftUI view
+    /// that mounts as soon as the Island exists (compact or expanded). `nil` only in the
+    /// brief window before the Island first mounts. AppKit-only routes to the Settings
+    /// scene (`NSApp.sendAction(Selector(("showSettingsWindow:")), ...)`) stopped working
+    /// on macOS 14+ — SwiftUI's `@Environment(\.openSettings)` is the supported way, and
+    /// it only exists inside a live view.
     var openSettingsAction: (() -> Void)?
 
     let nowPlayingManager = NowPlayingManager()
