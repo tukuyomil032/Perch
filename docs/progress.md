@@ -720,8 +720,8 @@ Phase B5完了後、実機で追加のフィードバックが8件出た。う�
       コミット`1557242`。
 - [x] B6-5: アルバム名2行化＋タイトル1行化 — 128pt制約内に収めるためタイトルを
       `lineLimit(2)→1`、アルバムを`lineLimit(1)→2`に変更。コミット`653c6e6`。
-- [ ] B6-6: シークバー位置調整 — `progressSection`のVStack spacingを4→10に拡大し、
-      秒数表示に近づける
+- [x] B6-6: シークバー位置調整 — `progressSection`のVStack spacingを4→10に拡大し、
+      秒数表示に近づける。コミット`26358a2`。
 - [ ] B6-7: コントロールボタン間隔・サイズ拡大 — spacing 8→14、prev/next 30→36pt、
       play/pause 40→46pt
 - [ ] B6-8: 再生元アイコンをブランドロゴに差し替え — Apple Music/Spotify/YouTube Music
