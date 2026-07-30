@@ -10,6 +10,7 @@ struct AtollStyleExpandedView: View {
     @State private var contentVisible = false
     @State private var lyrics: [LyricsLine] = []
     @State private var isLyricsLoading = false
+    @State private var leftColumnHeight: CGFloat = DesignSystem.atollColumnFallbackHeight
 
     private var currentState: NowPlayingState? {
         appState.nowPlayingManager.currentState
@@ -19,11 +20,13 @@ struct AtollStyleExpandedView: View {
         HStack(alignment: .top, spacing: 0) {
             mainActivity
                 .frame(minWidth: 260, idealWidth: 300, alignment: .leading)
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { leftColumnHeight = $0 }
 
             if let state = currentState {
                 Divider().opacity(0.08)
                 NowPlayingLyricsColumn(state: state, lyrics: lyrics, isLoading: isLyricsLoading)
                     .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(height: leftColumnHeight)
             }
 
             Divider().opacity(0.08)

@@ -10,6 +10,11 @@ enum DesignSystem {
     /// rendering that layout — see `ExpandedIslandView.minExpandedWidth`.
     static let richModeMinWidth: CGFloat = 680
 
+    /// Fallback height for `AtollStyleExpandedView`'s center column before its real
+    /// height (measured from the left column) is known — the value for one frame only,
+    /// not a layout target. See `AtollStyleExpandedView.leftColumnHeight`.
+    static let atollColumnFallbackHeight: CGFloat = 240
+
     /// Content-level feedback: tab/module selection capsules, active-card switches.
     /// Not the notch shell itself — see `shellOpen`/`shellClose` for that.
     static let springAnimation = Animation.spring(response: 0.32, dampingFraction: 0.82)
