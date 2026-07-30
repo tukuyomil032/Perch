@@ -715,8 +715,9 @@ Phase B5完了後、実機で追加のフィードバックが8件出た。う�
 - [x] B6-3: 歌詞の中央配置ずれ修正 — `LyricsView`の`ScrollView`自体に
       `.frame(maxWidth: .infinity)`が無く、狭い実効幅の中で中央揃えになっていた。
       `NowPlayingLyricsColumn`側にも保険で追加。コミット`df893e8`。
-- [ ] B6-4: 歌詞ロード中アニメーションをProgressViewに変更 — 自作の3本正弦波描画
-      （「謎の波」）を標準`ProgressView(.circular)`に置き換え、歌詞カラム中央に配置
+- [x] B6-4: 歌詞ロード中アニメーションをProgressViewに変更 — 自作の3本正弦波描画
+      （「謎の波」）を標準`ProgressView(.circular)`に置き換え、歌詞カラム中央に配置。
+      コミット`1557242`。
 - [ ] B6-5: アルバム名2行化＋タイトル1行化 — 128pt制約内に収めるためタイトルを
       `lineLimit(2)→1`、アルバムを`lineLimit(1)→2`に変更
 - [ ] B6-6: シークバー位置調整 — `progressSection`のVStack spacingを4→10に拡大し、
