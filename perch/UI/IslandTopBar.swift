@@ -1,7 +1,10 @@
 import SwiftUI
 
-/// The expanded island's top row: collapse button + module switcher on the left,
-/// system status glyphs on the right.
+/// The expanded island's top row: three zones per
+/// docs/macOS-Expanded-Surface-Layout-Handbook-ja.md §8 ("ヘッダーの3領域設計") — left
+/// (close button + module switcher, `maxWidth: .infinity` leading), center (a reserved
+/// gap the width of the physical/synthetic notch, so nothing renders under it), right
+/// (`SystemStatusCluster`, `maxWidth: .infinity` trailing).
 ///
 /// Modules reuse the existing `IslandCard` enum rather than a new type — `activeCard`
 /// was kept through Phase A specifically for this (see `AppState.activeCard`'s doc
@@ -13,21 +16,38 @@ struct IslandTopBar: View {
 
     private static let modules: [IslandCard] = [.nowPlaying, .aiUsage]
 
+    /// The vendored surface has no environment-exposed path to `Nook.notchSize` (only
+    /// `NookView` itself observes it), so this reads the same `NSScreen` extension the
+    /// surface uses internally rather than threading a new value through Vendor. Falls
+    /// back to `Nook.syntheticNotchWidth`'s own default (195pt) on displays with no
+    /// physical notch and no live screen reference.
+    private var notchReservationWidth: CGFloat {
+        min(NSScreen.main?.notchSize?.width ?? 195, 300)
+    }
+
     var body: some View {
-        HStack {
-            Button {
-                appState.collapse()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.tertiary)
-                    .imageScale(.medium)
+        HStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Button {
+                    appState.collapse()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                        .imageScale(.medium)
+                }
+                .buttonStyle(.plain)
+
+                ModuleSwitcher(modules: Self.modules)
             }
-            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            ModuleSwitcher(modules: Self.modules)
+            Color.clear
+                .frame(width: notchReservationWidth)
 
-            Spacer()
-            SystemStatusCluster()
+            HStack(spacing: 4) {
+                SystemStatusCluster()
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
@@ -38,9 +58,10 @@ struct IslandTopBar: View {
 private struct ModuleSwitcher: View {
     @Environment(AppState.self) private var appState
     let modules: [IslandCard]
+    @Namespace private var selectionNamespace
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 24) {
             ForEach(modules) { module in
                 Button {
                     withAnimation(DesignSystem.springAnimation) {
@@ -50,24 +71,31 @@ private struct ModuleSwitcher: View {
                     Image(systemName: module.moduleIcon)
                         .font(.system(size: 12, weight: .medium))
                 }
-                .buttonStyle(ModuleIconButtonStyle(isSelected: appState.activeCard == module))
+                .buttonStyle(
+                    ModuleIconButtonStyle(
+                        isSelected: appState.activeCard == module,
+                        namespace: selectionNamespace
+                    )
+                )
             }
         }
-        .padding(.leading, 10)
     }
 }
 
 private struct ModuleIconButtonStyle: ButtonStyle {
     let isSelected: Bool
+    let namespace: Namespace.ID
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(isSelected ? .white : .white.opacity(0.35))
-            .frame(width: 24, height: 24)
+            .frame(height: 26)
+            .padding(.horizontal, 6)
             .background {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    Capsule()
                         .fill(.white.opacity(0.12))
+                        .matchedGeometryEffect(id: "moduleSelection", in: namespace)
                 }
             }
             .contentShape(Rectangle())
