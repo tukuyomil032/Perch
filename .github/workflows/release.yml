@@ -151,6 +151,7 @@ jobs:
       - name: Build universal archive
         run: |
           set -o pipefail
+          mkdir -p build
           xcodebuild archive \
             -scheme "$SCHEME" \
             -configuration Release \
@@ -167,7 +168,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="$BASE_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            SKIP_INSTALL=NO 2>&1 | tee build/xcodebuild-archive.log | tail -100
+            SKIP_INSTALL=NO 2>&1 | tee build/xcodebuild-archive.log
 
       - name: Upload archive build log on failure
         if: failure()
