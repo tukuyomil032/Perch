@@ -147,15 +147,15 @@ def infer_channel(event_name: str, current: dict[str, str], previous: dict[str, 
         requested: Channel passed for workflow_dispatch.
 
     Returns:
-        stable, beta, or None when the workflow should skip publishing.
+        stable, beta, preview, or None when the workflow should skip publishing.
 
     Raises:
         ReleaseError: If the requested channel is invalid or the changed release
             block is ambiguous.
     """
     if event_name == "workflow_dispatch":
-        if requested not in {"stable", "beta"}:
-            raise ReleaseError("workflow_dispatch requires --channel stable or --channel beta")
+        if requested not in {"stable", "beta", "preview"}:
+            raise ReleaseError("workflow_dispatch requires --channel stable, --channel beta, or --channel preview")
         return requested
 
     stable_changed = changed(STABLE_KEYS, current, previous)
@@ -242,6 +242,40 @@ def resolve_metadata(channel: str, values: dict[str, str]) -> dict[str, str]:
     }
 
 
+def resolve_preview_metadata(base_version: str, branch_slug: str, run_number: str) -> dict[str, str]:
+    """Build GitHub Actions outputs for a preview build off a non-main branch.
+
+    Preview builds never touch version.env's STABLE_*/BETA_* fields - the
+    version string is derived from the branch and run number instead, so
+    branch experiments can never collide with the real stable/beta channels.
+
+    Args:
+        base_version: Marketing version to prefix the preview suffix with.
+        branch_slug: Source branch name with slashes replaced by dashes.
+        run_number: GitHub Actions run number, used as the build number.
+
+    Returns:
+        Output values for downstream workflow steps.
+
+    Raises:
+        ReleaseError: If base_version is not plain semver or run_number is not
+            a positive integer.
+    """
+    base_version = parse_semver(base_version, "preview base version")
+    build_number = parse_positive_int(run_number, "preview run number")
+    version = f"{base_version}-preview.{branch_slug}.{build_number}"
+
+    return {
+        "skip": "false",
+        "channel": "preview",
+        "version": version,
+        "base_version": base_version,
+        "build_number": str(build_number),
+        "tag": f"v{version}",
+        "is_beta": "true",
+    }
+
+
 def write_outputs(outputs: dict[str, str], github_output: str) -> None:
     """Write release metadata to GitHub Actions and stdout.
 
@@ -276,6 +310,9 @@ def main() -> int:
     parser.add_argument("--event-name", required=True)
     parser.add_argument("--channel", default="")
     parser.add_argument("--appcast", required=True, type=Path)
+    parser.add_argument("--preview-branch", default="")
+    parser.add_argument("--preview-run", default="")
+    parser.add_argument("--preview-base-version", default="")
     parser.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT", ""))
     args = parser.parse_args()
 
@@ -286,6 +323,12 @@ def main() -> int:
 
         if channel is None:
             write_outputs({"skip": "true"}, args.github_output)
+            return 0
+
+        if channel == "preview":
+            base_version = args.preview_base_version or require(current, "STABLE_MARKETING_VERSION")
+            outputs = resolve_preview_metadata(base_version, args.preview_branch, args.preview_run)
+            write_outputs(outputs, args.github_output)
             return 0
 
         outputs = resolve_metadata(channel, current)
