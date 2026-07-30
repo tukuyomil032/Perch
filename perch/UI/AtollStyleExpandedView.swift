@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Rich mode's Home-module layout: a now-playing activity card on the left, a calendar
-/// panel on the right.
+/// Rich mode's Home-module layout: two columns whose content swaps based on whether
+/// music is playing.
 ///
 /// Not preset-driven like Minimal mode's `presetContent` — this is a fixed layout, so
 /// there's nothing here for `PresetTabBar` to switch between (see `ExpandedIslandView`).
@@ -11,6 +11,7 @@ struct AtollStyleExpandedView: View {
     @State private var lyrics: [LyricsLine] = []
     @State private var isLyricsLoading = false
     @State private var leftColumnHeight: CGFloat = DesignSystem.atollColumnFallbackHeight
+    @State private var calendarStore = CalendarStore()
 
     private var currentState: NowPlayingState? {
         appState.nowPlayingManager.currentState
@@ -18,20 +19,15 @@ struct AtollStyleExpandedView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            mainActivity
+            leftColumn
                 .frame(minWidth: 260, idealWidth: 300, alignment: .leading)
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) { leftColumnHeight = $0 }
 
-            if let state = currentState {
-                Divider().opacity(0.08)
-                NowPlayingLyricsColumn(state: state, lyrics: lyrics, isLoading: isLyricsLoading)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .frame(height: leftColumnHeight)
-            }
-
             Divider().opacity(0.08)
-            CalendarWidget()
-                .frame(width: 200, alignment: .leading)
+
+            centerColumn
+                .frame(maxWidth: .infinity, alignment: .center)
+                .frame(height: leftColumnHeight)
         }
         // Temporal choreography (docs/SwiftUI-Animation-Architecture-Handbook-ja.md §6):
         // content appears slightly after the shell rather than snapping in with it, so a
@@ -46,6 +42,9 @@ struct AtollStyleExpandedView: View {
         }
         .task(id: lyricsTaskKey) {
             await refreshLyrics()
+        }
+        .task {
+            await calendarStore.requestAccessAndRefresh()
         }
     }
 
@@ -70,34 +69,25 @@ struct AtollStyleExpandedView: View {
         isLyricsLoading = false
     }
 
-    /// Now-playing when there's music; a quiet empty state otherwise. AI Usage lives
-    /// behind its own module button (`ModuleSwitcher.aiUsage` → `AIUsageFullView`) so it
-    /// never appears here out of context.
+    /// Now-playing when there's music; the calendar's month view otherwise.
     @ViewBuilder
-    private var mainActivity: some View {
+    private var leftColumn: some View {
         if let state = currentState {
             NowPlayingCard(state: state, manager: appState.nowPlayingManager)
         } else {
-            NoActivityView()
+            CalendarMonthColumn(store: calendarStore)
         }
     }
-}
 
-private struct NoActivityView: View {
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "music.note")
-                .font(.system(size: 28, weight: .light))
-                .foregroundStyle(.white.opacity(0.25))
-            VStack(spacing: 2) {
-                Text("Nothing playing")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.6))
-                Text("Music will show up here.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.35))
-            }
+    /// Lyrics while playing (fetched or still loading) so the column doesn't flash to
+    /// today's events and back before a fetch resolves; today's events otherwise — which
+    /// covers both "nothing playing" and "playing but no lyrics found".
+    @ViewBuilder
+    private var centerColumn: some View {
+        if let state = currentState, !lyrics.isEmpty || isLyricsLoading {
+            NowPlayingLyricsColumn(state: state, lyrics: lyrics, isLoading: isLyricsLoading)
+        } else {
+            TodayEventsColumn(store: calendarStore)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

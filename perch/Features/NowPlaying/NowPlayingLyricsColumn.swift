@@ -4,6 +4,10 @@ import SwiftUI
 /// controls column rather than the single-line afterthought other Dynamic Island style
 /// apps show. Display-only — the caller (`AtollStyleExpandedView`) owns the fetch
 /// lifecycle since this column's data outlives any one `NowPlayingCard` render.
+///
+/// Only ever shown while lyrics exist or are loading — `AtollStyleExpandedView` falls
+/// back to `TodayEventsColumn` once loading finishes with nothing found, so there's no
+/// "no lyrics" state to render here.
 struct NowPlayingLyricsColumn: View {
     let state: NowPlayingState
     let lyrics: [LyricsLine]
@@ -19,24 +23,10 @@ struct NowPlayingLyricsColumn: View {
                         fontSize: 13
                     )
                 }
-            } else if isLoading {
-                LyricsLoadingView()
             } else {
-                placeholder
+                LyricsLoadingView()
             }
         }
         .animation(DesignSystem.springAnimation, value: lyrics.map(\.id))
-    }
-
-    private var placeholder: some View {
-        VStack(spacing: 6) {
-            Image(systemName: "music.note")
-                .font(.system(size: 20, weight: .light))
-                .foregroundStyle(.white.opacity(0.2))
-            Text("No lyrics available")
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.3))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

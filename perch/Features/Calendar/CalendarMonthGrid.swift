@@ -1,6 +1,6 @@
 import Foundation
 
-/// A month's worth of day cells laid out into calendar weeks, for `CalendarWidget`'s
+/// A month's worth of day cells laid out into calendar weeks, for `CalendarMonthColumn`'s
 /// hover grid. Pure date math — no EventKit dependency, so it's trivially unit-testable
 /// (mirrors `CalendarStore.timeLabel`/`normalizedTitle`, which are pure for the same reason).
 nonisolated struct CalendarMonthGrid {
