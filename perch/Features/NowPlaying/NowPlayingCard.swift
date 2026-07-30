@@ -166,10 +166,10 @@ struct NowPlayingCard: View {
                     ZStack(alignment: .leading) {
                         Capsule()
                             .fill(.white.opacity(0.15))
-                            .frame(height: isScrubbing ? 5 : 3)
+                            .frame(height: isScrubbing ? 14 : 8)
                         Capsule()
                             .fill(.white.opacity(isScrubbing ? 1.0 : 0.8))
-                            .frame(width: max(0, geo.size.width * p), height: isScrubbing ? 5 : 3)
+                            .frame(width: max(0, geo.size.width * p), height: isScrubbing ? 14 : 8)
                     }
                     .animation(.easeInOut(duration: 0.08), value: isScrubbing)
                 }
@@ -231,37 +231,61 @@ struct NowPlayingCard: View {
     // MARK: - Controls
 
     private var controlsSection: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 8) {
             Spacer()
-            controlButton(systemName: "backward.fill", action: manager.previousTrack)
-                .accessibilityLabel("Previous track")
-            Spacer()
-            controlButton(
+            NudgeControlButton(
+                systemName: "backward.fill", action: manager.previousTrack,
+                iconSize: 13, frameSize: 30, nudgeDirection: -1
+            )
+            .accessibilityLabel("Previous track")
+            NudgeControlButton(
                 systemName: state.isPlaying ? "pause.fill" : "play.fill",
                 action: manager.togglePlayPause,
-                size: 22
+                iconSize: 18, frameSize: 40
             )
             .accessibilityLabel(state.isPlaying ? "Pause" : "Play")
-            Spacer()
-            controlButton(systemName: "forward.fill", action: manager.nextTrack)
-                .accessibilityLabel("Next track")
+            NudgeControlButton(
+                systemName: "forward.fill", action: manager.nextTrack,
+                iconSize: 13, frameSize: 30, nudgeDirection: 1
+            )
+            .accessibilityLabel("Next track")
             Spacer()
         }
     }
+}
 
-    private func controlButton(
-        systemName: String,
-        action: @escaping @MainActor () -> Void,
-        size: CGFloat = 16
-    ) -> some View {
-        Button(action: action) {
+/// A playback control button that nudges 6pt in the direction of travel when pressed
+/// (handbook §11.5: "前後移動は押した方向へ6pt Nudge") — motion tied to meaning, distinct
+/// from play/pause's plain symbol replace (`nudgeDirection == 0`).
+private struct NudgeControlButton: View {
+    let systemName: String
+    let action: @MainActor () -> Void
+    var iconSize: CGFloat = 16
+    var frameSize: CGFloat = 44
+    var nudgeDirection: CGFloat = 0
+
+    @State private var offset: CGFloat = 0
+
+    var body: some View {
+        Button {
+            if nudgeDirection != 0 {
+                withAnimation(.spring(response: 0.15, dampingFraction: 0.5)) {
+                    offset = nudgeDirection * 6
+                }
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.6).delay(0.1)) {
+                    offset = 0
+                }
+            }
+            action()
+        } label: {
             Image(systemName: systemName)
-                .font(.system(size: size, weight: .semibold))
+                .font(.system(size: iconSize, weight: .semibold))
                 .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
+                .frame(width: frameSize, height: frameSize)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .offset(x: offset)
     }
 }
 
