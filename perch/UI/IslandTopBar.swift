@@ -81,11 +81,14 @@ extension IslandCard {
     fileprivate var moduleIcon: String {
         switch self {
         case .idle: "circle"
-        case .nowPlaying: "music.note"
-        case .aiUsage: "sparkles"
-        case .fileShelf: "tray"
+        case .nowPlaying: "house.fill"
+        case .aiUsage: "chart.bar.horizontal.page"
+        case .fileShelf: "square.and.arrow.up.on.square"
         case .devStatus: "hammer"
         case .hud: "dial.medium"
         }
     }
 }
+
+// Timer module (Phase B7, still unscheduled per docs/progress.md) is reserved to use
+// SF Symbol "timer" once it gets an `IslandCard` case of its own.
