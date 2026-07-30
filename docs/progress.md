@@ -712,8 +712,9 @@ Phase B5完了後、実機で追加のフィードバックが8件出た。う�
 - [x] B6-2: 歌詞更新の遅延バグ — 曲が変わっても`refreshLyrics()`が`lyrics`配列を
       即座にクリアせず、フェッチ完了まで前曲の歌詞が残り続ける。冒頭で`lyrics = []`を
       即座に実行するよう修正。コミット`b5714a9`。
-- [ ] B6-3: 歌詞の中央配置ずれ修正 — `LyricsView`の`ScrollView`自体に
-      `.frame(maxWidth: .infinity)`が無く、狭い実効幅の中で中央揃えになっていた
+- [x] B6-3: 歌詞の中央配置ずれ修正 — `LyricsView`の`ScrollView`自体に
+      `.frame(maxWidth: .infinity)`が無く、狭い実効幅の中で中央揃えになっていた。
+      `NowPlayingLyricsColumn`側にも保険で追加。コミット`df893e8`。
 - [ ] B6-4: 歌詞ロード中アニメーションをProgressViewに変更 — 自作の3本正弦波描画
       （「謎の波」）を標準`ProgressView(.circular)`に置き換え、歌詞カラム中央に配置
 - [ ] B6-5: アルバム名2行化＋タイトル1行化 — 128pt制約内に収めるためタイトルを
