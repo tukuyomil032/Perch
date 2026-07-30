@@ -150,3 +150,42 @@ struct NowPlayingManagerResolveBundleIdentifierTests {
             ) == "com.apple.Safari")
     }
 }
+
+@Suite("NowPlayingManager.isSameTrack")
+struct NowPlayingManagerIsSameTrackTests {
+    @Test("identical title and artist is the same track")
+    func identicalTitleAndArtistIsSameTrack() {
+        #expect(
+            NowPlayingManager.isSameTrack(
+                previousTitle: "Actor", previousArtist: "幾田りら",
+                newTitle: "Actor", newArtist: "幾田りら"
+            ))
+    }
+
+    @Test("a different title is a different track")
+    func differentTitleIsDifferentTrack() {
+        #expect(
+            !NowPlayingManager.isSameTrack(
+                previousTitle: "Actor", previousArtist: "幾田りら",
+                newTitle: "IRIS OUT", newArtist: "幾田りら"
+            ))
+    }
+
+    @Test("a different artist is a different track")
+    func differentArtistIsDifferentTrack() {
+        #expect(
+            !NowPlayingManager.isSameTrack(
+                previousTitle: "Actor", previousArtist: "幾田りら",
+                newTitle: "Actor", newArtist: "米津玄師"
+            ))
+    }
+
+    @Test("no previously-tracked title/artist is never the same track")
+    func nilPreviousIsNeverSameTrack() {
+        #expect(
+            !NowPlayingManager.isSameTrack(
+                previousTitle: nil, previousArtist: nil,
+                newTitle: "Actor", newArtist: "幾田りら"
+            ))
+    }
+}

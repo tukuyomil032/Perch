@@ -219,9 +219,16 @@ final class NowPlayingManager {
                     return
                 }
                 guard let playerState else { return }
+                let previous = self?.currentState
+                let sameTrack =
+                    previous?.source == .spotify
+                    && NowPlayingManager.isSameTrack(
+                        previousTitle: previous?.title, previousArtist: previous?.artist,
+                        newTitle: name, newArtist: artist)
                 let state = NowPlayingState(
                     spotifyPlayerState: playerState, title: name, artist: artist, album: album,
-                    durationMs: durationMs, position: position
+                    durationMs: durationMs, position: position,
+                    previousElapsedTime: sameTrack ? previous?.liveElapsed(at: Date()) : nil
                 )
                 self?.applyState(state, source: "Spotify")
             }
@@ -249,9 +256,20 @@ final class NowPlayingManager {
                     return
                 }
                 guard let playerState else { return }
+                // com.apple.Music.playerInfo fires on Play/Pause toggle as well as track
+                // changes, and carries no position field — without this, every pause
+                // would flash the seek bar and lyrics back to 0 (see
+                // NowPlayingState.init?(appleMusicPlayerState:) for the full story).
+                let previous = self?.currentState
+                let sameTrack =
+                    previous?.source == .appleMusic
+                    && NowPlayingManager.isSameTrack(
+                        previousTitle: previous?.title, previousArtist: previous?.artist,
+                        newTitle: name, newArtist: artist)
                 let state = NowPlayingState(
                     appleMusicPlayerState: playerState, title: name, artist: artist, album: album,
-                    totalTime: totalTime
+                    totalTime: totalTime,
+                    previousElapsedTime: sameTrack ? previous?.liveElapsed(at: Date()) : nil
                 )
                 self?.applyState(state, source: "Apple Music")
             }
@@ -329,6 +347,19 @@ final class NowPlayingManager {
         case .mrMediaRemote:
             return false
         }
+    }
+
+    /// Whether a newly-arrived notification is for the same track already being tracked —
+    /// used to decide whether a position-less notification (Apple Music's playerInfo fires
+    /// on Play/Pause toggle as well as track changes, but carries no position field) should
+    /// carry forward the existing elapsed time instead of resetting to 0. `nil` previous
+    /// values mean "nothing tracked yet", which is never the same track.
+    nonisolated static func isSameTrack(
+        previousTitle: String?, previousArtist: String?,
+        newTitle: String, newArtist: String
+    ) -> Bool {
+        guard let previousTitle, let previousArtist else { return false }
+        return previousTitle == newTitle && previousArtist == newArtist
     }
 
     /// Decides which bundle id (if any) a raw MediaRemote payload should be attributed to.

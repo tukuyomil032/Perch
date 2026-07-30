@@ -169,7 +169,8 @@ extension NowPlayingState {
         artist: String,
         album: String?,
         durationMs: Double?,
-        position: Double?
+        position: Double?,
+        previousElapsedTime: TimeInterval? = nil
     ) {
         guard playerState != "Stopped", !title.isEmpty else { return nil }
         self.title = title
@@ -177,7 +178,11 @@ extension NowPlayingState {
         self.album = album
         self.isPlaying = playerState == "Playing"
         self.duration = durationMs.map { $0 / 1000.0 }  // ms → seconds
-        self.elapsedTime = position  // already in seconds
+        // Spotify's notification usually carries the real position; when it's missing
+        // (some Spotify versions omit it on pause), fall back to the caller-supplied
+        // previous position instead of losing the seek bar to 0 — see the Apple Music
+        // initializer below for the same pattern with more detail.
+        self.elapsedTime = position ?? previousElapsedTime
         self.timestamp = Date()
         self.artwork = nil
         self.artworkID = nil
@@ -193,7 +198,8 @@ extension NowPlayingState {
         title: String,
         artist: String,
         album: String?,
-        totalTime: Double?
+        totalTime: Double?,
+        previousElapsedTime: TimeInterval? = nil
     ) {
         guard playerState != "Stopped", !title.isEmpty else { return nil }
         self.title = title
@@ -201,9 +207,14 @@ extension NowPlayingState {
         self.album = album
         self.isPlaying = playerState == "Playing"
         self.duration = totalTime.map { $0 / 1000.0 }  // Total Time is in ms (iTunes legacy)
-        // Baseline of 0 prevents a stale poll from the previous song (at its end position)
-        // being applied to the new song before the first real poll arrives.
-        self.elapsedTime = 0
+        // `com.apple.Music.playerInfo` carries no position field, and fires on every
+        // Play/Pause toggle as well as track changes — so the caller passes the
+        // previous track's live-elapsed position when this notification is for the
+        // *same* track (see NowPlayingManager.isSameTrack), and nil when it's a real
+        // track change. Baseline of 0 (previousElapsedTime == nil) prevents a stale
+        // poll from the previous song (at its end position) being applied to a new
+        // song before the first real poll arrives.
+        self.elapsedTime = previousElapsedTime ?? 0
         self.timestamp = Date()
         self.artwork = nil
         self.artworkID = nil
