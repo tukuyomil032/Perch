@@ -4,14 +4,6 @@ enum DesignSystem {
     static let cardPadding: CGFloat = 16
     static let gridUnit: CGFloat = 4
 
-    /// Fallback height for `AtollStyleExpandedView`'s center column before its real
-    /// height (measured from the left column) is known — the value for one frame only,
-    /// not a layout target. See `AtollStyleExpandedView.leftColumnHeight`.
-    ///
-    /// TODO(B5-3): retired once the center column gets its own independent height
-    /// (`SurfaceMetrics.lyricsColumnHeight`) instead of mirroring the left column's.
-    static let atollColumnFallbackHeight: CGFloat = 240
-
     /// Content-level feedback: tab/module selection capsules, active-card switches.
     /// Not the notch shell itself — see `shellOpen`/`shellClose` for that.
     static let springAnimation = Animation.spring(response: 0.32, dampingFraction: 0.82)

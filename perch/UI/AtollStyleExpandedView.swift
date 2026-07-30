@@ -10,7 +10,6 @@ struct AtollStyleExpandedView: View {
     @State private var contentVisible = false
     @State private var lyrics: [LyricsLine] = []
     @State private var isLyricsLoading = false
-    @State private var leftColumnHeight: CGFloat = DesignSystem.atollColumnFallbackHeight
     @State private var calendarStore = CalendarStore()
 
     private var currentState: NowPlayingState? {
@@ -21,13 +20,17 @@ struct AtollStyleExpandedView: View {
         HStack(alignment: .top, spacing: 0) {
             leftColumn
                 .frame(minWidth: 260, idealWidth: 300, alignment: .leading)
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) { leftColumnHeight = $0 }
 
             Divider().opacity(0.08)
 
+            // Independent of the left column's height — see
+            // `SurfaceMetrics.lyricsColumnHeight`. The two used to be coupled (this
+            // column mirrored the left column's measured height), which is why lyrics
+            // rendered 8-9 lines instead of the intended 3-4: NowPlayingCard's own
+            // height, not a deliberate cap, was what decided how much text fit.
             centerColumn
                 .frame(maxWidth: .infinity, alignment: .center)
-                .frame(height: leftColumnHeight)
+                .frame(height: SurfaceMetrics.lyricsColumnHeight)
         }
         // A floor, not a target — `NookView.expandedContent()` sizes the shell to
         // whatever this view reports (`.fixedSize()`), so content taller than this
