@@ -34,7 +34,16 @@ struct ExpandedIslandView: View {
         // Content-driven, but not unbounded: the widgets are laid out for roughly this
         // width, and without a floor the surface would shrink to the notch minimum on an
         // empty preset.
-        .frame(minWidth: 420)
+        .frame(minWidth: minExpandedWidth)
+    }
+
+    /// Rich mode's 3-column Home layout wants more room than Minimal mode's single-column
+    /// widget stack or the AI Usage full-screen view, so only widen the floor when
+    /// `AtollStyleExpandedView` is actually what's rendering.
+    private var minExpandedWidth: CGFloat {
+        guard uiMode == .rich, IslandModuleContent.content(for: appState.activeCard) == .presetDriven
+        else { return 420 }
+        return DesignSystem.richModeMinWidth
     }
 
     // MARK: - Module Content

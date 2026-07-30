@@ -4,6 +4,12 @@ enum DesignSystem {
     static let cardPadding: CGFloat = 16
     static let gridUnit: CGFloat = 4
 
+    /// Rich mode's Home module (`AtollStyleExpandedView`) lays out a 3-column
+    /// NowPlayingCard/lyrics/CalendarWidget row that needs more room than Minimal
+    /// mode's single-column widget stack. Applied only when Rich mode is actually
+    /// rendering that layout — see `ExpandedIslandView.minExpandedWidth`.
+    static let richModeMinWidth: CGFloat = 680
+
     /// Content-level feedback: tab/module selection capsules, active-card switches.
     /// Not the notch shell itself — see `shellOpen`/`shellClose` for that.
     static let springAnimation = Animation.spring(response: 0.32, dampingFraction: 0.82)
