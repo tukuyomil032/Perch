@@ -19,6 +19,7 @@ struct NowPlayingState {
     let artwork: NSImage?
     let artworkID: UUID?
     let thumbnailURL: URL?
+    let sourceBundleIdentifier: String?
     let isAd: Bool
     let isPlaying: Bool
     let duration: TimeInterval?
@@ -73,6 +74,7 @@ struct NowPlayingState {
         title: String, artist: String, album: String?, artwork: NSImage?,
         artworkID: UUID? = nil,
         thumbnailURL: URL? = nil,
+        sourceBundleIdentifier: String? = nil,
         isAd: Bool = false,
         isPlaying: Bool, duration: TimeInterval?, elapsedTime: TimeInterval?,
         timestamp: Date?, source: MusicSource
@@ -83,6 +85,7 @@ struct NowPlayingState {
         self.artwork = artwork
         self.artworkID = artworkID
         self.thumbnailURL = thumbnailURL
+        self.sourceBundleIdentifier = sourceBundleIdentifier
         self.isAd = isAd
         self.isPlaying = isPlaying
         self.duration = duration
@@ -96,6 +99,7 @@ struct NowPlayingState {
             title: title, artist: artist, album: album, artwork: artwork,
             artworkID: artwork != nil ? UUID() : nil,
             thumbnailURL: thumbnailURL,
+            sourceBundleIdentifier: sourceBundleIdentifier,
             isAd: isAd,
             isPlaying: isPlaying, duration: duration, elapsedTime: elapsedTime,
             timestamp: timestamp, source: source
@@ -127,6 +131,7 @@ struct NowPlayingState {
         }
         self.artworkID = nil
         self.thumbnailURL = nil
+        self.sourceBundleIdentifier = nil
         self.isAd = false
     }
 }
@@ -138,6 +143,7 @@ extension NowPlayingState: Equatable {
     nonisolated static func == (lhs: NowPlayingState, rhs: NowPlayingState) -> Bool {
         lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying
             && lhs.source == rhs.source && lhs.thumbnailURL == rhs.thumbnailURL
+            && lhs.sourceBundleIdentifier == rhs.sourceBundleIdentifier
             && lhs.artworkID == rhs.artworkID && lhs.isAd == rhs.isAd
     }
 }
@@ -166,6 +172,7 @@ extension NowPlayingState {
         self.artwork = nil
         self.artworkID = nil
         self.thumbnailURL = nil
+        self.sourceBundleIdentifier = nil
         self.isAd = false
         self.source = .spotify
     }
@@ -191,6 +198,7 @@ extension NowPlayingState {
         self.artwork = nil
         self.artworkID = nil
         self.thumbnailURL = nil
+        self.sourceBundleIdentifier = nil
         self.isAd = false
         self.source = .appleMusic
     }
@@ -221,6 +229,7 @@ extension NowPlayingState {
         self.timestamp = nil
         self.artwork = nil
         self.artworkID = nil
+        self.sourceBundleIdentifier = nil
         self.isAd = false
         self.source = .youTubeMusic
     }
@@ -242,6 +251,7 @@ extension NowPlayingState {
         self.timestamp = nil
         self.artwork = nil
         self.artworkID = nil
+        self.sourceBundleIdentifier = nil
         self.isAd = false
         self.thumbnailURL = (obj["thumbnail"] as? String).flatMap { URL(string: $0) }
         self.source = .youTubeMusic
@@ -251,7 +261,8 @@ extension NowPlayingState {
     init?(
         fromMediaRemote trackInfo: TrackInfo,
         overrideArtworkID: UUID? = nil,
-        fallbackElapsedTime: TimeInterval? = nil
+        fallbackElapsedTime: TimeInterval? = nil,
+        overrideBundleIdentifier: String? = nil
     ) {
         let payload = trackInfo.payload
         guard let title = payload.title, !title.isEmpty else { return nil }
@@ -267,6 +278,7 @@ extension NowPlayingState {
             artwork: payload.artwork,
             artworkID: overrideArtworkID ?? (payload.artwork != nil ? UUID() : nil),
             thumbnailURL: nil,
+            sourceBundleIdentifier: overrideBundleIdentifier ?? payload.bundleIdentifier,
             isAd: false,
             isPlaying: isPlaying,
             duration: duration,

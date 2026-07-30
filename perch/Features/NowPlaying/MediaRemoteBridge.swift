@@ -2,7 +2,11 @@ import Foundation
 import Logging
 import MediaRemoteAdapter
 
-private let logger = Logger(label: "com.tukuyomi032.perch.MediaRemoteBridge")
+private let logger: Logger = {
+    var logger = Logger(label: "com.tukuyomi032.perch.MediaRemoteBridge")
+    logger.logLevel = .debug
+    return logger
+}()
 
 @Observable
 @MainActor
@@ -10,9 +14,15 @@ final class MediaRemoteBridge {
     static let shared = MediaRemoteBridge()
 
     private(set) var isListening = false
-    /// Set by NowPlayingManager to restrict events to specific apps (e.g. Chromium browsers).
-    /// Return true to accept the event, false to ignore it. Nil means accept all.
-    var bundleIdentifierFilter: ((String?) -> Bool)? = nil
+    /// Set by NowPlayingManager to restrict/remap events to specific apps (e.g. Chromium
+    /// browsers). Takes the full payload (not just bundleIdentifier) and returns the bundle
+    /// identifier the event should be attributed to, or nil to reject it. A resolved value can
+    /// differ from `payload.bundleIdentifier` — e.g. Kaset publishes its real playing-state
+    /// metadata from an embedded WebKit helper process (bundleIdentifier "com.apple.WebKit.*",
+    /// shared system-wide across every app using WKWebView) rather than its own bundle id, so
+    /// only `applicationName` distinguishes "Kaset's WebKit" from "Safari's WebKit" — the
+    /// resolver remaps that case back to Kaset's own bundle id.
+    var bundleIdentifierResolver: ((TrackInfo.Payload) -> String?)? = nil
     private(set) var currentState: NowPlayingState?
 
     // Same-track stabilization: prevents UUID churn causing artwork flicker
@@ -48,14 +58,25 @@ final class MediaRemoteBridge {
                     self.stateContinuation?.yield(nil)
                     return
                 }
-                // Reject events not from an allowed application (e.g. non-Chromium apps)
-                if let filter = self.bundleIdentifierFilter,
-                    !filter(trackInfo.payload.bundleIdentifier)
-                {
-                    return
+                let payload = trackInfo.payload
+                logger.debug(
+                    "Raw MediaRemote event: bundleId=\(payload.bundleIdentifier ?? "nil") applicationName=\(payload.applicationName ?? "nil") PID=\(payload.PID.map(String.init) ?? "nil") title=\(payload.title ?? "nil")"
+                )
+                // Reject events not from an allowed application (e.g. non-Chromium apps), and
+                // remap WebKit-helper events to the app that actually owns them.
+                let resolvedBundleId: String?
+                if let resolver = self.bundleIdentifierResolver {
+                    resolvedBundleId = resolver(payload)
+                    guard resolvedBundleId != nil else {
+                        logger.debug(
+                            "Rejected MediaRemote event from \(payload.bundleIdentifier ?? "nil") (not in allow-list)"
+                        )
+                        return
+                    }
+                } else {
+                    resolvedBundleId = payload.bundleIdentifier
                 }
 
-                let payload = trackInfo.payload
                 // Use title+artist only — album is unreliable in YTM MediaRemote updates
                 let newIdentifier = "\(payload.title ?? "")-\(payload.artist ?? "")"
                 let sameTrack =
@@ -79,7 +100,8 @@ final class MediaRemoteBridge {
                     let state = NowPlayingState(
                         fromMediaRemote: trackInfo,
                         overrideArtworkID: artworkID,
-                        fallbackElapsedTime: fallbackElapsed
+                        fallbackElapsedTime: fallbackElapsed,
+                        overrideBundleIdentifier: resolvedBundleId
                     )
                 else {
                     self.currentState = nil

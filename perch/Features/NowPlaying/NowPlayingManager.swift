@@ -3,11 +3,15 @@ import AppKit
 import Defaults
 import Foundation
 import Logging
+import MediaRemoteAdapter
 
 @Observable
 @MainActor
 final class NowPlayingManager {
-    private static let chromiumBrowsers: [(bundleId: String, appName: String)] = [
+    // "Applications" (not "Browsers") because this also matches native YTM clients like Kaset,
+    // which publish Now Playing via MPNowPlayingInfoCenter/MPRemoteCommandCenter — the same
+    // MediaRemote pipeline as a Chromium tab playing music.youtube.com.
+    private static let youtubeMusicApplications: [(bundleId: String, appName: String)] = [
         ("com.google.Chrome", "Google Chrome"),
         ("com.google.Chrome.beta", "Google Chrome Beta"),
         ("com.google.Chrome.canary", "Google Chrome Canary"),
@@ -23,6 +27,7 @@ final class NowPlayingManager {
         ("app.zen-browser.zen", "Zen"),
         ("com.apple.Safari", "Safari"),
         ("company.thebrowser.dia", "Dia"),
+        ("com.sertacozercan.Kaset", "Kaset"),
     ]
     private(set) var currentState: NowPlayingState?
     let audioCaptureService = AudioCaptureService()
@@ -42,7 +47,11 @@ final class NowPlayingManager {
     private nonisolated(unsafe) var mediaRemoteStateTask: Task<Void, Never>?
     private var isYTMPolling: Bool = false
     private var wasYTMPolling: Bool = false
-    private let logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
+    private let logger: Logger = {
+        var logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
+        logger.logLevel = .debug
+        return logger
+    }()
 
     init() {
         setupSpotifyObserver()
@@ -50,20 +59,33 @@ final class NowPlayingManager {
         setupLifecycleObservers()
         startYouTubeMusicPolling()
         Task { @MainActor in await attemptMRFetch() }
-        // Only accept MediaRemote events from Chromium browsers (YTM source)
-        let chromiumBundleIds = Set(Self.chromiumBrowsers.map(\.bundleId))
-        MediaRemoteBridge.shared.bundleIdentifierFilter = { bundleId in
-            guard let bundleId else { return false }
-            guard chromiumBundleIds.contains(bundleId) else { return false }
-            return NSWorkspace.shared.runningApplications.contains { app in
-                app.bundleIdentifier == bundleId
+        // Only accept MediaRemote events from known YTM-producing applications (browsers + Kaset).
+        MediaRemoteBridge.shared.bundleIdentifierResolver = { [logger] payload in
+            let runningBundleIdentifiers = Set(
+                NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier)
+            )
+            let resolved = Self.resolveBundleIdentifier(
+                bundleId: payload.bundleIdentifier,
+                applicationName: payload.applicationName,
+                runningBundleIdentifiers: runningBundleIdentifiers
+            )
+            if let resolved {
+                logger.debug("bundleIdentifierResolver: accepted, resolved to \(resolved)")
+            } else {
+                logger.debug(
+                    "bundleIdentifierResolver: rejected bundleId=\(payload.bundleIdentifier ?? "nil") applicationName=\(payload.applicationName ?? "nil")"
+                )
             }
+            return resolved
         }
         MediaRemoteBridge.shared.start()
         mediaRemoteStateTask = Task { [weak self] in
             for await state in MediaRemoteBridge.shared.stateUpdates {
                 guard let self else { return }
                 await MainActor.run {
+                    self.logger.debug(
+                        "MediaRemoteBridge state received: title=\(state?.title ?? "nil") bundleId=\(state?.sourceBundleIdentifier ?? "nil") isYTMPolling=\(self.isYTMPolling)"
+                    )
                     guard self.isYTMPolling else { return }
                     if let current = self.currentState,
                         current.isPlaying,
@@ -278,14 +300,59 @@ final class NowPlayingManager {
 
     private func handleAppTermination(bundleID: String) {
         guard let state = currentState else { return }
-        let matches: Bool
-        switch state.source {
-        case .spotify: matches = bundleID == "com.spotify.client"
-        case .appleMusic: matches = bundleID == "com.apple.Music"
-        case .youTubeMusic: matches = Self.chromiumBrowsers.contains { $0.bundleId == bundleID }
-        default: matches = false
+        if Self.matchesTerminatedApp(
+            bundleID: bundleID,
+            source: state.source,
+            sourceBundleIdentifier: state.sourceBundleIdentifier
+        ) {
+            currentState = nil
         }
-        if matches { currentState = nil }
+    }
+
+    /// Whether the terminated app (`bundleID`) is the one currently backing `source`.
+    /// For `.youTubeMusic`, prefers the exact bundle id the active state was sourced from
+    /// (set by MediaRemoteBridge) over list-membership — with multiple YTM-producing apps
+    /// (e.g. a browser AND Kaset) running simultaneously, list-membership alone would clear
+    /// the active state when an unrelated one of them quits. Falls back to list-membership
+    /// only when the state predates bundle-id tracking (e.g. AppleScript/JS-derived sources).
+    static func matchesTerminatedApp(
+        bundleID: String, source: MusicSource, sourceBundleIdentifier: String?
+    ) -> Bool {
+        switch source {
+        case .spotify: return bundleID == "com.spotify.client"
+        case .appleMusic: return bundleID == "com.apple.Music"
+        case .youTubeMusic:
+            if let sourceBundleIdentifier {
+                return sourceBundleIdentifier == bundleID
+            }
+            return youtubeMusicApplications.contains { $0.bundleId == bundleID }
+        case .mrMediaRemote:
+            return false
+        }
+    }
+
+    /// Decides which bundle id (if any) a raw MediaRemote payload should be attributed to.
+    /// Returns nil to reject the event entirely.
+    ///
+    /// Most apps report their own bundle id directly and just need a running-app + allow-list
+    /// check. Kaset is the exception: it hands off its real playing-state metadata to an
+    /// embedded WebKit helper process while actively playing (bundleIdentifier
+    /// "com.apple.WebKit.*", shared system-wide across every app that uses WKWebView), so for
+    /// that prefix the only way to tell "Kaset's WebKit" from e.g. "Safari's WebKit" is
+    /// `applicationName` — matched against the known apps' display names and remapped back to
+    /// that app's own bundle id.
+    static func resolveBundleIdentifier(
+        bundleId: String?, applicationName: String?, runningBundleIdentifiers: Set<String>
+    ) -> String? {
+        guard let bundleId else { return nil }
+        if bundleId.hasPrefix("com.apple.WebKit.") {
+            guard let applicationName,
+                let hosted = youtubeMusicApplications.first(where: { applicationName.hasPrefix($0.appName) })
+            else { return nil }
+            return hosted.bundleId
+        }
+        guard youtubeMusicApplications.contains(where: { $0.bundleId == bundleId }) else { return nil }
+        return runningBundleIdentifiers.contains(bundleId) ? bundleId : nil
     }
 
     // MARK: - YouTube Music (AppleScript polling)
@@ -303,11 +370,16 @@ final class NowPlayingManager {
         let runningIds = Set(
             NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier }
         )
-        let activeBrowsers = Self.chromiumBrowsers.filter { runningIds.contains($0.bundleId) }
-        let nowPolling = !activeBrowsers.isEmpty
+        let activeApplications = Self.youtubeMusicApplications.filter { runningIds.contains($0.bundleId) }
+        let nowPolling = !activeApplications.isEmpty
         // Browser(s) just quit → clear YTM state immediately
         if wasYTMPolling && !nowPolling && currentState?.source == .youTubeMusic {
             currentState = nil
+        }
+        if nowPolling != isYTMPolling {
+            logger.debug(
+                "isYTMPolling \(isYTMPolling) -> \(nowPolling), active: \(activeApplications.map(\.appName))"
+            )
         }
         wasYTMPolling = nowPolling
         isYTMPolling = nowPolling
@@ -410,14 +482,6 @@ final class NowPlayingManager {
         }
     }
 
-    // MARK: - Audio Capture
-
-    private var ytmBrowserBundleId: String? {
-        NSWorkspace.shared.runningApplications.first { app in
-            Self.chromiumBrowsers.contains { $0.bundleId == (app.bundleIdentifier ?? "") }
-        }?.bundleIdentifier
-    }
-
     // MARK: - State Application
 
     private func applyState(_ newState: NowPlayingState?, source: String) {
@@ -463,6 +527,7 @@ final class NowPlayingManager {
                 title: new.title, artist: new.artist, album: new.album, artwork: old.artwork,
                 artworkID: old.artworkID,
                 thumbnailURL: new.thumbnailURL,
+                sourceBundleIdentifier: new.sourceBundleIdentifier,
                 isPlaying: new.isPlaying, duration: new.duration,
                 elapsedTime: new.elapsedTime, timestamp: new.timestamp, source: new.source
             )
@@ -474,7 +539,7 @@ final class NowPlayingManager {
         switch stateToApply?.source {
         case .spotify: captureBundleId = "com.spotify.client"
         case .appleMusic: captureBundleId = "com.apple.Music"
-        case .youTubeMusic: captureBundleId = ytmBrowserBundleId
+        case .youTubeMusic: captureBundleId = stateToApply?.sourceBundleIdentifier
         default: captureBundleId = nil
         }
         if let bid = captureBundleId {
