@@ -501,7 +501,8 @@ B7（Timer）は対応フェーズ未定のまま保留として切り出し、�
       バーが選ぶ対象」として温存済みの `IslandCard` を再利用（当初の設計意図と一致する代替実装）
 - [ ] B4: NowPlaying 展開の再デザイン（既存 `NowPlayingCard.swift` 374行の資産を活かす）—
       **次の NowPlaying フェーズへ移管**。`AtollStyleExpandedView` は既存 `NowPlayingCard` を
-      そのままラップしただけで、カード自体の再デザインは未着手
+      そのままラップしただけで、カード自体の再デザインは未着手。
+      **2026-07-30 追記**: 下記「Phase B4+」として本格着手
 - [x] B5: `compactLeading` のレジストリ駆動化（`pillPrimary` を配線）。**`compactTrailing`
       （`pillSecondary`）は意図的に見送り** — waveform が生の音声キャプチャ状態（
       `AudioCaptureService.rmsLevels`）に直接依存しており、`PerchWidget` プロトコルの
@@ -543,6 +544,94 @@ B7（Timer）は対応フェーズ未定のまま保留として切り出し、�
       `Nook.transitionConfiguration` 経由）— アニメーションを Atoll 動画のように
       洗練させて、という指摘への対応。`/vfr` で参考動画のキーフレームを抽出したが
       解像度・圧縮の都合で正確なバネ係数は読み取れず、ハンドブック自身の推奨値を採用
+
+### Phase B4+: B4完遂 + Atoll風UI寄せ（2026-07-30〜）
+
+**Branch**: `feat/expanded-ui-redesign`
+**Last Updated**: 2026-07-30
+
+Phase Cに進む前に、Phase Bで積み残していたB4（NowPlaying展開の再デザイン）に本格着手。
+着手にあたり、ユーザーが実機を触りながら追加の不満点をまとめて提示したため、B4単体では
+なく「Rich modeホーム画面全体をAtoll風に寄せる」作業として範囲を確定した
+（CLAUDE.md運用ルールに従い、着手前に本節として明記してから着手）。
+
+設計の詳細・判断背景は `docs/superpowers/specs/`（未作成の場合はプラン file
+`phasec-phaseb-b-docs-playful-cocoa.md` 相当の内容）を参照。
+
+- [ ] BP1: 設定画面が開かないバグ修正（最優先）— `MenuBarController.openSettings()` が
+      `NookPanel`（Island自体の常駐クロムウィンドウ、`canBecomeKey: true` かつ常時
+      `isVisible: true`）を誤って「最初のkeyable+visibleウィンドウ」として掴んでしまい、
+      本物のSettingsウィンドウにフォーカスできていなかったのが真因。`SettingsWindowSelector`
+      という純粋関数に選定ロジックを切り出しNookPanelを除外
+- [ ] BP2: モジュールアイコン差し替え — `.nowPlaying`(Home相当)を`music.note`→`house.fill`、
+      `.aiUsage`を`sparkles`→`chart.bar.horizontal.page`、`.fileShelf`を`tray`→
+      `square.and.arrow.up.on.square`（将来のFile Shelf用、未到達のまま）。Timer用
+      `"timer"`はコメント予約のみ（対応するIslandCaseは無い、B7が保留中のため新規case追加せず）
+- [ ] BP3: Rich modeホームからAIUsageフォールバック除去 — `AtollStyleExpandedView.mainActivity`
+      がNowPlaying無し時に`AIUsageStandardView()`を暗黙表示していた実装を、新規`NoActivityView`
+      （素直な空状態）に置き換え。AI Usageは`ModuleSwitcher`経由の独立画面(`AIUsageFullView`)
+      として引き続きアクセス可能
+- [ ] BP4: NowPlayingCard再デザイン + 3カラム化（B4本体）— Rich mode展開画面を
+      「左=NowPlayingCard(大アートワーク化)／中央=歌詞(複数行、Perch独自のこだわり)／
+      右=CalendarWidget」の3カラムに再構成。Mirror（カメラプレビュー）はAtoll機能だが
+      実装しないと確認済み（Phase Bスコープ追加時点で既にスコープ外）——ただしその分の
+      余白は捨てず中央カラム(歌詞)に転用する、という設計判断
+  - [ ] BP4-1: `CalendarMonthGrid`新規（EventKit非依存の純粋日付計算構造体）+ テスト
+  - [ ] BP4-2: `CalendarWidget`ホバーグリッド統合（カーソルなし=シンプル表示、
+        ホバー中=月間グリッド表示にクロスフェード）
+  - [ ] BP4-3: `NowPlayingLyricsColumn`新規切り出し（歌詞取得ライフサイクルを
+        `NowPlayingCard`から`AtollStyleExpandedView`に引き上げ）+ 全画面歌詞表示
+        (`lyricsFullView`)削除（中央カラムに常時複数行歌詞が出るため重複と判断、
+        ユーザー確認済み）
+  - [ ] BP4-4: `NowPlayingCard`横長レイアウト再構成（大アートワーク化、歌詞出し分け
+        ロジック撤去で単純化）。shuffleボタンは追加しない（既存API無し、スコープ外と確認済み）
+  - [ ] BP4-5: `AtollStyleExpandedView`の3カラムHStack配線
+  - [ ] BP4-6: `ExpandedIslandView`の展開幅を条件分岐（Rich mode+presetDriven時のみ
+        `minWidth`をAtoll相当(目安680pt、`DesignSystem`にトークン化)に拡大。
+        Minimal mode/AIUsage直行画面は既存420ptを維持）
+- [ ] BP5: コンパクトピル（未展開状態）— ユーザー確認の結果、現状維持でスコープ外
+      （2026-07-30 AskUserQuestionで確認：「ノッチを開いてない状態」の理解で合っており、
+      変更不要と回答）
+
+### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
+
+**参照**: `docs/macOS-Battery-Monitoring-Animation-Handbook-ja.md`（全39章、
+§0設計原則〜§38チェックリスト）
+**現状**: `perch/UI/SystemStatusCluster.swift` + `perch/Core/SystemStatus/SystemStatusIcons.swift`
+の素朴な閾値分岐（`battery.0percent`〜`battery.100percent` / `battery.100percent.bolt`）のみ。
+IOKit直読み・HUD調停・常設/一時アニメーションは未実装。
+**2026-07-30 追記**: Phase B4+着手に伴うユーザー指摘で新フェーズとして切り出し。
+ハンドブックの章立てをそのままタスク化せず実装順として妥当な粒度にグルーピング。
+**このフェーズ自体はまだ実装に着手しない**（タスク分割の記録のみ）。
+
+- [ ] D1: IOKit Reader基盤 — `IOPowerSources`/`IOPSCopyPowerSourcesInfo`経由のバッテリー
+      状態リーダー新設。充電状態・残量・推定残り時間・サイクルカウント等のデータモデル定義
+- [ ] D2: HUD調停・表示ポリシー — システム標準バッテリーHUDとPerch常駐表示の競合回避、
+      常設表示と一時的な状態変化アニメーションの分離設計
+- [ ] D3: アニメーション実装 — 充電開始/完了・低残量警告・急速充電など状態遷移ごとのモーション
+- [ ] D4: テスト・検証 — IOKit読み取り結果→SF Symbol/表示状態マッピングを純粋関数として
+      切り出しユニットテスト化。実機（充電/放電両方）での長時間検証チェックリスト作成
+
+### Phase E: WiFi拡張（テザリング/デュアルSIM検知、未着手・タスク分割のみ）
+
+**現状**: `perch/UI/SystemStatusCluster.swift` + `perch/Core/SystemStatus/WiFiMonitor.swift`は
+`CWWiFiClient.shared().interface()?.powerOn()`によるWiFi電源ON/OFFの2値判定のみ
+（`SystemStatusIcons.wifiSymbolName`も`wifi`/`wifi.slash`の2値）。SSIDは意図的に未取得
+（Location権限回避、B2の既存方針）。
+**2026-07-30 追記**: Phase B4+着手に伴うユーザー指摘で新フェーズとして切り出し。
+テザリング検知時`cellularbars`、デュアルSIM検知時`cellularbars.short.cellularbars`を
+出したいという要望だが、**このフェーズ自体はまだ実装に着手しない**（タスク分割の記録のみ）。
+
+- [ ] E1: 検知手段の調査（実装着手前に必須）— macOSにはiOSのようなネイティブSIM/セルラー
+      APIが存在しない。`NWPathMonitor`（Network framework）でインターフェース種別を見る
+      方法はあるが、確実なテザリング判定にはSSIDパターン照合が必要になりやすく、既存の
+      「SSID非取得」方針（Location権限回避）と衝突する可能性がある。この矛盾を先に解消する
+      設計判断が必要。デュアルSIM検知はMac側からは原理的に情報が取れない可能性が高く、
+      取得可能な情報の有無を先に技術検証してから実現可否を判断する
+- [ ] E2: 実装（E1の結論次第で着手）— テザリング検知時`cellularbars`を追加。デュアルSIM
+      検知が技術的に可能と判明した場合のみ`cellularbars.short.cellularbars`を追加
+- [ ] E3: テスト — 新しい判定ロジックも`SystemStatusIcons`と同様、外部依存を持たない
+      純粋関数として切り出しテスト可能にする
 
 ### Phase C タスク（波形の実音キャプチャ修理）
 
