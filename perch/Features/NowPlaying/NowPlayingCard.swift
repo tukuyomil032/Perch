@@ -231,22 +231,22 @@ struct NowPlayingCard: View {
     // MARK: - Controls
 
     private var controlsSection: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 14) {
             Spacer()
             NudgeControlButton(
                 systemName: "backward.fill", action: manager.previousTrack,
-                iconSize: 13, frameSize: 30, nudgeDirection: -1
+                iconSize: 15, frameSize: 36, nudgeDirection: -1
             )
             .accessibilityLabel("Previous track")
             NudgeControlButton(
                 systemName: state.isPlaying ? "pause.fill" : "play.fill",
                 action: manager.togglePlayPause,
-                iconSize: 18, frameSize: 40
+                iconSize: 20, frameSize: 46
             )
             .accessibilityLabel(state.isPlaying ? "Pause" : "Play")
             NudgeControlButton(
                 systemName: "forward.fill", action: manager.nextTrack,
-                iconSize: 13, frameSize: 30, nudgeDirection: 1
+                iconSize: 15, frameSize: 36, nudgeDirection: 1
             )
             .accessibilityLabel("Next track")
             Spacer()
