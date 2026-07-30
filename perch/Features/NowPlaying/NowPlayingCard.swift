@@ -139,7 +139,7 @@ struct NowPlayingCard: View {
             Text(state.title)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
-                .lineLimit(2)
+                .lineLimit(1)
             Text(state.artist)
                 .font(.system(size: 12, weight: .regular))
                 .foregroundStyle(.white.opacity(0.7))
@@ -148,7 +148,7 @@ struct NowPlayingCard: View {
                 Text(album)
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(.white.opacity(0.4))
-                    .lineLimit(1)
+                    .lineLimit(2)
             }
             Spacer(minLength: 0)
         }
