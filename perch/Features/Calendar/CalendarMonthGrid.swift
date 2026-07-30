@@ -9,6 +9,7 @@ nonisolated struct CalendarMonthGrid {
         let dayNumber: Int
         let isInCurrentMonth: Bool
         let isToday: Bool
+        let isSelected: Bool
     }
 
     let weekdaySymbols: [String]
@@ -16,9 +17,12 @@ nonisolated struct CalendarMonthGrid {
 
     /// Builds the grid for the month containing `referenceDate`, in `calendar`'s
     /// locale/firstWeekday. Always returns full 7-day weeks, padding with adjacent
-    /// months' days (marked `isInCurrentMonth == false`) at both ends.
+    /// months' days (marked `isInCurrentMonth == false`) at both ends. `selectedDate`,
+    /// if given, marks the one cell matching it as `isSelected` (Standalone Calendar's
+    /// tappable day grid; `nil` when no selection applies, e.g. the compact hover grid).
     nonisolated static func build(
         referenceDate: Date,
+        selectedDate: Date? = nil,
         calendar: Calendar = .current
     ) -> CalendarMonthGrid {
         let today = calendar.startOfDay(for: referenceDate)
@@ -45,7 +49,11 @@ nonisolated struct CalendarMonthGrid {
             let dayNumber = calendar.component(.day, from: date)
             let isInCurrentMonth = date >= monthStart && date < monthEndExclusive
             let isToday = calendar.isDate(date, inSameDayAs: today)
-            days.append(Day(id: date, dayNumber: dayNumber, isInCurrentMonth: isInCurrentMonth, isToday: isToday))
+            let isSelected = selectedDate.map { calendar.isDate(date, inSameDayAs: $0) } ?? false
+            days.append(
+                Day(
+                    id: date, dayNumber: dayNumber, isInCurrentMonth: isInCurrentMonth,
+                    isToday: isToday, isSelected: isSelected))
         }
 
         let weeks = stride(from: 0, to: days.count, by: 7).map { Array(days[$0..<min($0 + 7, days.count)]) }

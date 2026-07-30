@@ -54,6 +54,28 @@ struct CalendarMonthGridTests {
         #expect(todayCells.first?.dayNumber == 30)
     }
 
+    @Test("selectedDate marks exactly one cell as selected")
+    func selectedDateMarksOneCell() {
+        let calendar = utcCalendar()
+        let reference = date(2026, 7, 15, calendar: calendar)
+        let selected = date(2026, 7, 22, calendar: calendar)
+        let grid = CalendarMonthGrid.build(
+            referenceDate: reference, selectedDate: selected, calendar: calendar)
+
+        let selectedCells = grid.weeks.flatMap { $0 }.filter(\.isSelected)
+        #expect(selectedCells.count == 1)
+        #expect(selectedCells.first?.dayNumber == 22)
+    }
+
+    @Test("no selectedDate means no cell is selected")
+    func noSelectedDateMeansNoneSelected() {
+        let calendar = utcCalendar()
+        let reference = date(2026, 7, 15, calendar: calendar)
+        let grid = CalendarMonthGrid.build(referenceDate: reference, calendar: calendar)
+
+        #expect(grid.weeks.flatMap { $0 }.filter(\.isSelected).isEmpty)
+    }
+
     @Test("weekday symbols rotate to match firstWeekday")
     func weekdaySymbolsRotate() {
         let sundayFirst = utcCalendar(firstWeekday: 1)

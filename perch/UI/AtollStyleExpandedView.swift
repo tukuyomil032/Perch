@@ -1,7 +1,12 @@
 import SwiftUI
 
-/// Rich mode's Home-module layout: two columns whose content swaps based on whether
-/// music is playing.
+/// Rich mode's Home-module layout.
+///
+/// Music playing: two columns (`NowPlayingCard` left, lyrics/today's-events center).
+/// No music: `CalendarStandaloneView` takes the whole row (§13's 2-pane month grid +
+/// selected day's events) rather than being squeezed into the old left-column shape —
+/// per docs/macOS-Expanded-Surface-Layout-Handbook-ja.md, Standalone Calendar is a
+/// distinct layout from Compact Calendar, not the same column with different content.
 ///
 /// Not preset-driven like Minimal mode's `presetContent` — this is a fixed layout, so
 /// there's nothing here for `PresetTabBar` to switch between (see `ExpandedIslandView`).
@@ -17,20 +22,27 @@ struct AtollStyleExpandedView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            leftColumn
-                .frame(minWidth: 260, idealWidth: 300, alignment: .leading)
+        Group {
+            if let state = currentState {
+                HStack(alignment: .top, spacing: 0) {
+                    NowPlayingCard(state: state, manager: appState.nowPlayingManager)
+                        .frame(minWidth: 260, idealWidth: 300, alignment: .leading)
 
-            Divider().opacity(0.08)
+                    Divider().opacity(0.08)
 
-            // Independent of the left column's height — see
-            // `SurfaceMetrics.lyricsColumnHeight`. The two used to be coupled (this
-            // column mirrored the left column's measured height), which is why lyrics
-            // rendered 8-9 lines instead of the intended 3-4: NowPlayingCard's own
-            // height, not a deliberate cap, was what decided how much text fit.
-            centerColumn
-                .frame(maxWidth: .infinity, alignment: .center)
-                .frame(height: SurfaceMetrics.lyricsColumnHeight)
+                    // Independent of the left column's height — see
+                    // `SurfaceMetrics.lyricsColumnHeight`. The two used to be coupled
+                    // (this column mirrored the left column's measured height), which
+                    // is why lyrics rendered 8-9 lines instead of the intended 3-4:
+                    // NowPlayingCard's own height, not a deliberate cap, was what
+                    // decided how much text fit.
+                    centerColumn
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .frame(height: SurfaceMetrics.lyricsColumnHeight)
+                }
+            } else {
+                CalendarStandaloneView(store: calendarStore)
+            }
         }
         // A floor, not a target — `NookView.expandedContent()` sizes the shell to
         // whatever this view reports (`.fixedSize()`), so content taller than this
@@ -74,16 +86,6 @@ struct AtollStyleExpandedView: View {
                 album: state.album
             ) ?? []
         isLyricsLoading = false
-    }
-
-    /// Now-playing when there's music; the calendar's month view otherwise.
-    @ViewBuilder
-    private var leftColumn: some View {
-        if let state = currentState {
-            NowPlayingCard(state: state, manager: appState.nowPlayingManager)
-        } else {
-            CalendarMonthColumn(store: calendarStore)
-        }
     }
 
     /// Lyrics while playing (fetched or still loading) so the column doesn't flash to
