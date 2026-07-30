@@ -601,16 +601,16 @@ BP1〜BP5実装後、実機テストで追加の問題が判明。特にBP1（�
 正しく修正済み、古いdmg-stagingビルドで確認した可能性が高い」と判断したが、これは誤りで、
 実機ログ確認の結果**Phase Aでの回帰（regression）**と判明した（詳細は下記FB3）。
 
-- [ ] FB1（最優先）: 歌詞UI崩壊バグ修正 — `AtollStyleExpandedView`の中央カラム
+- [x] FB1（最優先）: 歌詞UI崩壊バグ修正 — `AtollStyleExpandedView`の中央カラム
       （`NowPlayingLyricsColumn`→`LyricsView`の`ScrollView`）に高さ制約が無く、vendored
       `NookView.expandedContent().fixedSize()`がコンテンツの理想サイズ（幅・高さ双方）に
       Island全体を従属させる仕組みのため、歌詞行数に応じてIslandが縦に無制限に伸びていた。
       左カラムの実測高さを`onGeometryChange`で中央カラムに伝播する方式で修正
-- [ ] FB2: Home画面が展開時に直接出ない問題の修正 — ホバー展開（`NookBridge.expand()`）は
+- [x] FB2: Home画面が展開時に直接出ない問題の修正 — ホバー展開（`NookBridge.expand()`）は
       `AppState`を経由せず`activeCard`を更新しないため、起動後ホバーのみで展開すると
       `activeCard`が初期値`.idle`のままで空の画面が出ていた。`AppState.applySurfaceExpanded()`
       に`.idle`→`.nowPlaying`フォールバックを追加
-- [ ] FB3: 設定画面バグの真因判明・修正 — **前回の「古いdmg-stagingビルド」説は誤り**。
+- [x] FB3: 設定画面バグの真因判明・修正 — **前回の「古いdmg-stagingビルド」説は誤り**。
       `just run`実機ログで`openSettings`が毎回`1 keyable+visible`（NookPanelのみ）のまま
       Settingsウィンドウが一度も作られていないことが判明。git履歴調査の結果、
       2026-06-04の`70abaaa`で`RootIslandView`（旧・常時マウントされるIslandルートビュー）
@@ -621,7 +621,7 @@ BP1〜BP5実装後、実機テストで追加の問題が判明。特にBP1（�
       先祖返りしていた。`IslandCompactSlots.swift`の`IslandCompactLeading`
       （compact状態でも常時マウントされる、`RootIslandView`の代替となる場所）に
       `.onAppear { appState.openSettingsAction = { openSettings() } }`を移設して修正
-- [ ] FB4: レイアウト再設計（Rich mode 3カラム→2カラム、役割変更） — Atoll実機比較で
+- [x] FB4: レイアウト再設計（Rich mode 3カラム→2カラム、役割変更） — Atoll実機比較で
       展開サイズが小さすぎるという指摘、および中央カラムの用途をユーザーと再定義。
       音楽なし時: 左=カレンダー月表示／中央=今日の予定一覧。音楽あり時: 左=NowPlayingCard／
       中央=歌詞（歌詞なければ予定一覧にフォールバック）。右カラム（メディアプレイヤー予定地）は
