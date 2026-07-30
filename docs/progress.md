@@ -703,11 +703,12 @@ Phase B5完了後、実機で追加のフィードバックが8件出た。う�
 - Apple Musicロゴは軽量化してから使う（現状839KBの2048×2048 PNGをbase64埋め込みした
   疑似SVG。Spotify/YouTube Musicは本物のベクターSVGで1〜1.5KB）
 
-- [ ] B6-1（最重要・重大バグ）: 一時停止/シークでelapsedTimeが0リセットされる —
+- [x] B6-1（最重要・重大バグ）: 一時停止/シークでelapsedTimeが0リセットされる —
       `NowPlayingState.init?(appleMusicPlayerState:...)`が`elapsedTime=0`を無条件セット。
       `com.apple.Music.playerInfo`通知は曲変更時だけでなくPlay/Pauseトグル時にも発火する
       ため、一時停止するだけでシークバー・歌詞ハイライトが0:00へ飛ぶ。`isSameTrack`
       純粋関数で同一曲判定し、同じ曲なら`previous?.liveElapsed(at:)`を引き継ぐ設計で修正
+      （Spotify側も`position`欠落時に同様のフォールバックを適用）。コミット`b45669c`。
 - [ ] B6-2: 歌詞更新の遅延バグ — 曲が変わっても`refreshLyrics()`が`lyrics`配列を
       即座にクリアせず、フェッチ完了まで前曲の歌詞が残り続ける
 - [ ] B6-3: 歌詞の中央配置ずれ修正 — `LyricsView`の`ScrollView`自体に
