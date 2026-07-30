@@ -30,14 +30,34 @@ struct AtollStyleExpandedView: View {
         }
     }
 
-    /// Now-playing when there's music; AI usage otherwise, so the main slot is never
-    /// just blank while the calendar sidebar still has something to show.
+    /// Now-playing when there's music; a quiet empty state otherwise. AI Usage lives
+    /// behind its own module button (`ModuleSwitcher.aiUsage` → `AIUsageFullView`) so it
+    /// never appears here out of context.
     @ViewBuilder
     private var mainActivity: some View {
         if let state = appState.nowPlayingManager.currentState {
             NowPlayingCard(state: state, manager: appState.nowPlayingManager)
         } else {
-            AIUsageStandardView()
+            NoActivityView()
         }
+    }
+}
+
+private struct NoActivityView: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "music.note")
+                .font(.system(size: 28, weight: .light))
+                .foregroundStyle(.white.opacity(0.25))
+            VStack(spacing: 2) {
+                Text("Nothing playing")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+                Text("Music will show up here.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.35))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
