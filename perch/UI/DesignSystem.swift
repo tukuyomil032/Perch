@@ -4,16 +4,12 @@ enum DesignSystem {
     static let cardPadding: CGFloat = 16
     static let gridUnit: CGFloat = 4
 
-    /// Rich mode's Home module (`AtollStyleExpandedView`) lays out a 2-column row
-    /// (now-playing/calendar on the left, lyrics/today's events on the right) that
-    /// needs more room than Minimal mode's single-column widget stack. Applied only
-    /// when Rich mode is actually rendering that layout — see
-    /// `ExpandedIslandView.minExpandedWidth`.
-    static let richModeMinWidth: CGFloat = 540
-
     /// Fallback height for `AtollStyleExpandedView`'s center column before its real
     /// height (measured from the left column) is known — the value for one frame only,
     /// not a layout target. See `AtollStyleExpandedView.leftColumnHeight`.
+    ///
+    /// TODO(B5-3): retired once the center column gets its own independent height
+    /// (`SurfaceMetrics.lyricsColumnHeight`) instead of mirroring the left column's.
     static let atollColumnFallbackHeight: CGFloat = 240
 
     /// Content-level feedback: tab/module selection capsules, active-card switches.

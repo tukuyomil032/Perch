@@ -29,6 +29,10 @@ struct AtollStyleExpandedView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .frame(height: leftColumnHeight)
         }
+        // A floor, not a target — `NookView.expandedContent()` sizes the shell to
+        // whatever this view reports (`.fixedSize()`), so content taller than this
+        // still grows the shell. See `SurfaceMetrics.homeContentHeightFloor`.
+        .frame(minHeight: SurfaceMetrics.homeContentHeightFloor)
         // Temporal choreography (docs/SwiftUI-Animation-Architecture-Handbook-ja.md §6):
         // content appears slightly after the shell rather than snapping in with it, so a
         // still-narrow shell never shows squashed text mid-expansion.

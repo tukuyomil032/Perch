@@ -1,3 +1,4 @@
+import AppKit
 import Defaults
 import SwiftUI
 
@@ -37,13 +38,16 @@ struct ExpandedIslandView: View {
         .frame(minWidth: minExpandedWidth)
     }
 
-    /// Rich mode's 3-column Home layout wants more room than Minimal mode's single-column
-    /// widget stack or the AI Usage full-screen view, so only widen the floor when
+    /// Rich mode's Home layout wants more room than Minimal mode's single-column widget
+    /// stack or the AI Usage full-screen view, so only widen the floor when
     /// `AtollStyleExpandedView` is actually what's rendering.
     private var minExpandedWidth: CGFloat {
         guard uiMode == .rich, IslandModuleContent.content(for: appState.activeCard) == .presetDriven
         else { return 420 }
-        return DesignSystem.richModeMinWidth
+        let screenWidth = NSScreen.main?.visibleFrame.width ?? SurfaceMetrics.baseContentWidth
+        return SurfaceSizeResolver.resolve(
+            .init(page: .richHome, screenWidth: screenWidth)
+        ).contentMinWidth
     }
 
     // MARK: - Module Content
