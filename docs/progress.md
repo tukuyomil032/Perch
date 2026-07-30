@@ -595,6 +595,58 @@ Phase Cに進む前に、Phase Bで積み残していたB4（NowPlaying展開の
       （2026-07-30 AskUserQuestionで確認：「ノッチを開いてない状態」の理解で合っており、
       変更不要と回答）
 
+### Phase B4+ 実機フィードバック対応（2026-07-30、BP1〜BP5完了後）
+
+BP1〜BP5実装後、実機テストで追加の問題が判明。特にBP1（設定画面バグ）は前回「コードは
+正しく修正済み、古いdmg-stagingビルドで確認した可能性が高い」と判断したが、これは誤りで、
+実機ログ確認の結果**Phase Aでの回帰（regression）**と判明した（詳細は下記FB3）。
+
+- [ ] FB1（最優先）: 歌詞UI崩壊バグ修正 — `AtollStyleExpandedView`の中央カラム
+      （`NowPlayingLyricsColumn`→`LyricsView`の`ScrollView`）に高さ制約が無く、vendored
+      `NookView.expandedContent().fixedSize()`がコンテンツの理想サイズ（幅・高さ双方）に
+      Island全体を従属させる仕組みのため、歌詞行数に応じてIslandが縦に無制限に伸びていた。
+      左カラムの実測高さを`onGeometryChange`で中央カラムに伝播する方式で修正
+- [ ] FB2: Home画面が展開時に直接出ない問題の修正 — ホバー展開（`NookBridge.expand()`）は
+      `AppState`を経由せず`activeCard`を更新しないため、起動後ホバーのみで展開すると
+      `activeCard`が初期値`.idle`のままで空の画面が出ていた。`AppState.applySurfaceExpanded()`
+      に`.idle`→`.nowPlaying`フォールバックを追加
+- [ ] FB3: 設定画面バグの真因判明・修正 — **前回の「古いdmg-stagingビルド」説は誤り**。
+      `just run`実機ログで`openSettings`が毎回`1 keyable+visible`（NookPanelのみ）のまま
+      Settingsウィンドウが一度も作られていないことが判明。git履歴調査の結果、
+      2026-06-04の`70abaaa`で`RootIslandView`（旧・常時マウントされるIslandルートビュー）
+      に`@Environment(\.openSettings)`経由の正しい配線が入っていたが、Phase Aの
+      `f8d838c ref: delete the pre-vendoring island layer`で`RootIslandView`ごと削除された際に
+      この配線を移し替え忘れ、直後の`0165b87 fix: make the island openable again`で
+      「6/4時点で動かないと確認済みだったはずの`showSettingsWindow:`セレクタ」に
+      先祖返りしていた。`IslandCompactSlots.swift`の`IslandCompactLeading`
+      （compact状態でも常時マウントされる、`RootIslandView`の代替となる場所）に
+      `.onAppear { appState.openSettingsAction = { openSettings() } }`を移設して修正
+- [ ] FB4: レイアウト再設計（Rich mode 3カラム→2カラム、役割変更） — Atoll実機比較で
+      展開サイズが小さすぎるという指摘、および中央カラムの用途をユーザーと再定義。
+      音楽なし時: 左=カレンダー月表示／中央=今日の予定一覧。音楽あり時: 左=NowPlayingCard／
+      中央=歌詞（歌詞なければ予定一覧にフォールバック）。右カラム（メディアプレイヤー予定地）は
+      hallmark原則（意図のない装飾を置かない）に従い今回は作らず2カラムに戻す。
+      既存`CalendarWidget`を`CalendarMonthColumn`（左用）と`TodayEventsColumn`（中央用）に分割
+- [ ] FB5: メディアプレイヤー機能（GIF/動画/YouTube URLループ再生）は次フェーズに切り出し
+      — 下記「Phase F」参照。**今回は実装しない**
+
+### Phase F: メディアプレイヤー機能（未着手・タスク分割のみ）
+
+**現状**: 右クリックでURLペースト、左クリックでファイル選択しGIF/mp4/movをループ再生する
+機能の要望あり。`perch/Features/FileShelf/`は`.gitkeep`のみで未実装（Phase 4と一部重複する
+可能性は要検討）。NSOpenPanel/AVKit/`.sheet`/`.contextMenu`はいずれも本プロジェクトで
+前例ゼロ。`Nook.onFileDrop`コールバック（`perch/Vendor/NookSurface/Nook.swift`）は
+配線口が用意されているが未使用で、ドラッグ&ドロップの土台として活用できる。
+
+- [ ] F1: ファイルアップロード（NSOpenPanel + `Nook.onFileDrop`配線）でGIF/mp4/movを
+      AVKit `VideoPlayer`でループ再生
+- [ ] F2: 右クリックでURLペーストモーダル（`.sheet`か`.contextMenu`、前例ゼロなので
+      要検証）
+- [ ] F3: YouTube URL読み込み — WKWebView埋め込み（`https://www.youtube.com/embed/{id}`）
+      が規約上・実装コスト上最も現実的（Kaset等の前例あり）
+- [ ] F4: Rich modeレイアウトへの統合（3カラム目として追加、FB4で2カラムに戻した後の
+      再拡張）
+
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
 **参照**: `docs/macOS-Battery-Monitoring-Animation-Handbook-ja.md`（全39章、
