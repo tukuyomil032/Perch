@@ -322,6 +322,9 @@
 
 ## Phase 4: File Shelf (v0.4)
 
+> Phase B の B6（File Shelf モジュール）はこのフェーズと完全に重複していたため、
+> Phase B のスコープから削除しここに一本化した（2026-07-30）。
+
 - [ ] T4-1: ドラッグ&ドロップ（NSDraggingDestination）
 - [ ] T4-2: ShelfItem + ShelfStore
 - [ ] T4-3: TemporaryFileStorage
@@ -369,8 +372,8 @@
 
 ## Phase A / B / C: OpenNook 移行 + Atoll 風 UI + 波形修理
 
-**Branch**: `feat/island-opennook-vendored`
-**Last Updated**: 2026-07-27
+**Branch**: Phase A `feat/island-opennook-vendored` / Phase B `feat/expanded-ui-redesign`
+**Last Updated**: 2026-07-30（Phase B 完了）
 **設計書**: `docs/opennook-migration-plan.md`（判断背景・制約・検証済み事実の全文）
 
 ### 目標
@@ -476,22 +479,70 @@ A5 最終レビューの Minor 積み残し4件を回収:
   Phase A のスコープ外だが、UI テストを実際に書く前に解消が必要。
   当面の検証は `xcodebuild test -only-testing:perchTests` で行う
 
-### Phase B タスク（Atoll 風展開UI）
+### Phase B タスク（Atoll 風展開UI）— **完了**
+
+**Branch**: `feat/expanded-ui-redesign`
+**Last Updated**: 2026-07-30
 
 `/hallmark` と `/ui-ux-pro-max` を必ず適用。Atoll の OSS 版は **GPL-3.0 なのでソースは読まない**
 （読むこと自体が派生物認定のリスク）。スクリーンショットから読み取れるレイアウト構造の
 着想のみ参考にし、視覚言語は Perch 独自にする。
 
-- [ ] B1: `IslandTopBar` — 左にモジュールアイコン列、右にステータスクラスタ
-- [ ] B2: `SystemStatusCluster` — バッテリー（IOKit、権限不要）/ WiFi（CoreWLAN、**SSID は出さない**＝ Location 権限を回避）/ Bluetooth（`IOBluetoothHostController.powerState` のみ＝ `NSBluetoothAlwaysUsageDescription` を回避）。**権限ダイアログをゼロにする構成**
-- [ ] B3: `PerchModule` enum + ルーティング（Kit の `NookModule` は使わない）
-- [ ] B4: NowPlaying 展開の再デザイン（既存 `NowPlayingCard.swift` 374行の資産を活かす）
-- [ ] B5: `compactLeading`/`compactTrailing` のレジストリ駆動化（`WidgetLayout.pillPrimary`/`pillSecondary` を配線。**A0 で削除しないこと**）
-- [ ] B6: File Shelf モジュール（Shelf モデル4ファイル 607行をコピー、View は自作）
-- [ ] B7: Timer モジュール
+B4（NowPlaying 再デザイン）は次の NowPlaying フェーズへ、B6（File Shelf）は Phase 4 へ、
+B7（Timer）は対応フェーズ未定のまま保留として切り出し、それ以外を Phase B の完了条件とした
+（監査・ユーザー確認: 2026-07-30）。
 
-> モジュール（ホーム / File Shelf / Timer / AI Usage）とプリセット（Daily / Dev）は**別概念**。
-> 上部バーはモジュール、プリセットはホームモジュール内のウィジェット配置として残す。
+- [x] B1: `IslandTopBar` — 左にモジュールアイコン列、右にステータスクラスタ
+- [x] B2: `SystemStatusCluster` — バッテリー（IOKit、権限不要）/ WiFi（CoreWLAN、**SSID は出さない**＝ Location 権限を回避）。
+      **仕様変更**: Bluetoothは撤去した。SF Symbols に公式 Bluetooth ロゴが存在しないことを
+      ユーザーが SF Symbols アプリで直接確認（Bluetooth SIG の商標のため未収録という説と一致）。
+      代替アイコンで妥協せず、バッテリー＋WiFiの2点のみに確定
+- [x] B3: モジュールルーティング。**新規 `PerchModule` enum は作らず**、Phase A で「モジュール
+      バーが選ぶ対象」として温存済みの `IslandCard` を再利用（当初の設計意図と一致する代替実装）
+- [ ] B4: NowPlaying 展開の再デザイン（既存 `NowPlayingCard.swift` 374行の資産を活かす）—
+      **次の NowPlaying フェーズへ移管**。`AtollStyleExpandedView` は既存 `NowPlayingCard` を
+      そのままラップしただけで、カード自体の再デザインは未着手
+- [x] B5: `compactLeading` のレジストリ駆動化（`pillPrimary` を配線）。**`compactTrailing`
+      （`pillSecondary`）は意図的に見送り** — waveform が生の音声キャプチャ状態（
+      `AudioCaptureService.rmsLevels`）に直接依存しており、`PerchWidget` プロトコルの
+      静的な `body(size:)` では表現できないため。将来別の何かを trailing に出したくなった
+      時に改めて設計する
+- [ ] ~~B6: File Shelf モジュール~~ — **Phase 4（File Shelf, v0.4）と完全に重複していたため
+      Phase B のスコープから削除。Phase 4 に一本化**
+- [ ] B7: Timer モジュール — 対応する既存フェーズなし。保留（優先度低）
+
+> モジュール（ホーム / AI Usage、将来 File Shelf / Timer）とプリセット（Daily / Dev）は
+> **別概念**。上部バーはモジュール、プリセットは Minimal モードのホームモジュール内の
+> ウィジェット配置としてのみ残る（後述の UIMode 参照）。
+
+### Phase B スコープ追加（実装中のユーザー指摘により追加、当初の B1〜B7 に無かったもの）
+
+ユーザーが実機でテストしながら「あれもこれも」と指摘した結果、当初の Phase B 計画
+（B1〜B7）には存在しなかった作業が生まれた。今後同じことが起きないよう、
+`CLAUDE.md` に「追加依頼は progress.md に明記してから着手する」運用ルールを追加した
+（本追記はその運用ルール施行前の事後記録）。
+
+- [x] hover展開（compact pill にカーソルを乗せると開く、300ms debounce） —
+      クリックしないと展開しない、という指摘への対応
+- [x] hover専用の短い収縮遅延（`hoverCollapseDelay`、100ms）—
+      hover離脱で閉じない、という指摘への対応。既存の `autoCollapseDelay`
+      （1〜10秒、ユーザー設定）とは別物として新設し、hoverなしで展開された場合の
+      保険としてのみ `autoCollapseDelay` を残した
+- [x] 背景を常時ソリッド黒に（`.vibrancy(darkenOpacity: 0)` → `.solidBlack`）—
+      ノッチが透明に見える、という指摘への対応
+- [x] compact角丸を Atoll 風にパッチ（vendored `NookStyle`/`NookView` の改変4点目・5点目）
+- [x] バッテリー SF Symbol 名の修正（`battery.0` → `battery.0percent` 系）—
+      前回実装時に SF Symbols アプリで実名確認せず推測で命名していたミスの修正
+- [x] **`UIMode` 設定（Rich/Minimal）** — Atoll 風のリッチなデフォルト画面と、既存の
+      preset 駆動ウィジェット一覧（Minimal）を切り替えられるように、という指摘で新設。
+      **当初の Phase B 計画（B1〜B7）に存在しない新機能**
+- [x] **`CalendarWidget`/`CalendarStore`（EventKit）** — Atoll のデフォルト画面にある
+      カレンダーも欲しい、という指摘で新設。**当初の Phase B 計画に存在しない新機能**。
+      Mirror（カメラプレビュー）は同じ指摘の中でスコープ外と確認済み
+- [x] Shell開閉の非対称バネ（`DesignSystem.shellOpen`/`shellClose`、
+      `Nook.transitionConfiguration` 経由）— アニメーションを Atoll 動画のように
+      洗練させて、という指摘への対応。`/vfr` で参考動画のキーフレームを抽出したが
+      解像度・圧縮の都合で正確なバネ係数は読み取れず、ハンドブック自身の推奨値を採用
 
 ### Phase C タスク（波形の実音キャプチャ修理）
 
