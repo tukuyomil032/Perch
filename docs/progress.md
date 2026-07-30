@@ -663,28 +663,28 @@ Timer等はスコープ外（既存合意通りPhase Fとして切り出し済�
   今回全部含める
 - タスク1〜7を全て本セッションで実施
 
-- [ ] B5-1: NowPlayingCard 波形+曲名バー削除 — `WaveformView`+曲名テキストの常時表示バーは
+- [x] B5-1: NowPlayingCard 波形+曲名バー削除 — `WaveformView`+曲名テキストの常時表示バーは
       ハンドブックに存在しない独自要素（「Sliderホバー時のみ波形」とは無関係）。
       `WaveformView`コンポーネント自体はPhase C用に温存し参照のみ削除
-- [ ] B5-2: SurfaceMetrics / SurfaceSizeResolver 導入 + サイズ拡大 — サイズ決定ロジックが
+- [x] B5-2: SurfaceMetrics / SurfaceSizeResolver 導入 + サイズ拡大 — サイズ決定ロジックが
       3箇所に分散（ExpandedIslandView 540/420pt分岐、AtollStyleExpandedView内ローカル
       260/300pt、高さは無制約）していたのを1つの純粋関数に統合。基準幅540pt→640ptへ拡大
-- [ ] B5-3: 歌詞3〜4行固定高さ化 + カラム高さ相互依存の解消 — 根本原因は
+- [x] B5-3: 歌詞3〜4行固定高さ化 + カラム高さ相互依存の解消 — 根本原因は
       `leftColumnHeight`(NowPlayingCard実測高さ230〜260pt)を歌詞カラムにそのまま渡し
       「3〜4行に制限」処理が存在しなかったこと。歌詞カラム自身が独立した固定高さ
       （130pt目安）を持つよう構造変更。複数行歌詞コンポーネント自体はPerch独自の
       こだわりとして維持（ハンドブックの「1行Lyrics」提案は不採用）
-- [ ] B5-4: ヘッダー3領域化（IslandTopBar） — 左(タブ,maxWidth:.infinity)/中央
+- [x] B5-4: ヘッダー3領域化（IslandTopBar） — 左(タブ,maxWidth:.infinity)/中央
       (物理ノッチ予約領域,min(collapsedWidth,300))/右(SystemStatusCluster)の3領域構造へ。
       タブ選択インジケータをCapsule+matchedGeometryEffectに変更
-- [ ] B5-5: Calendar Standalone（音楽なし時2分割）レイアウト刷新 — 左=月グリッド+
+- [x] B5-5: Calendar Standalone（音楽なし時2分割）レイアウト刷新 — 左=月グリッド+
       前月/次月+曜日、右=選択日の予定カードList、日付タップ選択可能に刷新。
       `CalendarEvent`にカレンダー色フィールド追加、`CalendarStore`に選択日取得メソッド追加
-- [ ] B5-6: アートワーク角丸13pt化 + 発光レイヤー + 再生元アイコン — 128pt固定サイズは
+- [x] B5-6: アートワーク角丸13pt化 + 発光レイヤー + 再生元アイコン — 128pt固定サイズは
       Phase B4+の既存デザイン判断のため維持（可変正方形化はしない）。角丸のみ13pt微調整。
       発光レイヤー（scale/回転92°/blur40pt/`allowsHitTesting(false)`必須）・
       再生元アイコン（36x36pt、0.3秒遅延バウンス）を新規実装
-- [ ] B5-7: Slider/操作ボタンのサイズ調整 + nudge/wiggleアニメーション — track高3/5pt→
+- [x] B5-7: Slider/操作ボタンのサイズ調整 + nudge/wiggleアニメーション — track高3/5pt→
       8/14pt、ボタンタップ領域を40x40(play)/30x30(prev/next)へ。曲送り6pt nudge・
       10秒seek相当10°wiggleのワンショットアニメーション追加
 
