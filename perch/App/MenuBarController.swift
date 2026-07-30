@@ -46,11 +46,19 @@ final class MenuBarController {
             for attempt in 1...10 {
                 try? await Task.sleep(for: .milliseconds(50))
                 let windows = NSApp.windows
-                let keyable = windows.filter { $0.canBecomeKey && $0.isVisible }
+                let candidates = windows.map {
+                    SettingsWindowSelector.Candidate(
+                        canBecomeKey: $0.canBecomeKey,
+                        isVisible: $0.isVisible,
+                        isChrome: $0 is NookPanel
+                    )
+                }
+                let keyableCount = candidates.filter { $0.canBecomeKey && $0.isVisible }.count
                 logger.debug(
-                    "openSettings: attempt \(attempt)/10, \(windows.count) window(s), \(keyable.count) keyable+visible"
+                    "openSettings: attempt \(attempt)/10, \(windows.count) window(s), \(keyableCount) keyable+visible"
                 )
-                if let target = keyable.first {
+                if let index = SettingsWindowSelector.selectTarget(from: candidates) {
+                    let target = windows[index]
                     target.makeKeyAndOrderFront(nil)
                     logger.debug("openSettings: made key \(target.title.isEmpty ? "(untitled)" : target.title)")
                     return
