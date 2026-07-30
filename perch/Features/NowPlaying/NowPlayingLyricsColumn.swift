@@ -27,6 +27,7 @@ struct NowPlayingLyricsColumn: View {
                 LyricsLoadingView()
             }
         }
+        .frame(maxWidth: .infinity)
         .animation(DesignSystem.springAnimation, value: lyrics.map(\.id))
     }
 }
