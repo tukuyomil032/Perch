@@ -8,11 +8,24 @@ import SwiftUI
 struct AtollStyleExpandedView: View {
     @Environment(AppState.self) private var appState
     @State private var contentVisible = false
+    @State private var lyrics: [LyricsLine] = []
+    @State private var isLyricsLoading = false
+
+    private var currentState: NowPlayingState? {
+        appState.nowPlayingManager.currentState
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             mainActivity
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minWidth: 260, idealWidth: 300, alignment: .leading)
+
+            if let state = currentState {
+                Divider().opacity(0.08)
+                NowPlayingLyricsColumn(state: state, lyrics: lyrics, isLoading: isLyricsLoading)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+
             Divider().opacity(0.08)
             CalendarWidget()
                 .frame(width: 200, alignment: .leading)
@@ -28,6 +41,30 @@ struct AtollStyleExpandedView: View {
                 contentVisible = true
             }
         }
+        .task(id: lyricsTaskKey) {
+            await refreshLyrics()
+        }
+    }
+
+    private var lyricsTaskKey: String {
+        guard let state = currentState else { return "" }
+        return state.title + state.artist
+    }
+
+    private func refreshLyrics() async {
+        guard let state = currentState, state.source != .mrMediaRemote, !state.isAd else {
+            lyrics = []
+            isLyricsLoading = false
+            return
+        }
+        isLyricsLoading = true
+        lyrics =
+            await LyricsStore.shared.fetchLyrics(
+                title: state.title,
+                artist: state.artist,
+                album: state.album
+            ) ?? []
+        isLyricsLoading = false
     }
 
     /// Now-playing when there's music; a quiet empty state otherwise. AI Usage lives
@@ -35,7 +72,7 @@ struct AtollStyleExpandedView: View {
     /// never appears here out of context.
     @ViewBuilder
     private var mainActivity: some View {
-        if let state = appState.nowPlayingManager.currentState {
+        if let state = currentState {
             NowPlayingCard(state: state, manager: appState.nowPlayingManager)
         } else {
             NoActivityView()
