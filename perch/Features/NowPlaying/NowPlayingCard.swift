@@ -1,6 +1,17 @@
 // perch/Features/NowPlaying/NowPlayingCard.swift
 import SwiftUI
 
+/// Brand logo asset for `NowPlayingCard`'s source badge; `nil` falls back to
+/// `MusicSource.symbolName` (e.g. MRMediaRemote, which has no dedicated app to brand).
+private func sourceLogoAssetName(_ source: MusicSource) -> String? {
+    switch source {
+    case .appleMusic: "apple-music-logo"
+    case .spotify: "spotify-logo"
+    case .youTubeMusic: "youtube-music-logo"
+    case .mrMediaRemote: nil
+    }
+}
+
 struct NowPlayingCard: View {
     let state: NowPlayingState
     let manager: NowPlayingManager
@@ -8,46 +19,19 @@ struct NowPlayingCard: View {
     @State private var artworkAngle: Double = 0
     @State private var displayedArtwork: NSImage? = nil
     @State private var displayedArtworkID: UUID? = nil
-    @State private var lyrics: [LyricsLine] = []
-    @State private var isLyricsLoading: Bool = false
-    @State private var showLyricsFullView: Bool = false
     @State private var isScrubbing: Bool = false
     @State private var scrubProgress: Double = 0
     @State private var waveformPalette = ArtworkPalette.fallback
-
-    private var capture: AudioCaptureService {
-        manager.audioCaptureService
-    }
+    @State private var sourceBadgeVisible = false
 
     var body: some View {
-        Group {
-            if showLyricsFullView {
-                lyricsFullView
-            } else {
-                twoColumnView
+        twoColumnView
+            .task(id: state.artworkID) {
+                waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
             }
-        }
-        .task(id: state.artworkID) {
-            waveformPalette = state.artwork?.dynamicIslandPalette() ?? .fallback
-        }
-        .task(id: state.title + state.artist) {
-            guard state.source != .mrMediaRemote, !state.isAd else {
-                lyrics = []
-                isLyricsLoading = false
-                return
-            }
-            isLyricsLoading = true
-            lyrics =
-                await LyricsStore.shared.fetchLyrics(
-                    title: state.title,
-                    artist: state.artist,
-                    album: state.album
-                ) ?? []
-            isLyricsLoading = false
-        }
     }
 
-    // MARK: - Two Column View (Pattern 1: default)
+    // MARK: - Two Column View
 
     private var twoColumnView: some View {
         ZStack(alignment: .topLeading) {
@@ -58,116 +42,11 @@ struct NowPlayingCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 12) {
                     artworkView
-                    if !lyrics.isEmpty {
-                        TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
-                            LyricsView(
-                                lines: lyrics,
-                                elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
-                                fontSize: 12
-                            )
-                        }
-                    } else if isLyricsLoading {
-                        LyricsLoadingView()
-                    } else {
-                        trackInfo
-                    }
+                    trackInfo
                 }
-                .frame(height: 100)
-                HStack(spacing: 0) {
-                    WaveformView(
-                        isPlaying: state.isPlaying,
-                        colors: waveformPalette.gradientColors,
-                        externalLevels: capture.isCaptureActive && capture.hasReceivedAudio
-                            ? capture.rmsLevels
-                            : nil,
-                        usesSyntheticFallback: !capture.isCaptureActive
-                            || !capture.hasReceivedAudio
-                    )
-                    .accessibilityLabel(state.isPlaying ? "Playing" : "Paused")
-                    .padding(.trailing, 6)
-                    Text(state.artist.isEmpty ? state.title : "\(state.title) — \(state.artist)")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.7))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Spacer(minLength: 8)
-                    if !lyrics.isEmpty {
-                        Button {
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                                showLyricsFullView = true
-                            }
-                        } label: {
-                            Image(systemName: "music.note.list")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.55))
-                                .frame(width: 28, height: 28)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Show lyrics")
-                    }
-                }
+                .frame(height: 128)
                 progressSection
                 controlsSection
-            }
-            .padding(16)
-        }
-    }
-
-    // MARK: - Lyrics Full View (Pattern 2)
-
-    private var lyricsFullView: some View {
-        ZStack(alignment: .topLeading) {
-            BackgroundVisualizerView(isPlaying: state.isPlaying, color: waveformPalette.primary)
-            VStack(spacing: 8) {
-                HStack(spacing: 10) {
-                    if let img = displayedArtwork {
-                        Image(nsImage: img)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 44, height: 44)
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(state.title)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        Text(state.artist)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.6))
-                            .lineLimit(1)
-                    }
-                    Spacer()
-                    controlButton(systemName: "backward.fill", action: manager.previousTrack, size: 12)
-                    controlButton(
-                        systemName: state.isPlaying ? "pause.fill" : "play.fill",
-                        action: manager.togglePlayPause, size: 14
-                    )
-                    controlButton(systemName: "forward.fill", action: manager.nextTrack, size: 12)
-                    Button {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                            showLyricsFullView = false
-                        }
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.white.opacity(0.4))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Close lyrics")
-                }
-                Divider().background(.white.opacity(0.15))
-                TimelineView(.animation(minimumInterval: 0.2, paused: !state.isPlaying)) { ctx in
-                    LyricsView(
-                        lines: lyrics,
-                        elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
-                        fontSize: 14
-                    )
-                }
-                .frame(maxHeight: 200)
-                Divider().background(.white.opacity(0.15))
-                progressSection
             }
             .padding(16)
         }
@@ -176,27 +55,23 @@ struct NowPlayingCard: View {
     // MARK: - Artwork
 
     private var artworkView: some View {
-        Group {
-            if let img = displayedArtwork {
-                Image(nsImage: img)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 100, height: 100)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .accessibilityLabel("Album art: \(state.album ?? state.title)")
-            } else {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(.white.opacity(0.12))
-                    .frame(width: 100, height: 100)
-                    .overlay {
-                        Image(systemName: state.isAd ? "megaphone.fill" : "music.note")
-                            .font(.system(size: 36, weight: .light))
-                            .foregroundStyle(.white.opacity(0.4))
-                    }
-                    .accessibilityLabel(state.isAd ? "Spotify Ad" : "No album art")
-            }
+        ZStack(alignment: .bottomTrailing) {
+            // Glow: a blurred, oversized copy of the same artwork behind it, per
+            // docs/macOS-Expanded-Surface-Layout-Handbook-ja.md §11.2. Hit-testing is
+            // disabled so it never steals clicks meant for the artwork itself.
+            artworkBody
+                .scaleEffect(x: 1.3, y: 1.4)
+                .rotationEffect(.degrees(92))
+                .blur(radius: 40)
+                .opacity(state.isPlaying ? 0.5 : 0)
+                .allowsHitTesting(false)
+                .animation(.easeInOut(duration: 0.3), value: state.isPlaying)
+
+            artworkBody
+
+            sourceBadge
+                .offset(x: 10, y: 10)
         }
-        .rotation3DEffect(.degrees(artworkAngle), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
         .onAppear {
             displayedArtwork = state.artwork
             displayedArtworkID = state.artworkID
@@ -219,25 +94,89 @@ struct NowPlayingCard: View {
         }
     }
 
-    // MARK: - Track Info (fallback when no lyrics)
+    private var artworkBody: some View {
+        Group {
+            if let img = displayedArtwork {
+                Image(nsImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 128, height: 128)
+                    .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                    .accessibilityLabel("Album art: \(state.album ?? state.title)")
+            } else {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(.white.opacity(0.12))
+                    .frame(width: 128, height: 128)
+                    .overlay {
+                        Image(systemName: state.isAd ? "megaphone.fill" : "music.note")
+                            .font(.system(size: 44, weight: .light))
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
+                    .accessibilityLabel(state.isAd ? "Spotify Ad" : "No album art")
+            }
+        }
+        .rotation3DEffect(.degrees(artworkAngle), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
+    }
+
+    /// Small badge naming where the track is playing from. Bounces in 0.3s after the
+    /// card appears (handbook §11.2) so it doesn't compete with the artwork itself for
+    /// attention the instant the card mounts.
+    private var sourceBadge: some View {
+        Circle()
+            .fill(.black.opacity(0.7))
+            .frame(width: 36, height: 36)
+            .overlay {
+                if let assetName = sourceLogoAssetName(state.source) {
+                    Image(assetName)
+                        .resizable()
+                        .renderingMode(.original)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 18, height: 18)
+                } else {
+                    Image(systemName: state.source.symbolName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+            }
+            .scaleEffect(sourceBadgeVisible ? 1 : 0.6)
+            .opacity(sourceBadgeVisible ? 1 : 0)
+            .accessibilityLabel(state.source.displayName)
+            .task(id: state.artworkID) {
+                sourceBadgeVisible = false
+                try? await Task.sleep(for: .milliseconds(300))
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                    sourceBadgeVisible = true
+                }
+            }
+    }
+
+    // MARK: - Track Info
 
     private var trackInfo: some View {
         VStack(alignment: .leading, spacing: 4) {
+            Spacer(minLength: 0)
             Text(state.title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
-                .lineLimit(2)
+                .lineLimit(1)
             Text(state.artist)
                 .font(.system(size: 12, weight: .regular))
                 .foregroundStyle(.white.opacity(0.7))
                 .lineLimit(1)
+            if let album = state.album, !album.isEmpty {
+                Text(album)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.4))
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
         }
     }
 
     // MARK: - Progress
 
     private var progressSection: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 10) {
             GeometryReader { geo in
                 TimelineView(
                     .animation(minimumInterval: 0.1, paused: !state.isPlaying || isScrubbing)
@@ -246,10 +185,10 @@ struct NowPlayingCard: View {
                     ZStack(alignment: .leading) {
                         Capsule()
                             .fill(.white.opacity(0.15))
-                            .frame(height: isScrubbing ? 5 : 3)
+                            .frame(height: isScrubbing ? 14 : 8)
                         Capsule()
                             .fill(.white.opacity(isScrubbing ? 1.0 : 0.8))
-                            .frame(width: max(0, geo.size.width * p), height: isScrubbing ? 5 : 3)
+                            .frame(width: max(0, geo.size.width * p), height: isScrubbing ? 14 : 8)
                     }
                     .animation(.easeInOut(duration: 0.08), value: isScrubbing)
                 }
@@ -311,37 +250,61 @@ struct NowPlayingCard: View {
     // MARK: - Controls
 
     private var controlsSection: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 14) {
             Spacer()
-            controlButton(systemName: "backward.fill", action: manager.previousTrack)
-                .accessibilityLabel("Previous track")
-            Spacer()
-            controlButton(
+            NudgeControlButton(
+                systemName: "backward.fill", action: manager.previousTrack,
+                iconSize: 15, frameSize: 36, nudgeDirection: -1
+            )
+            .accessibilityLabel("Previous track")
+            NudgeControlButton(
                 systemName: state.isPlaying ? "pause.fill" : "play.fill",
                 action: manager.togglePlayPause,
-                size: 22
+                iconSize: 20, frameSize: 46
             )
             .accessibilityLabel(state.isPlaying ? "Pause" : "Play")
-            Spacer()
-            controlButton(systemName: "forward.fill", action: manager.nextTrack)
-                .accessibilityLabel("Next track")
+            NudgeControlButton(
+                systemName: "forward.fill", action: manager.nextTrack,
+                iconSize: 15, frameSize: 36, nudgeDirection: 1
+            )
+            .accessibilityLabel("Next track")
             Spacer()
         }
     }
+}
 
-    private func controlButton(
-        systemName: String,
-        action: @escaping @MainActor () -> Void,
-        size: CGFloat = 16
-    ) -> some View {
-        Button(action: action) {
+/// A playback control button that nudges 6pt in the direction of travel when pressed
+/// (handbook §11.5: "前後移動は押した方向へ6pt Nudge") — motion tied to meaning, distinct
+/// from play/pause's plain symbol replace (`nudgeDirection == 0`).
+private struct NudgeControlButton: View {
+    let systemName: String
+    let action: @MainActor () -> Void
+    var iconSize: CGFloat = 16
+    var frameSize: CGFloat = 44
+    var nudgeDirection: CGFloat = 0
+
+    @State private var offset: CGFloat = 0
+
+    var body: some View {
+        Button {
+            if nudgeDirection != 0 {
+                withAnimation(.spring(response: 0.15, dampingFraction: 0.5)) {
+                    offset = nudgeDirection * 6
+                }
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.6).delay(0.1)) {
+                    offset = 0
+                }
+            }
+            action()
+        } label: {
             Image(systemName: systemName)
-                .font(.system(size: size, weight: .semibold))
+                .font(.system(size: iconSize, weight: .semibold))
                 .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
+                .frame(width: frameSize, height: frameSize)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .offset(x: offset)
     }
 }
 

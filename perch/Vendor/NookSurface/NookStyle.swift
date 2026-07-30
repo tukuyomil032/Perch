@@ -36,9 +36,18 @@ public struct NookEdgeInsets: Equatable, Sendable {
 ///
 /// Outer radius = inner radius + padding. Top is the small rounding into the notch arch,
 /// bottom is the larger rounding where the panel meets the wallpaper.
+// Modified for Perch: added `compactTopCornerRadius`/`compactBottomCornerRadius` so a host
+// can tune the compact pill's roundedness. `NookView.compactCornerRadii` previously ignored
+// this struct entirely and hardcoded (6, 14) — Perch's Atoll-inspired look needs a rounder
+// pill than that default.
 public struct NookStyle: Equatable, Sendable {
     public var topCornerRadius: CGFloat
     public var bottomCornerRadius: CGFloat
+
+    /// Corner radii the compact (notch-fused) pill uses, independent of the expanded
+    /// radii above. Defaults reproduce the historical hardcoded `(6, 14)`.
+    public var compactTopCornerRadius: CGFloat
+    public var compactBottomCornerRadius: CGFloat
 
     /// Safe-area strip the chrome reserves around the host's expanded content, applied
     /// as `.safeAreaInset` on each edge of the expanded surface. This is the chrome's
@@ -62,10 +71,14 @@ public struct NookStyle: Equatable, Sendable {
     public init(
         topCornerRadius: CGFloat,
         bottomCornerRadius: CGFloat,
+        compactTopCornerRadius: CGFloat = 6,
+        compactBottomCornerRadius: CGFloat = 14,
         expandedContentInsets: NookEdgeInsets = NookStyle.standardExpandedContentInsets
     ) {
         self.topCornerRadius = topCornerRadius
         self.bottomCornerRadius = bottomCornerRadius
+        self.compactTopCornerRadius = compactTopCornerRadius
+        self.compactBottomCornerRadius = compactBottomCornerRadius
         self.expandedContentInsets = expandedContentInsets
     }
 

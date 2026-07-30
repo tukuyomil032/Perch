@@ -45,6 +45,7 @@ private struct GeneralTab: View {
 private struct IslandTab: View {
     @Binding var autoCollapseDelay: Double
     @Default(.islandChromeStyle) private var islandChromeStyle
+    @Default(.uiMode) private var uiMode
 
     var body: some View {
         Form {
@@ -52,6 +53,16 @@ private struct IslandTab: View {
                 Picker(L10n.string("settings.island_position"), selection: $islandChromeStyle) {
                     ForEach(IslandChromeStyle.allCases, id: \.self) { style in
                         Text(L10n.string(style.displayNameKey)).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+
+            Section(L10n.string("settings.ui_mode")) {
+                Picker(L10n.string("settings.ui_mode"), selection: $uiMode) {
+                    ForEach(UIMode.allCases, id: \.self) { mode in
+                        Text(L10n.string(mode.displayNameKey)).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)

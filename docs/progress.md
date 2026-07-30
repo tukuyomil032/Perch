@@ -322,6 +322,9 @@
 
 ## Phase 4: File Shelf (v0.4)
 
+> Phase B の B6（File Shelf モジュール）はこのフェーズと完全に重複していたため、
+> Phase B のスコープから削除しここに一本化した（2026-07-30）。
+
 - [ ] T4-1: ドラッグ&ドロップ（NSDraggingDestination）
 - [ ] T4-2: ShelfItem + ShelfStore
 - [ ] T4-3: TemporaryFileStorage
@@ -369,8 +372,8 @@
 
 ## Phase A / B / C: OpenNook 移行 + Atoll 風 UI + 波形修理
 
-**Branch**: `feat/island-opennook-vendored`
-**Last Updated**: 2026-07-27
+**Branch**: Phase A `feat/island-opennook-vendored` / Phase B `feat/expanded-ui-redesign`
+**Last Updated**: 2026-07-30（Phase B 完了）
 **設計書**: `docs/opennook-migration-plan.md`（判断背景・制約・検証済み事実の全文）
 
 ### 目標
@@ -476,22 +479,297 @@ A5 最終レビューの Minor 積み残し4件を回収:
   Phase A のスコープ外だが、UI テストを実際に書く前に解消が必要。
   当面の検証は `xcodebuild test -only-testing:perchTests` で行う
 
-### Phase B タスク（Atoll 風展開UI）
+### Phase B タスク（Atoll 風展開UI）— **完了**
+
+**Branch**: `feat/expanded-ui-redesign`
+**Last Updated**: 2026-07-30
 
 `/hallmark` と `/ui-ux-pro-max` を必ず適用。Atoll の OSS 版は **GPL-3.0 なのでソースは読まない**
 （読むこと自体が派生物認定のリスク）。スクリーンショットから読み取れるレイアウト構造の
 着想のみ参考にし、視覚言語は Perch 独自にする。
 
-- [ ] B1: `IslandTopBar` — 左にモジュールアイコン列、右にステータスクラスタ
-- [ ] B2: `SystemStatusCluster` — バッテリー（IOKit、権限不要）/ WiFi（CoreWLAN、**SSID は出さない**＝ Location 権限を回避）/ Bluetooth（`IOBluetoothHostController.powerState` のみ＝ `NSBluetoothAlwaysUsageDescription` を回避）。**権限ダイアログをゼロにする構成**
-- [ ] B3: `PerchModule` enum + ルーティング（Kit の `NookModule` は使わない）
-- [ ] B4: NowPlaying 展開の再デザイン（既存 `NowPlayingCard.swift` 374行の資産を活かす）
-- [ ] B5: `compactLeading`/`compactTrailing` のレジストリ駆動化（`WidgetLayout.pillPrimary`/`pillSecondary` を配線。**A0 で削除しないこと**）
-- [ ] B6: File Shelf モジュール（Shelf モデル4ファイル 607行をコピー、View は自作）
-- [ ] B7: Timer モジュール
+B4（NowPlaying 再デザイン）は次の NowPlaying フェーズへ、B6（File Shelf）は Phase 4 へ、
+B7（Timer）は対応フェーズ未定のまま保留として切り出し、それ以外を Phase B の完了条件とした
+（監査・ユーザー確認: 2026-07-30）。
 
-> モジュール（ホーム / File Shelf / Timer / AI Usage）とプリセット（Daily / Dev）は**別概念**。
-> 上部バーはモジュール、プリセットはホームモジュール内のウィジェット配置として残す。
+- [x] B1: `IslandTopBar` — 左にモジュールアイコン列、右にステータスクラスタ
+- [x] B2: `SystemStatusCluster` — バッテリー（IOKit、権限不要）/ WiFi（CoreWLAN、**SSID は出さない**＝ Location 権限を回避）。
+      **仕様変更**: Bluetoothは撤去した。SF Symbols に公式 Bluetooth ロゴが存在しないことを
+      ユーザーが SF Symbols アプリで直接確認（Bluetooth SIG の商標のため未収録という説と一致）。
+      代替アイコンで妥協せず、バッテリー＋WiFiの2点のみに確定
+- [x] B3: モジュールルーティング。**新規 `PerchModule` enum は作らず**、Phase A で「モジュール
+      バーが選ぶ対象」として温存済みの `IslandCard` を再利用（当初の設計意図と一致する代替実装）
+- [x] B4: NowPlaying 展開の再デザイン（既存 `NowPlayingCard.swift` 374行の資産を活かす）—
+      当初「次の NowPlaying フェーズへ移管」としていたが、**2026-07-30 に「Phase B4+」
+      として本格着手・完了**（詳細は下記セクション参照）
+- [x] B5: `compactLeading` のレジストリ駆動化（`pillPrimary` を配線）。**`compactTrailing`
+      （`pillSecondary`）は意図的に見送り** — waveform が生の音声キャプチャ状態（
+      `AudioCaptureService.rmsLevels`）に直接依存しており、`PerchWidget` プロトコルの
+      静的な `body(size:)` では表現できないため。将来別の何かを trailing に出したくなった
+      時に改めて設計する
+- [ ] ~~B6: File Shelf モジュール~~ — **Phase 4（File Shelf, v0.4）と完全に重複していたため
+      Phase B のスコープから削除。Phase 4 に一本化**
+- [ ] B7: Timer モジュール — 対応する既存フェーズなし。保留（優先度低）
+
+> モジュール（ホーム / AI Usage、将来 File Shelf / Timer）とプリセット（Daily / Dev）は
+> **別概念**。上部バーはモジュール、プリセットは Minimal モードのホームモジュール内の
+> ウィジェット配置としてのみ残る（後述の UIMode 参照）。
+
+### Phase B スコープ追加（実装中のユーザー指摘により追加、当初の B1〜B7 に無かったもの）
+
+ユーザーが実機でテストしながら「あれもこれも」と指摘した結果、当初の Phase B 計画
+（B1〜B7）には存在しなかった作業が生まれた。今後同じことが起きないよう、
+`CLAUDE.md` に「追加依頼は progress.md に明記してから着手する」運用ルールを追加した
+（本追記はその運用ルール施行前の事後記録）。
+
+- [x] hover展開（compact pill にカーソルを乗せると開く、300ms debounce） —
+      クリックしないと展開しない、という指摘への対応
+- [x] hover専用の短い収縮遅延（`hoverCollapseDelay`、100ms）—
+      hover離脱で閉じない、という指摘への対応。既存の `autoCollapseDelay`
+      （1〜10秒、ユーザー設定）とは別物として新設し、hoverなしで展開された場合の
+      保険としてのみ `autoCollapseDelay` を残した
+- [x] 背景を常時ソリッド黒に（`.vibrancy(darkenOpacity: 0)` → `.solidBlack`）—
+      ノッチが透明に見える、という指摘への対応
+- [x] compact角丸を Atoll 風にパッチ（vendored `NookStyle`/`NookView` の改変4点目・5点目）
+- [x] バッテリー SF Symbol 名の修正（`battery.0` → `battery.0percent` 系）—
+      前回実装時に SF Symbols アプリで実名確認せず推測で命名していたミスの修正
+- [x] **`UIMode` 設定（Rich/Minimal）** — Atoll 風のリッチなデフォルト画面と、既存の
+      preset 駆動ウィジェット一覧（Minimal）を切り替えられるように、という指摘で新設。
+      **当初の Phase B 計画（B1〜B7）に存在しない新機能**
+- [x] **`CalendarWidget`/`CalendarStore`（EventKit）** — Atoll のデフォルト画面にある
+      カレンダーも欲しい、という指摘で新設。**当初の Phase B 計画に存在しない新機能**。
+      Mirror（カメラプレビュー）は同じ指摘の中でスコープ外と確認済み
+- [x] Shell開閉の非対称バネ（`DesignSystem.shellOpen`/`shellClose`、
+      `Nook.transitionConfiguration` 経由）— アニメーションを Atoll 動画のように
+      洗練させて、という指摘への対応。`/vfr` で参考動画のキーフレームを抽出したが
+      解像度・圧縮の都合で正確なバネ係数は読み取れず、ハンドブック自身の推奨値を採用
+
+### Phase B4+: B4完遂 + Atoll風UI寄せ（2026-07-30〜）
+
+**Branch**: `feat/expanded-ui-redesign`
+**Last Updated**: 2026-07-30
+
+Phase Cに進む前に、Phase Bで積み残していたB4（NowPlaying展開の再デザイン）に本格着手。
+着手にあたり、ユーザーが実機を触りながら追加の不満点をまとめて提示したため、B4単体では
+なく「Rich modeホーム画面全体をAtoll風に寄せる」作業として範囲を確定した
+（CLAUDE.md運用ルールに従い、着手前に本節として明記してから着手）。
+
+設計の詳細・判断背景は `docs/superpowers/specs/`（未作成の場合はプラン file
+`phasec-phaseb-b-docs-playful-cocoa.md` 相当の内容）を参照。
+
+- [x] BP1: 設定画面が開かないバグ修正（最優先）— `MenuBarController.openSettings()` が
+      `NookPanel`（Island自体の常駐クロムウィンドウ、`canBecomeKey: true` かつ常時
+      `isVisible: true`）を誤って「最初のkeyable+visibleウィンドウ」として掴んでしまい、
+      本物のSettingsウィンドウにフォーカスできていなかったのが真因。`SettingsWindowSelector`
+      という純粋関数に選定ロジックを切り出しNookPanelを除外
+- [x] BP2: モジュールアイコン差し替え — `.nowPlaying`(Home相当)を`music.note`→`house.fill`、
+      `.aiUsage`を`sparkles`→`chart.bar.horizontal.page`、`.fileShelf`を`tray`→
+      `square.and.arrow.up.on.square`（将来のFile Shelf用、未到達のまま）。Timer用
+      `"timer"`はコメント予約のみ（対応するIslandCaseは無い、B7が保留中のため新規case追加せず）
+- [x] BP3: Rich modeホームからAIUsageフォールバック除去 — `AtollStyleExpandedView.mainActivity`
+      がNowPlaying無し時に`AIUsageStandardView()`を暗黙表示していた実装を、新規`NoActivityView`
+      （素直な空状態）に置き換え。AI Usageは`ModuleSwitcher`経由の独立画面(`AIUsageFullView`)
+      として引き続きアクセス可能
+- [x] BP4: NowPlayingCard再デザイン + 3カラム化（B4本体）— Rich mode展開画面を
+      「左=NowPlayingCard(大アートワーク化)／中央=歌詞(複数行、Perch独自のこだわり)／
+      右=CalendarWidget」の3カラムに再構成。Mirror（カメラプレビュー）はAtoll機能だが
+      実装しないと確認済み（Phase Bスコープ追加時点で既にスコープ外）——ただしその分の
+      余白は捨てず中央カラム(歌詞)に転用する、という設計判断
+  - [x] BP4-1: `CalendarMonthGrid`新規（EventKit非依存の純粋日付計算構造体）+ テスト
+  - [x] BP4-2: `CalendarWidget`ホバーグリッド統合（カーソルなし=シンプル表示、
+        ホバー中=月間グリッド表示にクロスフェード）
+  - [x] BP4-3: `NowPlayingLyricsColumn`新規切り出し（歌詞取得ライフサイクルを
+        `NowPlayingCard`から`AtollStyleExpandedView`に引き上げ）+ 全画面歌詞表示
+        (`lyricsFullView`)削除（中央カラムに常時複数行歌詞が出るため重複と判断、
+        ユーザー確認済み）。実装中に`NowPlayingCard`は`NowPlayingWidget`経由でMinimal
+        modeのプリセットウィジェットとしても使われていたことが判明（計画時の見落とし）。
+        ユーザー確認の上、Minimal modeでは歌詞なしとし、歌詞はRich modeの専用カラムに
+        一本化する方針に決定
+  - [x] BP4-4: `NowPlayingCard`横長レイアウト再構成（大アートワーク化、歌詞出し分け
+        ロジック撤去で単純化）。shuffleボタンは追加しない（既存API無し、スコープ外と確認済み）
+  - [x] BP4-5: `AtollStyleExpandedView`の3カラムHStack配線
+  - [x] BP4-6: `ExpandedIslandView`の展開幅を条件分岐（Rich mode+presetDriven時のみ
+        `minWidth`をAtoll相当(680pt、`DesignSystem.richModeMinWidth`にトークン化)に拡大。
+        Minimal mode/AIUsage直行画面は既存420ptを維持）
+- [x] BP5: コンパクトピル（未展開状態）— ユーザー確認の結果、現状維持でスコープ外
+      （2026-07-30 AskUserQuestionで確認：「ノッチを開いてない状態」の理解で合っており、
+      変更不要と回答）
+
+### Phase B4+ 実機フィードバック対応（2026-07-30、BP1〜BP5完了後）
+
+BP1〜BP5実装後、実機テストで追加の問題が判明。特にBP1（設定画面バグ）は前回「コードは
+正しく修正済み、古いdmg-stagingビルドで確認した可能性が高い」と判断したが、これは誤りで、
+実機ログ確認の結果**Phase Aでの回帰（regression）**と判明した（詳細は下記FB3）。
+
+- [x] FB1（最優先）: 歌詞UI崩壊バグ修正 — `AtollStyleExpandedView`の中央カラム
+      （`NowPlayingLyricsColumn`→`LyricsView`の`ScrollView`）に高さ制約が無く、vendored
+      `NookView.expandedContent().fixedSize()`がコンテンツの理想サイズ（幅・高さ双方）に
+      Island全体を従属させる仕組みのため、歌詞行数に応じてIslandが縦に無制限に伸びていた。
+      左カラムの実測高さを`onGeometryChange`で中央カラムに伝播する方式で修正
+- [x] FB2: Home画面が展開時に直接出ない問題の修正 — ホバー展開（`NookBridge.expand()`）は
+      `AppState`を経由せず`activeCard`を更新しないため、起動後ホバーのみで展開すると
+      `activeCard`が初期値`.idle`のままで空の画面が出ていた。`AppState.applySurfaceExpanded()`
+      に`.idle`→`.nowPlaying`フォールバックを追加
+- [x] FB3: 設定画面バグの真因判明・修正 — **前回の「古いdmg-stagingビルド」説は誤り**。
+      `just run`実機ログで`openSettings`が毎回`1 keyable+visible`（NookPanelのみ）のまま
+      Settingsウィンドウが一度も作られていないことが判明。git履歴調査の結果、
+      2026-06-04の`70abaaa`で`RootIslandView`（旧・常時マウントされるIslandルートビュー）
+      に`@Environment(\.openSettings)`経由の正しい配線が入っていたが、Phase Aの
+      `f8d838c ref: delete the pre-vendoring island layer`で`RootIslandView`ごと削除された際に
+      この配線を移し替え忘れ、直後の`0165b87 fix: make the island openable again`で
+      「6/4時点で動かないと確認済みだったはずの`showSettingsWindow:`セレクタ」に
+      先祖返りしていた。`IslandCompactSlots.swift`の`IslandCompactLeading`
+      （compact状態でも常時マウントされる、`RootIslandView`の代替となる場所）に
+      `.onAppear { appState.openSettingsAction = { openSettings() } }`を移設して修正
+- [x] FB4: レイアウト再設計（Rich mode 3カラム→2カラム、役割変更） — Atoll実機比較で
+      展開サイズが小さすぎるという指摘、および中央カラムの用途をユーザーと再定義。
+      音楽なし時: 左=カレンダー月表示／中央=今日の予定一覧。音楽あり時: 左=NowPlayingCard／
+      中央=歌詞（歌詞なければ予定一覧にフォールバック）。右カラム（メディアプレイヤー予定地）は
+      hallmark原則（意図のない装飾を置かない）に従い今回は作らず2カラムに戻す。
+      既存`CalendarWidget`を`CalendarMonthColumn`（左用）と`TodayEventsColumn`（中央用）に分割
+- [ ] FB5: メディアプレイヤー機能（GIF/動画/YouTube URLループ再生）は次フェーズに切り出し
+      — 下記「Phase F」参照。**今回は実装しない**
+
+### Phase F: メディアプレイヤー機能（未着手・タスク分割のみ）
+
+**現状**: 右クリックでURLペースト、左クリックでファイル選択しGIF/mp4/movをループ再生する
+機能の要望あり。`perch/Features/FileShelf/`は`.gitkeep`のみで未実装（Phase 4と一部重複する
+可能性は要検討）。NSOpenPanel/AVKit/`.sheet`/`.contextMenu`はいずれも本プロジェクトで
+前例ゼロ。`Nook.onFileDrop`コールバック（`perch/Vendor/NookSurface/Nook.swift`）は
+配線口が用意されているが未使用で、ドラッグ&ドロップの土台として活用できる。
+
+- [ ] F1: ファイルアップロード（NSOpenPanel + `Nook.onFileDrop`配線）でGIF/mp4/movを
+      AVKit `VideoPlayer`でループ再生
+- [ ] F2: 右クリックでURLペーストモーダル（`.sheet`か`.contextMenu`、前例ゼロなので
+      要検証）
+- [ ] F3: YouTube URL読み込み — WKWebView埋め込み（`https://www.youtube.com/embed/{id}`）
+      が規約上・実装コスト上最も現実的（Kaset等の前例あり）
+- [ ] F4: Rich modeレイアウトへの統合（3カラム目として追加、FB4で2カラムに戻した後の
+      再拡張）
+
+### Phase B5: Expanded Surface Handbook準拠リファクタリング（2026-07-31〜）
+
+FB1〜FB4実装後も実機で歌詞崩壊（10行以上表示）・波形バーの謎表示・Atollとのサイズ差が
+残っていたため、ユーザーが`docs/macOS-Expanded-Surface-Layout-Handbook-ja.md`
+（Atoll devスナップショットを教育目的で再構成した設計教科書、全3063行）を用意し、これに
+「限りなく忠実な形で」展開UI全般を再実装するよう指示。全文読了済み。Mirror/File Shelf/
+Timer等はスコープ外（既存合意通りPhase Fとして切り出し済み）。
+
+確定した設計判断（AskUserQuestionでユーザー確認済み）:
+- Calendar Compact/Standalone分離は**Option A**（現状の排他モデル維持、音楽なし時の
+  Standaloneレイアウトのみハンドブック忠実化。Player+Calendar常時同居へのOption Bは
+  Perch独自の「歌詞に画面を使う」こだわりと構造的に相容れないため不採用）
+- 発光レイヤー・再生元アイコン・nudge/wiggleアニメーション等のプラスアルファ要素も
+  今回全部含める
+- タスク1〜7を全て本セッションで実施
+
+- [x] B5-1: NowPlayingCard 波形+曲名バー削除 — `WaveformView`+曲名テキストの常時表示バーは
+      ハンドブックに存在しない独自要素（「Sliderホバー時のみ波形」とは無関係）。
+      `WaveformView`コンポーネント自体はPhase C用に温存し参照のみ削除
+- [x] B5-2: SurfaceMetrics / SurfaceSizeResolver 導入 + サイズ拡大 — サイズ決定ロジックが
+      3箇所に分散（ExpandedIslandView 540/420pt分岐、AtollStyleExpandedView内ローカル
+      260/300pt、高さは無制約）していたのを1つの純粋関数に統合。基準幅540pt→640ptへ拡大
+- [x] B5-3: 歌詞3〜4行固定高さ化 + カラム高さ相互依存の解消 — 根本原因は
+      `leftColumnHeight`(NowPlayingCard実測高さ230〜260pt)を歌詞カラムにそのまま渡し
+      「3〜4行に制限」処理が存在しなかったこと。歌詞カラム自身が独立した固定高さ
+      （130pt目安）を持つよう構造変更。複数行歌詞コンポーネント自体はPerch独自の
+      こだわりとして維持（ハンドブックの「1行Lyrics」提案は不採用）
+- [x] B5-4: ヘッダー3領域化（IslandTopBar） — 左(タブ,maxWidth:.infinity)/中央
+      (物理ノッチ予約領域,min(collapsedWidth,300))/右(SystemStatusCluster)の3領域構造へ。
+      タブ選択インジケータをCapsule+matchedGeometryEffectに変更
+- [x] B5-5: Calendar Standalone（音楽なし時2分割）レイアウト刷新 — 左=月グリッド+
+      前月/次月+曜日、右=選択日の予定カードList、日付タップ選択可能に刷新。
+      `CalendarEvent`にカレンダー色フィールド追加、`CalendarStore`に選択日取得メソッド追加
+- [x] B5-6: アートワーク角丸13pt化 + 発光レイヤー + 再生元アイコン — 128pt固定サイズは
+      Phase B4+の既存デザイン判断のため維持（可変正方形化はしない）。角丸のみ13pt微調整。
+      発光レイヤー（scale/回転92°/blur40pt/`allowsHitTesting(false)`必須）・
+      再生元アイコン（36x36pt、0.3秒遅延バウンス）を新規実装
+- [x] B5-7: Slider/操作ボタンのサイズ調整 + nudge/wiggleアニメーション — track高3/5pt→
+      8/14pt、ボタンタップ領域を40x40(play)/30x30(prev/next)へ。曲送り6pt nudge・
+      10秒seek相当10°wiggleのワンショットアニメーション追加
+
+**vendored`perch/Vendor/NookSurface/`配下は本フェーズで変更しない**（`NookStyle`の
+角丸19/24pt化は意図的に対象外、別タスクとして切り出す）。
+
+### Phase B6: Now Playing 実機フィードバック第2弾（2026-07-31〜）
+
+Phase B5完了後、実機で追加のフィードバックが8件出た。うち1件（一時停止/シーク時に
+シークバー・歌詞が0にリセットされる）は重大バグで、原因をExploreエージェント調査で
+特定済み（Apple Musicの一時停止通知がelapsedTime=0を強制代入している）。
+
+確定した設計判断（ユーザー確認済み）:
+- 再生元アイコンはブランドロゴSVG/PNGを使う（`docs/AppleMusic.svg`/`Spotify.svg`/
+  `YoutubeMusic.svg`をユーザーが用意済み、個人利用のため商標リスクは許容）
+- Apple Musicロゴは軽量化してから使う（現状839KBの2048×2048 PNGをbase64埋め込みした
+  疑似SVG。Spotify/YouTube Musicは本物のベクターSVGで1〜1.5KB）
+
+- [x] B6-1（最重要・重大バグ）: 一時停止/シークでelapsedTimeが0リセットされる —
+      `NowPlayingState.init?(appleMusicPlayerState:...)`が`elapsedTime=0`を無条件セット。
+      `com.apple.Music.playerInfo`通知は曲変更時だけでなくPlay/Pauseトグル時にも発火する
+      ため、一時停止するだけでシークバー・歌詞ハイライトが0:00へ飛ぶ。`isSameTrack`
+      純粋関数で同一曲判定し、同じ曲なら`previous?.liveElapsed(at:)`を引き継ぐ設計で修正
+      （Spotify側も`position`欠落時に同様のフォールバックを適用）。コミット`b45669c`。
+- [x] B6-2: 歌詞更新の遅延バグ — 曲が変わっても`refreshLyrics()`が`lyrics`配列を
+      即座にクリアせず、フェッチ完了まで前曲の歌詞が残り続ける。冒頭で`lyrics = []`を
+      即座に実行するよう修正。コミット`b5714a9`。
+- [x] B6-3: 歌詞の中央配置ずれ修正 — `LyricsView`の`ScrollView`自体に
+      `.frame(maxWidth: .infinity)`が無く、狭い実効幅の中で中央揃えになっていた。
+      `NowPlayingLyricsColumn`側にも保険で追加。コミット`df893e8`。
+- [x] B6-4: 歌詞ロード中アニメーションをProgressViewに変更 — 自作の3本正弦波描画
+      （「謎の波」）を標準`ProgressView(.circular)`に置き換え、歌詞カラム中央に配置。
+      コミット`1557242`。
+- [x] B6-5: アルバム名2行化＋タイトル1行化 — 128pt制約内に収めるためタイトルを
+      `lineLimit(2)→1`、アルバムを`lineLimit(1)→2`に変更。コミット`653c6e6`。
+- [x] B6-6: シークバー位置調整 — `progressSection`のVStack spacingを4→10に拡大し、
+      秒数表示に近づける。コミット`26358a2`。
+- [x] B6-7: コントロールボタン間隔・サイズ拡大 — spacing 8→14、prev/next 30→36pt、
+      play/pause 40→46pt。コミット`77c8871`。
+- [x] B6-8: 再生元アイコンをブランドロゴに差し替え — Apple Music/Spotify/YouTube Music
+      のSVG/PNGをAssets.xcassetsに追加し、`sourceBadge`をブランドロゴ表示に変更。
+      `.mrMediaRemote`はSF Symbolフォールバックを維持。Apple Musicロゴは839KB→約49KBに
+      軽量化（2048px PNG→256px PNGへリサイズ）。コミット`b03db68`。
+
+Phase B6は8タスク全完了。実機検証は次回実機起動時に通しで実施予定。
+
+### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
+
+**参照**: `docs/macOS-Battery-Monitoring-Animation-Handbook-ja.md`（全39章、
+§0設計原則〜§38チェックリスト）
+**現状**: `perch/UI/SystemStatusCluster.swift` + `perch/Core/SystemStatus/SystemStatusIcons.swift`
+の素朴な閾値分岐（`battery.0percent`〜`battery.100percent` / `battery.100percent.bolt`）のみ。
+IOKit直読み・HUD調停・常設/一時アニメーションは未実装。
+**2026-07-30 追記**: Phase B4+着手に伴うユーザー指摘で新フェーズとして切り出し。
+ハンドブックの章立てをそのままタスク化せず実装順として妥当な粒度にグルーピング。
+**このフェーズ自体はまだ実装に着手しない**（タスク分割の記録のみ）。
+
+- [ ] D1: IOKit Reader基盤 — `IOPowerSources`/`IOPSCopyPowerSourcesInfo`経由のバッテリー
+      状態リーダー新設。充電状態・残量・推定残り時間・サイクルカウント等のデータモデル定義
+- [ ] D2: HUD調停・表示ポリシー — システム標準バッテリーHUDとPerch常駐表示の競合回避、
+      常設表示と一時的な状態変化アニメーションの分離設計
+- [ ] D3: アニメーション実装 — 充電開始/完了・低残量警告・急速充電など状態遷移ごとのモーション
+- [ ] D4: テスト・検証 — IOKit読み取り結果→SF Symbol/表示状態マッピングを純粋関数として
+      切り出しユニットテスト化。実機（充電/放電両方）での長時間検証チェックリスト作成
+
+### Phase E: WiFi拡張（テザリング/デュアルSIM検知、未着手・タスク分割のみ）
+
+**現状**: `perch/UI/SystemStatusCluster.swift` + `perch/Core/SystemStatus/WiFiMonitor.swift`は
+`CWWiFiClient.shared().interface()?.powerOn()`によるWiFi電源ON/OFFの2値判定のみ
+（`SystemStatusIcons.wifiSymbolName`も`wifi`/`wifi.slash`の2値）。SSIDは意図的に未取得
+（Location権限回避、B2の既存方針）。
+**2026-07-30 追記**: Phase B4+着手に伴うユーザー指摘で新フェーズとして切り出し。
+テザリング検知時`cellularbars`、デュアルSIM検知時`cellularbars.short.cellularbars`を
+出したいという要望だが、**このフェーズ自体はまだ実装に着手しない**（タスク分割の記録のみ）。
+
+- [ ] E1: 検知手段の調査（実装着手前に必須）— macOSにはiOSのようなネイティブSIM/セルラー
+      APIが存在しない。`NWPathMonitor`（Network framework）でインターフェース種別を見る
+      方法はあるが、確実なテザリング判定にはSSIDパターン照合が必要になりやすく、既存の
+      「SSID非取得」方針（Location権限回避）と衝突する可能性がある。この矛盾を先に解消する
+      設計判断が必要。デュアルSIM検知はMac側からは原理的に情報が取れない可能性が高く、
+      取得可能な情報の有無を先に技術検証してから実現可否を判断する
+- [ ] E2: 実装（E1の結論次第で着手）— テザリング検知時`cellularbars`を追加。デュアルSIM
+      検知が技術的に可能と判明した場合のみ`cellularbars.short.cellularbars`を追加
+- [ ] E3: テスト — 新しい判定ロジックも`SystemStatusIcons`と同様、外部依存を持たない
+      純粋関数として切り出しテスト可能にする
 
 ### Phase C タスク（波形の実音キャプチャ修理）
 
@@ -512,8 +790,8 @@ A5 最終レビューの Minor 積み残し4件を回収:
 という往復が残っている。**原因に手を付けないままゲートで隠したのが再発の構造的理由。**
 
 - [ ] C0: 切り分け — `:132` の catch にログ / `:38` の `content.applications.count` をログ / **Spotify で試す**（bundleId が正しいので、動けば YTM のブラウザ誤選択が犯人と確定）
-- [ ] C1: `NowPlayingState` に `sourceBundleId` を追加し MediaRemote の bundleIdentifier を伝搬
-- [ ] C2: `ytmBrowserBundleId` の当てずっぽうを削除
+- [x] C1: `NowPlayingState` に `sourceBundleId` を追加し MediaRemote の bundleIdentifier を伝搬（2026-07-30）
+- [x] C2: `ytmBrowserBundleId` の当てずっぽうを削除（2026-07-30）
 - [ ] C3: `.mrMediaRemote` でもキャプチャする
 - [ ] C4: `SCStreamDelegate` 実装（`didStopWithError` で再接続可能に）
 - [ ] C5: エラーを握りつぶさずログ
@@ -521,6 +799,68 @@ A5 最終レビューの Minor 積み残し4件を回収:
 - [ ] C7: **BF4 回収** — `CGPreflightScreenCaptureAccess` / `CGRequestScreenCaptureAccess` + 拒否時の Settings 導線
 - [ ] C8: **診断表示** — Settings に「波形が実音か合成か」を出す。再発を即座に検知できるようにする
 - [ ] C9: テスト追加（`AudioPCMDecoder` 各フォーマット / `AudioSpectrumAnalyzer` 既知入力 / `WaveformView.blendedLevels` の3分岐）。**現状 Audio 系のテストはゼロ**
+
+### Phase C スコープ追加: Kaset.app（ネイティブYTMクライアント）のNow Playing検知対応（2026-07-30・実機検証完了）
+
+ユーザーからの追加依頼（CLAUDE.mdの運用ルールに従い、着手前に本節として明記）。
+[Kaset](https://github.com/sozercan/kaset) は YouTube Music を Apple Music 風のネイティブ UI で
+再生できる macOS アプリ。深夜作業中に着手し未完了・コンパイルエラーありの状態で残っていた差分
+（`chromiumBrowsers`→`youtubeMusicApplications` のリネーム、Kaset の bundle id 追加、
+`sourceBundleIdentifier` フィールド追加）を引き継ぎ、実機での6ラウンドの反復検証を経て
+最終的に正しく動作することを確認した。
+
+- [x] Kaset の bundle identifier確認。GitHub上の `Info.plist` の `CFBundleURLName`
+      （`com.sertacozercan.kaset`、小文字k）は**罠**で、実際のbundle identifierは
+      `Scripts/build-app.sh:16` の `BUNDLE_ID="com.sertacozercan.Kaset"`（大文字K）。
+      `CFBundleURLName` はURLスキーム登録名の一種にすぎず、bundle identifierと
+      一致するとは限らない
+- [x] `NowPlayingManager.chromiumBrowsers` を `youtubeMusicApplications` にリネーム
+      （宣言含め全参照箇所を修正）+ Kaset を追加。ブラウザに限らない「YTM 相当の
+      MediaRemote 発行元」という位置づけに変更
+- [x] `.youTubeMusic` は新規 `MusicSource` ケースを作らず既存のものへ統合（既存の
+      `enableYouTubeMusic` トグル・優先度ロジックをそのまま流用）
+- [x] Phase C の C1/C2 をこのタスクの前提として先取り実施（複数の YTM 発行元が同時に
+      起動している場合の当てずっぽうバグを解消しないと Kaset 追加自体が不安定になるため）
+- [x] `applyState` のアートワーク carry-forward パスが `sourceBundleIdentifier` を
+      引き継いでいなかった実バグを発見・修正
+- [x] **Kaset側のアーキテクチャに起因する実バグを発見・修正**（実機検証で判明、
+      Kasetのソース `Sources/Kaset/Services/Player/NowPlayingManager.swift` の
+      `desiredClaim` を直接読んで特定）: Kasetは内部で実際のYouTube MusicページをWKWebViewで
+      描画しており、**再生中は自分のbundle id（`com.sertacozercan.Kaset`）では
+      Now Playing情報を発行しない**（`.playing/.buffering/.loading` → `.handsOff`）。
+      再生中の本物のメタデータは埋め込みWebKitヘルパープロセス
+      （`com.apple.WebKit.GPU` 等、macOS共有のシステムプロセスでSafari等とbundle id共有）
+      が発行し、Kaset自身のbundle idは一時停止/ロード中のフォールバック情報のみを出す。
+      これに対応するため:
+      - `MediaRemoteBridge.bundleIdentifierFilter`（`(String?) -> Bool`）を
+        `bundleIdentifierResolver`（`(TrackInfo.Payload) -> String?`）に設計変更。
+        単なる許可/拒否ではなく「どのbundle idに帰属させるか」を返す形に一般化
+      - `NowPlayingManager.resolveBundleIdentifier` という `static` 純粋関数を新設。
+        `com.apple.WebKit.` prefixのイベントは、`payload.applicationName` が
+        既知アプリの表示名で**前方一致**する場合のみ、そのアプリの本来のbundle idに
+        正規化して受理する（`com.apple.WebKit.GPU`をそのまま許可リストに加えると
+        Safari等の無関係なWebページ音声まで誤検知するため危険 — 却下した設計案）
+      - `applicationName` は実測で `"Kaset Graphics and Media"` のような
+        `"<アプリ名> <コンポーネント説明>"` 形式で、完全一致ではなく `hasPrefix` が必要
+        だったことも実機ログで確定（最初は完全一致で実装し、1ラウンド無駄にした）
+      - `NowPlayingState.init?(fromMediaRemote:)` に `overrideBundleIdentifier` を追加し、
+        正規化後のbundle idを `sourceBundleIdentifier` として使うようにした
+- [x] swift-logの `Logger.logLevel` はインスタンスごとにデフォルト `.info` で `.debug` ログが
+      握りつぶされる問題を発見・修正（`LoggingSystem.bootstrap` 未使用のプロジェクトでは
+      各 `Logger` 生成直後に `logLevel = .debug` を明示設定する必要がある）
+- [x] 副次的に発見した設定画面が開きにくい問題を修正: `MenuBarController.openSettings()` の
+      単発100ms sleepを、50ms×最大10回のポーリングに変更（`docs/progress.md` 既知の
+      macOS 14+ Settings起動タイミング問題の系譜、Phase 2c-fix/2e T3/2f T0 と同種）
+- [x] テスト追加: `NowPlayingStateTests`（`sourceBundleIdentifier` の伝搬・Equatable差分）、
+      `NowPlayingManagerTests`（`matchesTerminatedApp`・`resolveBundleIdentifier` を
+      `static` 純粋関数として切り出し単体テスト。WebKitヘルパー経由の正規化・
+      前方一致・未知アプリ拒否を含む）
+- [x] 実機で3曲以上の切り替えを含む複数ラウンドの検証を実施し、タイトル・アートワークが
+      正しく更新されることを確認済み
+
+**既知の制限**: `applicationName` の前方一致判定はKaset固有の内部文字列
+（`"Kaset Graphics and Media"`）に依存する reverse-engineered な挙動であり、
+Kaset側のアップデートで表示名パターンが変わると再度壊れうる。公式に保証された仕様ではない。
 
 ### 将来（Phase 4）: Core Audio Taps への載せ替え
 

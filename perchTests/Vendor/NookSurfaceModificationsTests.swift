@@ -1,8 +1,8 @@
 // perchTests/Vendor/NookSurfaceModificationsTests.swift
 //
-// Guards the three changes Perch makes to the vendored NookSurface. Re-syncing with a
-// newer upstream would silently drop them otherwise, and both are the kind of regression
-// that only shows up as "the notch looks wrong" long after the merge.
+// Guards the changes Perch makes to the vendored NookSurface. Re-syncing with a newer
+// upstream would silently drop them otherwise, and these are the kind of regression that
+// only shows up as "the notch looks wrong" long after the merge.
 //
 // See perch/Vendor/NookSurface/README.md for what is modified and why.
 
@@ -54,6 +54,29 @@ struct NookSurfaceModificationsTests {
         let nook = Nook(hoverBehavior: [.keepVisible]) { EmptyView() }
         nook.syntheticNotchWidth = 208
         #expect(nook.syntheticNotchWidth == 208)
+    }
+
+    // MARK: - compact corner radii
+
+    @Test("compact corner radii default to the historical hardcoded values")
+    func compactCornerRadiiDefault() {
+        let style = NookStyle(topCornerRadius: 15, bottomCornerRadius: 20)
+        #expect(style.compactTopCornerRadius == 6)
+        #expect(style.compactBottomCornerRadius == 14)
+    }
+
+    @Test("compact corner radii are settable independently of the expanded radii")
+    func compactCornerRadiiAreSettable() {
+        let style = NookStyle(
+            topCornerRadius: 15,
+            bottomCornerRadius: 20,
+            compactTopCornerRadius: 10,
+            compactBottomCornerRadius: 20
+        )
+        #expect(style.compactTopCornerRadius == 10)
+        #expect(style.compactBottomCornerRadius == 20)
+        #expect(style.topCornerRadius == 15)
+        #expect(style.bottomCornerRadius == 20)
     }
 
     // MARK: - published notch metrics

@@ -83,4 +83,49 @@ struct NowPlayingStateTests {
         ]
         #expect(NowPlayingState(from: dict)?.formattedDuration == "4:00")
     }
+
+    @Test("sourceBundleIdentifier defaults to nil when not provided")
+    func sourceBundleIdentifierDefaultsNil() {
+        let state = NowPlayingState(
+            title: "Song", artist: "Artist", album: nil, artwork: nil,
+            isPlaying: true, duration: nil, elapsedTime: nil, timestamp: nil, source: .youTubeMusic
+        )
+        #expect(state.sourceBundleIdentifier == nil)
+    }
+
+    @Test("sourceBundleIdentifier is carried through the full initializer")
+    func sourceBundleIdentifierCarriedThrough() {
+        let state = NowPlayingState(
+            title: "Song", artist: "Artist", album: nil, artwork: nil,
+            sourceBundleIdentifier: "com.sertacozercan.Kaset",
+            isPlaying: true, duration: nil, elapsedTime: nil, timestamp: nil, source: .youTubeMusic
+        )
+        #expect(state.sourceBundleIdentifier == "com.sertacozercan.Kaset")
+    }
+
+    @Test("enriched(artwork:) preserves sourceBundleIdentifier")
+    func enrichedPreservesSourceBundleIdentifier() {
+        let state = NowPlayingState(
+            title: "Song", artist: "Artist", album: nil, artwork: nil,
+            sourceBundleIdentifier: "com.sertacozercan.Kaset",
+            isPlaying: true, duration: nil, elapsedTime: nil, timestamp: nil, source: .youTubeMusic
+        )
+        let enriched = state.enriched(artwork: nil)
+        #expect(enriched.sourceBundleIdentifier == "com.sertacozercan.Kaset")
+    }
+
+    @Test("Equatable distinguishes states that differ only by sourceBundleIdentifier")
+    func equatableDetectsSourceBundleIdentifierDifference() {
+        let chrome = NowPlayingState(
+            title: "Song", artist: "Artist", album: nil, artwork: nil,
+            sourceBundleIdentifier: "com.google.Chrome",
+            isPlaying: true, duration: nil, elapsedTime: nil, timestamp: nil, source: .youTubeMusic
+        )
+        let kaset = NowPlayingState(
+            title: "Song", artist: "Artist", album: nil, artwork: nil,
+            sourceBundleIdentifier: "com.sertacozercan.Kaset",
+            isPlaying: true, duration: nil, elapsedTime: nil, timestamp: nil, source: .youTubeMusic
+        )
+        #expect(chrome != kaset)
+    }
 }

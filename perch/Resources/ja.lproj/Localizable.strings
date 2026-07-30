@@ -34,6 +34,11 @@
 "settings.island_position.notch" = "ノッチ";
 "settings.island_position.floating" = "フローティング";
 
+/* Settings — UI Mode */
+"settings.ui_mode" = "UIモード";
+"settings.ui_mode.rich" = "リッチ";
+"settings.ui_mode.minimal" = "ミニマル";
+
 /* Settings — AI Usage */
 "settings.ai_usage.display_options" = "使用量 表示オプション";
 "settings.ai_usage.show_remaining" = "残り%で表示";

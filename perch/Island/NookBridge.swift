@@ -35,9 +35,30 @@ final class NookBridge {
     /// not depend on (or mutate) the shared `Defaults` suite.
     private let collapseDelay: @MainActor () -> Duration
 
-    /// How the scheduled collapse waits. Injectable so tests control the release point
-    /// exactly instead of racing a wall-clock sleep.
+    /// How the scheduled collapse (and, since Phase B, the scheduled hover-expand) waits.
+    /// Injectable so tests control the release point exactly instead of racing a
+    /// wall-clock sleep.
     private let sleep: @Sendable (Duration) async throws -> Void
+
+    /// How long the cursor must stay on the compact pill before hovering expands it.
+    ///
+    /// Deliberately not a `Defaults`-backed preference like `collapseDelay` — this is a
+    /// fixed hysteresis constant (see docs/SwiftUI-Animation-Architecture-Handbook-ja.md
+    /// §7.2's `HoverGate`), not something a user tunes. Injectable purely for tests.
+    private let hoverExpandDelay: Duration
+
+    /// How long the cursor must be off the expanded surface before a hover-driven exit
+    /// collapses it.
+    ///
+    /// Deliberately its own short constant rather than reusing `collapseDelay`
+    /// (`autoCollapseDelay`, 1-10s user-configurable): that preference exists for "I clicked
+    /// this open, walk away, and it should eventually close on its own" — three-plus
+    /// seconds by design. A hover-driven close wants the opposite feel, symmetric with
+    /// `hoverExpandDelay`: the handbook's `HoverGate` example pairs a 300ms open with a
+    /// 100ms close, which is what this defaults to. `collapseDelay` still governs the one
+    /// case with no hover signal to react to at all — `surfaceDidExpand()` arming a
+    /// collapse when the surface expanded with the cursor already elsewhere.
+    private let hoverCollapseDelay: Duration
 
     /// Read on every chrome application, so toggling the preference takes effect on the
     /// next window rebuild. Injectable so tests can assert the "off" case without writing
@@ -71,6 +92,15 @@ final class NookBridge {
 
     private var isSurfaceExpanded = false
     private var collapseTask: Task<Void, Never>?
+    private var expandTask: Task<Void, Never>?
+
+    /// `true` once the surface has gone away entirely (``surfaceDidHide()``), cleared by
+    /// any transition out of it. Distinct from `!isSurfaceExpanded`, which is equally true
+    /// while compact — `scheduleExpand()` needs to tell "compact, hover away to open" from
+    /// "hidden, nothing to hover" apart, so a stray hover-expand timer never resurrects an
+    /// island the user dismissed (the same principle `surfaceDidHide()` already applies to
+    /// the collapse timer above).
+    private var isSurfaceHidden = false
 
     /// Set while a bridge-initiated `expand()` / `compact()` is in flight. A hide seen in
     /// that window is not necessarily the surface going away — see ``drive(_:)``.
@@ -85,12 +115,16 @@ final class NookBridge {
             NookBridge.collapseDelay(forConfiguredSeconds: Defaults[.autoCollapseDelay])
         },
         showInAllSpaces: @escaping @MainActor () -> Bool = { Defaults[.showInAllSpaces] },
-        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+        hoverExpandDelay: Duration = .milliseconds(300),
+        hoverCollapseDelay: Duration = .milliseconds(100)
     ) {
         self.surface = surface
         self.collapseDelay = collapseDelay
         self.showInAllSpaces = showInAllSpaces
         self.sleep = sleep
+        self.hoverExpandDelay = hoverExpandDelay
+        self.hoverCollapseDelay = hoverCollapseDelay
 
         // Convert straight between compact and expanded. Left at the vendored default the
         // surface dips through `.hidden` mid-conversion — visible as a blink, and reported
@@ -147,6 +181,7 @@ final class NookBridge {
 
     deinit {
         collapseTask?.cancel()
+        expandTask?.cancel()
     }
 
     // MARK: - Driving the surface
@@ -255,6 +290,11 @@ final class NookBridge {
         // Arriving somewhere retroactively makes any hide on the way here a dip.
         sawHideWhileDriving = false
         isSurfaceExpanded = true
+        isSurfaceHidden = false
+        // A pending hover-expand (if this arrival came from a click rather than the timer
+        // itself firing) is now moot — `scheduleExpand()`'s own guard would no-op it
+        // anyway, but cancelling outright is cheaper than leaving a dead Task to unwind.
+        cancelScheduledExpand()
         applyWindowChrome()
         onSurfaceExpanded?()
 
@@ -265,15 +305,24 @@ final class NookBridge {
         // it; the moment a menu-bar item, a keyboard shortcut or a notification can expand
         // it, that guarantee is gone. Arming here costs nothing in the hover case, because
         // `hoverDidChange(true)` cancels it immediately.
+        //
+        // Uses `collapseDelay()` (the user-configurable `autoCollapseDelay`), not
+        // `hoverCollapseDelay` — there is no hover signal at all in this branch, so the
+        // short hover-symmetric delay would not mean anything here.
         if !surface.isHovering {
-            scheduleCollapse()
+            scheduleCollapse(after: collapseDelay())
         }
     }
 
     private func surfaceDidCompact() {
         sawHideWhileDriving = false
         isSurfaceExpanded = false
+        isSurfaceHidden = false
         cancelScheduledCollapse()
+        // A hover-expand can still be pending here (the cursor never left, but something
+        // else — an explicit `compact()` — closed the island). Without this, that timer
+        // would fire later and silently reopen an island the user just closed.
+        cancelScheduledExpand()
         applyWindowChrome()
         onSurfaceCompacted?()
     }
@@ -286,7 +335,15 @@ final class NookBridge {
         // dismissed. Safe to do eagerly, because every transition *out* of hidden sets it
         // again.
         isSurfaceExpanded = false
+        isSurfaceHidden = true
         cancelScheduledCollapse()
+        // Same reasoning as `surfaceDidCompact()`, and more urgent here: a hover-expand
+        // scheduled before the surface hid would otherwise fire later and resurrect an
+        // island the user dismissed entirely — a "zombie expand" mirroring the "zombie
+        // collapse" this bridge already guards against below. `isSurfaceHidden` on top of
+        // cancelling the in-flight task closes the gap where the *next* hover-in schedules
+        // a brand new expand while the surface is still gone.
+        cancelScheduledExpand()
 
         // Reporting it upward is another matter. Inside a transition this bridge drove,
         // the hide may be the mid-conversion dip rather than the surface going away, so
@@ -344,14 +401,52 @@ final class NookBridge {
     private func hoverDidChange(_ isHovering: Bool) {
         if isHovering {
             cancelScheduledCollapse()
-        } else if isSurfaceExpanded {
-            scheduleCollapse()
+            scheduleExpand()
+        } else {
+            cancelScheduledExpand()
+            if isSurfaceExpanded {
+                scheduleCollapse(after: hoverCollapseDelay)
+            }
         }
     }
 
-    private func scheduleCollapse() {
+    /// Debounced hover-to-expand — the mirror image of ``scheduleCollapse()``.
+    ///
+    /// Not the vendored surface's own `.expandsOnHover` (`Nook.updateHoverState`), which
+    /// converts instantly with zero debounce the moment `.onHover` reports a change —
+    /// exactly the "immediate open/close" the handbook's §7.2 warns bounces at region
+    /// boundaries. `IslandHost` deliberately never includes `.expandsOnHover` in
+    /// `hoverBehavior`; this timer is what actually drives hover-to-expand instead.
+    private func scheduleExpand() {
+        // `isSurfaceHidden` stops a hover from resurrecting an island the user dismissed —
+        // there is no visible pill to have hovered in the first place once the surface is
+        // gone, so scheduling an expand here would only matter for a stray publisher event.
+        guard !isSurfaceExpanded, !isSurfaceHidden else { return }
+        expandTask?.cancel()
+        expandTask = Task { [weak self] in
+            guard let self else { return }
+            try? await self.sleep(self.hoverExpandDelay)
+            // Re-checked after the wait for the same reason `scheduleCollapse()` re-checks
+            // its own conditions: cancellation does not reach into an in-flight `expand()`,
+            // so the state check is what stops an expand whose reason (the cursor still
+            // being on the surface) disappeared while it waited.
+            guard !Task.isCancelled, !self.isSurfaceExpanded, !self.isSurfaceHidden,
+                self.surface.isHovering
+            else { return }
+            await self.expand()
+        }
+    }
+
+    private func cancelScheduledExpand() {
+        expandTask?.cancel()
+        expandTask = nil
+    }
+
+    /// Schedules a collapse after `delay`. Two distinct callers pass two distinct delays —
+    /// see the doc comments on `hoverCollapseDelay` and `collapseDelay` for why a single
+    /// shared delay would be wrong for one of them.
+    private func scheduleCollapse(after delay: Duration) {
         collapseTask?.cancel()
-        let delay = collapseDelay()
         collapseTask = Task { [weak self] in
             try? await self?.sleep(delay)
             // `isSurfaceExpanded` is re-checked *after* the wait, not just before it:
@@ -409,19 +504,21 @@ final class NookBridge {
         return behavior
     }
 
-    /// The backdrop the surface should paint, reproducing Perch's pre-vendoring chrome: the
-    /// same `.hudWindow` vibrancy its own background view used, or a flat black fill when the user
-    /// has asked the system to reduce transparency (where an `NSVisualEffectView` is both
-    /// wasted work and against the accessibility setting's intent).
+    /// The backdrop the surface should paint: a single flat opaque black, always.
+    ///
+    /// Previously varied with Reduce Transparency between a `.hudWindow` vibrancy (normal)
+    /// and `.solidBlack` (reduced) — but `darkenOpacity: 0` on that vibrancy drew no black
+    /// overlay at all, so the "normal" case rendered as a barely-tinted live blur of
+    /// whatever was behind the panel rather than the solid black chrome Perch wants (see
+    /// docs/SwiftUI-Animation-Architecture-Handbook-ja.md §4.1: keep one continuous black
+    /// surface, not a vibrancy that reads as transparent). `.solid` never touches
+    /// `NSVisualEffectView`, so there is nothing left for Reduce Transparency to disable.
     ///
     /// The decision lives here, in Perch; the assignment lives in
     /// `Nook.applyBackdrop(reduceTransparency:)`, which is the only place the `NookBackdrop`
     /// type is touched. Pure, but not `nonisolated`: `NookBackdrop`'s members inherit the
     /// project's default `MainActor` isolation and the vendored source is off-limits.
     static func makeBackdrop(reduceTransparency: Bool) -> NookBackdrop {
-        guard !reduceTransparency else { return .solidBlack }
-        return .vibrancy(
-            NookBackdrop.Vibrancy(material: .hudWindow, blendingMode: .behindWindow, darkenOpacity: 0)
-        )
+        .solidBlack
     }
 }

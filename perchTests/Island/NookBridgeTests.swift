@@ -41,13 +41,17 @@ struct NookBridgeTests {
         surface: FakeIslandSurface,
         sleeper: ManualSleeper = ManualSleeper(),
         delay: Duration = .seconds(3),
-        showInAllSpaces: Bool = true
+        showInAllSpaces: Bool = true,
+        hoverExpandDelay: Duration = .milliseconds(300),
+        hoverCollapseDelay: Duration = .milliseconds(100)
     ) -> NookBridge {
         NookBridge(
             surface: surface,
             collapseDelay: { delay },
             showInAllSpaces: { showInAllSpaces },
-            sleep: { duration in await sleeper.sleep(duration) }
+            sleep: { duration in await sleeper.sleep(duration) },
+            hoverExpandDelay: hoverExpandDelay,
+            hoverCollapseDelay: hoverCollapseDelay
         )
     }
 
@@ -104,20 +108,14 @@ struct NookBridgeTests {
 
     // MARK: - makeBackdrop
 
-    @Test("the default backdrop is the hudWindow vibrancy Perch renders today")
-    func backdropVibrancy() throws {
-        guard case .vibrancy(let vibrancy) = NookBridge.makeBackdrop(reduceTransparency: false) else {
-            Issue.record("expected a vibrancy backdrop")
+    @Test("the backdrop is solid black regardless of Reduce Transparency")
+    func backdropIsAlwaysSolidBlack() {
+        guard case .solid = NookBridge.makeBackdrop(reduceTransparency: false) else {
+            Issue.record("expected a solid backdrop")
             return
         }
-        #expect(vibrancy.material == .hudWindow)
-        #expect(vibrancy.blendingMode == .behindWindow)
-    }
-
-    @Test("Reduce Transparency drops the visual effect view entirely")
-    func backdropReduceTransparency() {
         guard case .solid = NookBridge.makeBackdrop(reduceTransparency: true) else {
-            Issue.record("expected a solid backdrop when transparency is reduced")
+            Issue.record("expected a solid backdrop")
             return
         }
     }
@@ -289,6 +287,80 @@ struct NookBridgeTests {
         #expect(!surface.window.isReleasedWhenClosed)
     }
 
+    // MARK: - Hover-to-expand
+
+    @Test("hovering the compact surface expands it after the delay")
+    func hoverExpandsAfterDelay() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper)
+
+        surface.setHovering(true)
+        await settle()
+        #expect(surface.expandCallCount == 0)
+
+        sleeper.releaseAll()
+        await settle()
+        #expect(surface.expandCallCount == 1)
+        #expect(surface.state == .expanded)
+        _ = bridge
+    }
+
+    @Test("leaving before the delay elapses cancels the scheduled expand")
+    func hoverExitCancelsScheduledExpand() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper)
+
+        surface.setHovering(true)
+        surface.setHovering(false)
+        await settle()
+
+        // Releasing proves the expand task is dead rather than merely still waiting.
+        sleeper.releaseAll()
+        await settle()
+        #expect(surface.expandCallCount == 0)
+        // Never transitioned, so the fake stays at its default rather than becoming compact.
+        #expect(surface.state == .hidden)
+        _ = bridge
+    }
+
+    @Test("rapid hover in/out does not queue more than one pending expand")
+    func rapidHoverInOutDoesNotDoubleExpand() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper)
+
+        surface.setHovering(true)
+        surface.setHovering(false)
+        surface.setHovering(true)
+        surface.setHovering(false)
+        surface.setHovering(true)
+        await settle()
+
+        sleeper.releaseAll()
+        await settle()
+        #expect(surface.expandCallCount == 1)
+        #expect(surface.state == .expanded)
+        _ = bridge
+    }
+
+    @Test("hovering an already-expanded surface schedules nothing")
+    func hoverWhileAlreadyExpandedSchedulesNoExtraExpand() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        let bridge = makeBridge(surface: surface, sleeper: sleeper)
+
+        await bridge.expand()
+        surface.setHovering(true)
+        await settle()
+
+        // Only the hover-exit auto-collapse timer should be live; no expand task queued.
+        sleeper.releaseAll()
+        await settle()
+        #expect(surface.expandCallCount == 1)
+    }
+
     // MARK: - Auto-collapse
 
     @Test("hover exit while expanded collapses the surface after the delay")
@@ -305,9 +377,40 @@ struct NookBridgeTests {
         surface.setHovering(false)
         await settle()
 
-        #expect(sleeper.sleepCallCount == 1)
-        #expect(sleeper.requestedDurations == [.seconds(3)])
+        // Two sleeps land here now, not one: hovering-in before the click also schedules
+        // (and, once the click expands first, abandons) a hover-expand — see
+        // `hoverExitCancelsScheduledExpand` for that path in isolation. The second sleep is
+        // `hoverCollapseDelay` (100ms), not the injected `delay` (3s) — the hover-out branch
+        // uses its own short constant, distinct from `collapseDelay()`.
+        #expect(sleeper.sleepCallCount == 2)
+        #expect(sleeper.requestedDurations == [.milliseconds(300), .milliseconds(100)])
         #expect(surface.compactCallCount == 0)
+
+        sleeper.releaseAll()
+        await settle()
+        #expect(surface.compactCallCount == 1)
+        #expect(surface.state == .compact)
+    }
+
+    @Test(
+        "hover-exit collapse uses hoverCollapseDelay, not the user-configurable autoCollapseDelay"
+    )
+    func hoverExitUsesItsOwnShortDelayNotAutoCollapseDelay() async {
+        let surface = FakeIslandSurface()
+        let sleeper = ManualSleeper()
+        // A long autoCollapseDelay and a short, distinct hoverCollapseDelay — if the
+        // hover-exit path used the former by mistake, this test would hang forever waiting
+        // for a 10s sleep call that never happens.
+        let bridge = makeBridge(
+            surface: surface, sleeper: sleeper, delay: .seconds(10),
+            hoverCollapseDelay: .milliseconds(50))
+
+        surface.setHovering(true)
+        await bridge.expand()
+        surface.setHovering(false)
+        await settle()
+
+        #expect(sleeper.requestedDurations.last == .milliseconds(50))
 
         sleeper.releaseAll()
         await settle()
@@ -345,7 +448,9 @@ struct NookBridgeTests {
         surface.setHovering(false)
         await settle()
 
-        #expect(sleeper.sleepCallCount == 0)
+        // The hover-in still schedules (and the hover-out then cancels) a hover-expand
+        // attempt — that sleep call is expected. What must stay at zero is any *collapse*.
+        #expect(sleeper.sleepCallCount == 1)
         #expect(surface.compactCallCount == 0)
         _ = bridge
     }
@@ -430,7 +535,9 @@ struct NookBridgeTests {
         await settle()
 
         #expect(hiddenCount == 1)
-        #expect(sleeper.sleepCallCount == 0)
+        // The hover-in's hover-expand attempt still made its one sleep call before the
+        // click superseded it; what matters is that it does not turn into a second expand.
+        #expect(sleeper.sleepCallCount == 1)
 
         sleeper.releaseAll()
         await settle()
@@ -450,7 +557,9 @@ struct NookBridgeTests {
         await bridge.expand()
         surface.setHovering(false)
         await settle()
-        #expect(sleeper.sleepCallCount == 1)
+        // One sleep from the hover-in's (soon abandoned) hover-expand attempt, one from the
+        // collapse the hover-out armed.
+        #expect(sleeper.sleepCallCount == 2)
 
         await surface.simulateHide()
         sleeper.releaseAll()
@@ -485,11 +594,14 @@ struct NookBridgeTests {
         #expect(surface.state == .hidden)
 
         // And the bridge's own notion of expansion followed, so a later hover exit does
-        // not schedule a collapse against a surface that is already gone.
+        // not schedule a collapse — nor does a later hover-*in* schedule an expand — against
+        // a surface that is already gone: `isSurfaceHidden` short-circuits `scheduleExpand()`
+        // before it ever calls `sleep`, so the count below stays at the one call the
+        // hover-in made before the surface hid.
         surface.setHovering(true)
         surface.setHovering(false)
         await settle()
-        #expect(sleeper.sleepCallCount == 0)
+        #expect(sleeper.sleepCallCount == 1)
     }
 
     // MARK: - Window-rebuild paths (A5 review: C-1 / I-2 / I-4 / M-7)
@@ -622,6 +734,9 @@ struct NookBridgeTests {
         await settle()
 
         #expect(sleeper.sleepCallCount == 1)
+        // The no-hover arm uses `collapseDelay()` (the injected 3s), not the short
+        // `hoverCollapseDelay` — there is no hover signal here for the short one to react to.
+        #expect(sleeper.requestedDurations == [.seconds(3)])
 
         sleeper.releaseAll()
         await settle()

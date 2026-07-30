@@ -1,6 +1,8 @@
+import AppKit
+import Defaults
 import SwiftUI
 
-/// The island's expanded content: header, then the active preset's widgets.
+/// The island's expanded content: header, then the active module's content.
 ///
 /// Draws no background, no shape, no stroke and sets no width. All four used to live here
 /// because the content sat inside a fixed-size window Perch positioned itself; the
@@ -9,38 +11,64 @@ import SwiftUI
 /// pin the surface to a width its own geometry did not choose.
 struct ExpandedIslandView: View {
     @Environment(AppState.self) private var appState
+    @Default(.uiMode) private var uiMode
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            IslandTopBar()
+            // Preset switching is a Minimal-mode-only concept — Rich mode's Home module is
+            // a fixed layout (`AtollStyleExpandedView`), not preset-driven, so there is
+            // nothing for a preset tab bar to switch between.
+            if uiMode == .minimal, IslandModuleContent.showsPresetTabBar(for: appState.activeCard) {
+                HStack {
+                    Spacer()
+                    PresetTabBar()
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
+            }
             Divider().opacity(0.15)
-            presetContent
+            moduleContent
                 .animation(DesignSystem.springAnimation, value: appState.presetStore.activePresetID)
+                .animation(DesignSystem.springAnimation, value: appState.activeCard)
         }
         // Content-driven, but not unbounded: the widgets are laid out for roughly this
         // width, and without a floor the surface would shrink to the notch minimum on an
         // empty preset.
-        .frame(minWidth: 420)
+        .frame(minWidth: minExpandedWidth)
     }
 
-    // MARK: - Header
+    /// Rich mode's Home layout wants more room than Minimal mode's single-column widget
+    /// stack or the AI Usage full-screen view, so only widen the floor when
+    /// `AtollStyleExpandedView` is actually what's rendering.
+    private var minExpandedWidth: CGFloat {
+        guard uiMode == .rich, IslandModuleContent.content(for: appState.activeCard) == .presetDriven
+        else { return 420 }
+        let screenWidth = NSScreen.main?.visibleFrame.width ?? SurfaceMetrics.baseContentWidth
+        return SurfaceSizeResolver.resolve(
+            .init(page: .richHome, screenWidth: screenWidth)
+        ).contentMinWidth
+    }
 
-    private var header: some View {
-        HStack {
-            Button {
-                appState.collapse()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.tertiary)
-                    .imageScale(.medium)
+    // MARK: - Module Content
+
+    /// Routes to the active module's content. `.nowPlaying` (Home) renders
+    /// `AtollStyleExpandedView` in Rich mode or the active preset's widgets in Minimal
+    /// mode; `.aiUsage` bypasses both entirely and shows the full AI usage screen
+    /// regardless of `uiMode` — it was never preset-driven to begin with. See
+    /// `IslandModuleContent` for the pure mapping this switches on.
+    @ViewBuilder
+    private var moduleContent: some View {
+        switch IslandModuleContent.content(for: appState.activeCard) {
+        case .presetDriven:
+            if uiMode == .rich {
+                AtollStyleExpandedView()
+            } else {
+                presetContent
             }
-            .buttonStyle(.plain)
-            Spacer()
-            PresetTabBar()
+        case .aiUsageDirect: AIUsageFullView()
+        case .empty: EmptyView()
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
     }
 
     // MARK: - Preset Content (dynamic from WidgetRegistry)

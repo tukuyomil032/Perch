@@ -8,6 +8,8 @@
     <string>Copyright © 2026 tukuyomi032. Licensed under the Apache License, Version 2.0.</string>
     <key>NSScreenCaptureUsageDescription</key>
     <string>Perch uses audio capture to animate the waveform visualizer in sync with your music.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Perch shows today's events in its expanded calendar widget.</string>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSExceptionDomains</key>

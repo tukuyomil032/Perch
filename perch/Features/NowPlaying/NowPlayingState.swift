@@ -9,6 +9,16 @@ enum MusicSource: String, Sendable, Equatable {
     case mrMediaRemote = "MRMediaRemote"
 
     var displayName: String { rawValue }
+
+    /// SF Symbol for `NowPlayingCard`'s source badge (handbook §11.2 "再生元アイコン").
+    /// None of these apps have an official SF Symbol, so this uses generic glyphs
+    /// rather than guessing at brand marks that don't exist in the symbol set.
+    var symbolName: String {
+        switch self {
+        case .spotify, .appleMusic, .mrMediaRemote: "music.note"
+        case .youTubeMusic: "play.rectangle.fill"
+        }
+    }
 }
 
 @MainActor
@@ -19,6 +29,7 @@ struct NowPlayingState {
     let artwork: NSImage?
     let artworkID: UUID?
     let thumbnailURL: URL?
+    let sourceBundleIdentifier: String?
     let isAd: Bool
     let isPlaying: Bool
     let duration: TimeInterval?
@@ -73,6 +84,7 @@ struct NowPlayingState {
         title: String, artist: String, album: String?, artwork: NSImage?,
         artworkID: UUID? = nil,
         thumbnailURL: URL? = nil,
+        sourceBundleIdentifier: String? = nil,
         isAd: Bool = false,
         isPlaying: Bool, duration: TimeInterval?, elapsedTime: TimeInterval?,
         timestamp: Date?, source: MusicSource
@@ -83,6 +95,7 @@ struct NowPlayingState {
         self.artwork = artwork
         self.artworkID = artworkID
         self.thumbnailURL = thumbnailURL
+        self.sourceBundleIdentifier = sourceBundleIdentifier
         self.isAd = isAd
         self.isPlaying = isPlaying
         self.duration = duration
@@ -96,6 +109,7 @@ struct NowPlayingState {
             title: title, artist: artist, album: album, artwork: artwork,
             artworkID: artwork != nil ? UUID() : nil,
             thumbnailURL: thumbnailURL,
+            sourceBundleIdentifier: sourceBundleIdentifier,
             isAd: isAd,
             isPlaying: isPlaying, duration: duration, elapsedTime: elapsedTime,
             timestamp: timestamp, source: source
@@ -127,6 +141,7 @@ struct NowPlayingState {
         }
         self.artworkID = nil
         self.thumbnailURL = nil
+        self.sourceBundleIdentifier = nil
         self.isAd = false
     }
 }
@@ -138,6 +153,7 @@ extension NowPlayingState: Equatable {
     nonisolated static func == (lhs: NowPlayingState, rhs: NowPlayingState) -> Bool {
         lhs.title == rhs.title && lhs.artist == rhs.artist && lhs.isPlaying == rhs.isPlaying
             && lhs.source == rhs.source && lhs.thumbnailURL == rhs.thumbnailURL
+            && lhs.sourceBundleIdentifier == rhs.sourceBundleIdentifier
             && lhs.artworkID == rhs.artworkID && lhs.isAd == rhs.isAd
     }
 }
@@ -153,7 +169,8 @@ extension NowPlayingState {
         artist: String,
         album: String?,
         durationMs: Double?,
-        position: Double?
+        position: Double?,
+        previousElapsedTime: TimeInterval? = nil
     ) {
         guard playerState != "Stopped", !title.isEmpty else { return nil }
         self.title = title
@@ -161,11 +178,16 @@ extension NowPlayingState {
         self.album = album
         self.isPlaying = playerState == "Playing"
         self.duration = durationMs.map { $0 / 1000.0 }  // ms → seconds
-        self.elapsedTime = position  // already in seconds
+        // Spotify's notification usually carries the real position; when it's missing
+        // (some Spotify versions omit it on pause), fall back to the caller-supplied
+        // previous position instead of losing the seek bar to 0 — see the Apple Music
+        // initializer below for the same pattern with more detail.
+        self.elapsedTime = position ?? previousElapsedTime
         self.timestamp = Date()
         self.artwork = nil
         self.artworkID = nil
         self.thumbnailURL = nil
+        self.sourceBundleIdentifier = nil
         self.isAd = false
         self.source = .spotify
     }
@@ -176,7 +198,8 @@ extension NowPlayingState {
         title: String,
         artist: String,
         album: String?,
-        totalTime: Double?
+        totalTime: Double?,
+        previousElapsedTime: TimeInterval? = nil
     ) {
         guard playerState != "Stopped", !title.isEmpty else { return nil }
         self.title = title
@@ -184,13 +207,19 @@ extension NowPlayingState {
         self.album = album
         self.isPlaying = playerState == "Playing"
         self.duration = totalTime.map { $0 / 1000.0 }  // Total Time is in ms (iTunes legacy)
-        // Baseline of 0 prevents a stale poll from the previous song (at its end position)
-        // being applied to the new song before the first real poll arrives.
-        self.elapsedTime = 0
+        // `com.apple.Music.playerInfo` carries no position field, and fires on every
+        // Play/Pause toggle as well as track changes — so the caller passes the
+        // previous track's live-elapsed position when this notification is for the
+        // *same* track (see NowPlayingManager.isSameTrack), and nil when it's a real
+        // track change. Baseline of 0 (previousElapsedTime == nil) prevents a stale
+        // poll from the previous song (at its end position) being applied to a new
+        // song before the first real poll arrives.
+        self.elapsedTime = previousElapsedTime ?? 0
         self.timestamp = Date()
         self.artwork = nil
         self.artworkID = nil
         self.thumbnailURL = nil
+        self.sourceBundleIdentifier = nil
         self.isAd = false
         self.source = .appleMusic
     }
@@ -221,6 +250,7 @@ extension NowPlayingState {
         self.timestamp = nil
         self.artwork = nil
         self.artworkID = nil
+        self.sourceBundleIdentifier = nil
         self.isAd = false
         self.source = .youTubeMusic
     }
@@ -242,6 +272,7 @@ extension NowPlayingState {
         self.timestamp = nil
         self.artwork = nil
         self.artworkID = nil
+        self.sourceBundleIdentifier = nil
         self.isAd = false
         self.thumbnailURL = (obj["thumbnail"] as? String).flatMap { URL(string: $0) }
         self.source = .youTubeMusic
@@ -251,7 +282,8 @@ extension NowPlayingState {
     init?(
         fromMediaRemote trackInfo: TrackInfo,
         overrideArtworkID: UUID? = nil,
-        fallbackElapsedTime: TimeInterval? = nil
+        fallbackElapsedTime: TimeInterval? = nil,
+        overrideBundleIdentifier: String? = nil
     ) {
         let payload = trackInfo.payload
         guard let title = payload.title, !title.isEmpty else { return nil }
@@ -267,6 +299,7 @@ extension NowPlayingState {
             artwork: payload.artwork,
             artworkID: overrideArtworkID ?? (payload.artwork != nil ? UUID() : nil),
             thumbnailURL: nil,
+            sourceBundleIdentifier: overrideBundleIdentifier ?? payload.bundleIdentifier,
             isAd: false,
             isPlaying: isPlaying,
             duration: duration,

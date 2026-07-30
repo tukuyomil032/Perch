@@ -16,36 +16,23 @@ nonisolated struct NowPlayingWidget: PerchWidget {
     }
 }
 
-// MARK: - Mini (one-liner: icon + "Title · Artist")
+// MARK: - Mini (compact-pill slot: artwork thumbnail only)
 
+/// The compact leading slot's now-playing content.
+///
+/// Artwork only, deliberately — the title/artist marquee this used to show alongside it
+/// is gone. The compact pill is glanceable chrome, not a place to read text; the track
+/// name belongs to the expanded view, one hover or click away.
 struct NowPlayingMiniWidget: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        let state = appState.nowPlayingManager.currentState
-        HStack(spacing: 6) {
-            if let artwork = state?.artwork {
-                Image(nsImage: artwork)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 18, height: 18)
-                    .clipShape(RoundedRectangle(cornerRadius: 3))
-            } else {
-                Image(systemName: "music.note")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.4))
-                    .frame(width: 18, height: 18)
-            }
-            if let s = state {
-                Text(s.artist.isEmpty ? s.title : "\(s.title) · \(s.artist)")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .lineLimit(1)
-            }
-            Spacer()
+        if let state = appState.nowPlayingManager.currentState {
+            NowPlayingArtworkThumbnail(state: state)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+        } else {
+            Color.clear.frame(width: 0, height: 0)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
     }
 }
 

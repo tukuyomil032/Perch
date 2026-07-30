@@ -196,7 +196,7 @@ vendoring した理由: 疑似ノッチ幅（`arbitraryWidth = 300`）が intern
 | 2 | v0.2 | Now Playing（Spotify、YouTube Music、Apple Music） |
 | 3 | v0.3 | AI Usage（Claude、Codex Provider + カード表示） |
 | **A** | v0.35 | **Island 層を vendored NookSurface に置換**（デッドコード削除 + macOS 15 引き上げ + 見た目は現行維持） |
-| **B** | v0.36 | **Atoll 風展開UI**（モジュールバー、システムステータス、NowPlaying 再デザイン、File Shelf、Timer） |
+| **B** | v0.36 | **Atoll 風展開UI**（モジュールバー、システムステータス、UIMode Rich/Minimal、カレンダー）完了。NowPlaying 再デザインは次のNowPlayingフェーズへ、File ShelfはPhase 4へ、Timerは保留として切り出し済み |
 | **C** | v0.37 | **波形の実音キャプチャ修理**（ScreenCaptureKit）+ Audio テスト整備 |
 | 4 | v0.4 | 波形を Core Audio Taps へ載せ替え（オレンジ収録インジケータ解消） |
 | 5 | v0.5 | Dev Status（GitHub Actions、CI通知） |
@@ -204,6 +204,22 @@ vendoring した理由: 疑似ノッチ幅（`arbitraryWidth = 300`）が intern
 
 Phase A/B/C の詳細・判断背景・検証済み事実は
 `docs/opennook-migration-plan.md` を参照。
+
+## progress.md 運用ルール
+
+`docs/progress.md` は各フェーズのタスクチェックリストの正本。以下を厳守する:
+
+- 各フェーズ開始前に、`docs/progress.md` に該当フェーズのタスクチェックリストが無ければ
+  作業着手前に追加する。
+- 1タスク実装 → 1コミットの直後に、`docs/progress.md` の該当チェックボックスを更新する。
+  まとめて後回しにせず、次のタスクに進む前に必ず更新する。
+- 実装中にユーザーから「ついでにこれもやって」的な追加依頼が来た場合、その場で黙って
+  今のタスクに組み込まない。まず `docs/progress.md` に新規タスクとして明示的に追記して
+  から着手する（追加理由・元タスクとの関係を一言添える）。これにより後から
+  「本筋からズレた」かどうかを追跡できるようにする。
+- 当初のタスク定義から仕様を変更する場合（技術的制約で断念、方針転換など）も、チェックを
+  付けるだけでなく変更内容と理由を該当タスクの下に一言残す。
+- フェーズ完了時は該当フェーズ節の `Last Updated` を更新し、次フェーズの見出しを追加する。
 
 ## Distribution
 

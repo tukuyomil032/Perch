@@ -49,21 +49,40 @@ final class IslandHost {
     init(appState: AppState) {
         self.appState = appState
 
-        // `.expandsOnHover` is deliberately absent. The bridge owns collapse timing so it
-        // can honour the user's auto-collapse delay; letting the surface expand and compact
-        // itself on hover would race that. `isHovering` still publishes without it, which
-        // is what the bridge's timer listens to. `.keepVisible` stops a hide animation from
-        // stealing the surface out from under a cursor that is on it.
+        // `.expandsOnHover` is deliberately absent. The vendored flag converts instantly
+        // with zero debounce; `NookBridge` drives its own debounced hover-to-expand instead
+        // (see its `scheduleExpand()`), the same way it already owns collapse timing so it
+        // can honour the user's auto-collapse delay. `isHovering` still publishes without
+        // the flag, which is what both of the bridge's timers listen to. `.keepVisible`
+        // stops a hide animation from stealing the surface out from under a cursor that is
+        // on it.
+        //
+        // `compactTopCornerRadius`/`compactBottomCornerRadius` round the compact pill
+        // further than the vendored default (6, 14) — an Atoll-inspired look. A `/vfr`
+        // pass over the user's reference recording didn't yield frame-accurate spring
+        // constants (the capture's resolution/compression obscured the shell's exact
+        // timing), so these — and `DesignSystem.shellOpen`/`shellClose` below — are the
+        // animation handbook's own recommended values rather than measurements.
         //
         // Erased to `AnyView` so the generic parameters do not spread into this type's
         // stored properties and from there into every signature that touches it.
         let nook = Nook<AnyView, AnyView, AnyView>(
             hoverBehavior: [.keepVisible],
-            style: .standard,
+            style: NookStyle(
+                topCornerRadius: NookStyle.standard.topCornerRadius,
+                bottomCornerRadius: NookStyle.standard.bottomCornerRadius,
+                compactTopCornerRadius: 10,
+                compactBottomCornerRadius: 20
+            ),
             expanded: { AnyView(ExpandedIslandView().environment(appState)) },
             compactLeading: { AnyView(IslandCompactLeading().environment(appState)) },
             compactTrailing: { AnyView(IslandCompactTrailing().environment(appState)) }
         )
+        // Overrides the vendored NookStyle defaults (`.bouncy`/`.smooth`, both a fixed
+        // 0.4s) with the handbook's asymmetric pair: a slightly underdamped open and a
+        // critically damped close, so the shell settles rather than wobbling shut.
+        nook.transitionConfiguration.openingAnimation = DesignSystem.shellOpen
+        nook.transitionConfiguration.closingAnimation = DesignSystem.shellClose
         self.surface = nook
         self.bridge = NookBridge(surface: nook)
 
