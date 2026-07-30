@@ -167,7 +167,15 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="$BASE_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            SKIP_INSTALL=NO 2>&1 | tail -100
+            SKIP_INSTALL=NO 2>&1 | tee build/xcodebuild-archive.log | tail -100
+
+      - name: Upload archive build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-archive-log
+          path: build/xcodebuild-archive.log
+          if-no-files-found: warn
 
       - name: Ad-hoc sign app bundle
         run: |
