@@ -157,7 +157,7 @@ struct NowPlayingCard: View {
     // MARK: - Progress
 
     private var progressSection: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 10) {
             GeometryReader { geo in
                 TimelineView(
                     .animation(minimumInterval: 0.1, paused: !state.isPlaying || isScrubbing)
