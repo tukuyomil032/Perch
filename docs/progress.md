@@ -724,9 +724,12 @@ Phase B5完了後、実機で追加のフィードバックが8件出た。う�
       秒数表示に近づける。コミット`26358a2`。
 - [x] B6-7: コントロールボタン間隔・サイズ拡大 — spacing 8→14、prev/next 30→36pt、
       play/pause 40→46pt。コミット`77c8871`。
-- [ ] B6-8: 再生元アイコンをブランドロゴに差し替え — Apple Music/Spotify/YouTube Music
+- [x] B6-8: 再生元アイコンをブランドロゴに差し替え — Apple Music/Spotify/YouTube Music
       のSVG/PNGをAssets.xcassetsに追加し、`sourceBadge`をブランドロゴ表示に変更。
-      `.mrMediaRemote`はSF Symbolフォールバックを維持
+      `.mrMediaRemote`はSF Symbolフォールバックを維持。Apple Musicロゴは839KB→約49KBに
+      軽量化（2048px PNG→256px PNGへリサイズ）。コミット`b03db68`。
+
+Phase B6は8タスク全完了。実機検証は次回実機起動時に通しで実施予定。
 
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
