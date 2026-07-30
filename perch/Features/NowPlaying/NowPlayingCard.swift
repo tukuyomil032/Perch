@@ -36,7 +36,7 @@ struct NowPlayingCard: View {
                     artworkView
                     trackInfo
                 }
-                .frame(height: 100)
+                .frame(height: 128)
                 HStack(spacing: 0) {
                     WaveformView(
                         isPlaying: state.isPlaying,
@@ -71,16 +71,16 @@ struct NowPlayingCard: View {
                 Image(nsImage: img)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 100, height: 100)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(width: 128, height: 128)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .accessibilityLabel("Album art: \(state.album ?? state.title)")
             } else {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(.white.opacity(0.12))
-                    .frame(width: 100, height: 100)
+                    .frame(width: 128, height: 128)
                     .overlay {
                         Image(systemName: state.isAd ? "megaphone.fill" : "music.note")
-                            .font(.system(size: 36, weight: .light))
+                            .font(.system(size: 44, weight: .light))
                             .foregroundStyle(.white.opacity(0.4))
                     }
                     .accessibilityLabel(state.isAd ? "Spotify Ad" : "No album art")
@@ -109,18 +109,26 @@ struct NowPlayingCard: View {
         }
     }
 
-    // MARK: - Track Info (fallback when no lyrics)
+    // MARK: - Track Info
 
     private var trackInfo: some View {
         VStack(alignment: .leading, spacing: 4) {
+            Spacer(minLength: 0)
             Text(state.title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
                 .lineLimit(2)
             Text(state.artist)
                 .font(.system(size: 12, weight: .regular))
                 .foregroundStyle(.white.opacity(0.7))
                 .lineLimit(1)
+            if let album = state.album, !album.isEmpty {
+                Text(album)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.4))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
         }
     }
 
