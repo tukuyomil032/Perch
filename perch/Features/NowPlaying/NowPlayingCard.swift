@@ -1,6 +1,17 @@
 // perch/Features/NowPlaying/NowPlayingCard.swift
 import SwiftUI
 
+/// Brand logo asset for `NowPlayingCard`'s source badge; `nil` falls back to
+/// `MusicSource.symbolName` (e.g. MRMediaRemote, which has no dedicated app to brand).
+private func sourceLogoAssetName(_ source: MusicSource) -> String? {
+    switch source {
+    case .appleMusic: "apple-music-logo"
+    case .spotify: "spotify-logo"
+    case .youTubeMusic: "youtube-music-logo"
+    case .mrMediaRemote: nil
+    }
+}
+
 struct NowPlayingCard: View {
     let state: NowPlayingState
     let manager: NowPlayingManager
@@ -115,9 +126,17 @@ struct NowPlayingCard: View {
             .fill(.black.opacity(0.7))
             .frame(width: 36, height: 36)
             .overlay {
-                Image(systemName: state.source.symbolName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                if let assetName = sourceLogoAssetName(state.source) {
+                    Image(assetName)
+                        .resizable()
+                        .renderingMode(.original)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 18, height: 18)
+                } else {
+                    Image(systemName: state.source.symbolName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
             }
             .scaleEffect(sourceBadgeVisible ? 1 : 0.6)
             .opacity(sourceBadgeVisible ? 1 : 0)
