@@ -563,8 +563,8 @@ B7（Timer）は対応フェーズ未定のまま保留として切り出し、�
 という往復が残っている。**原因に手を付けないままゲートで隠したのが再発の構造的理由。**
 
 - [ ] C0: 切り分け — `:132` の catch にログ / `:38` の `content.applications.count` をログ / **Spotify で試す**（bundleId が正しいので、動けば YTM のブラウザ誤選択が犯人と確定）
-- [ ] C1: `NowPlayingState` に `sourceBundleId` を追加し MediaRemote の bundleIdentifier を伝搬
-- [ ] C2: `ytmBrowserBundleId` の当てずっぽうを削除
+- [x] C1: `NowPlayingState` に `sourceBundleId` を追加し MediaRemote の bundleIdentifier を伝搬（2026-07-30）
+- [x] C2: `ytmBrowserBundleId` の当てずっぽうを削除（2026-07-30）
 - [ ] C3: `.mrMediaRemote` でもキャプチャする
 - [ ] C4: `SCStreamDelegate` 実装（`didStopWithError` で再接続可能に）
 - [ ] C5: エラーを握りつぶさずログ
@@ -572,6 +572,68 @@ B7（Timer）は対応フェーズ未定のまま保留として切り出し、�
 - [ ] C7: **BF4 回収** — `CGPreflightScreenCaptureAccess` / `CGRequestScreenCaptureAccess` + 拒否時の Settings 導線
 - [ ] C8: **診断表示** — Settings に「波形が実音か合成か」を出す。再発を即座に検知できるようにする
 - [ ] C9: テスト追加（`AudioPCMDecoder` 各フォーマット / `AudioSpectrumAnalyzer` 既知入力 / `WaveformView.blendedLevels` の3分岐）。**現状 Audio 系のテストはゼロ**
+
+### Phase C スコープ追加: Kaset.app（ネイティブYTMクライアント）のNow Playing検知対応（2026-07-30・実機検証完了）
+
+ユーザーからの追加依頼（CLAUDE.mdの運用ルールに従い、着手前に本節として明記）。
+[Kaset](https://github.com/sozercan/kaset) は YouTube Music を Apple Music 風のネイティブ UI で
+再生できる macOS アプリ。深夜作業中に着手し未完了・コンパイルエラーありの状態で残っていた差分
+（`chromiumBrowsers`→`youtubeMusicApplications` のリネーム、Kaset の bundle id 追加、
+`sourceBundleIdentifier` フィールド追加）を引き継ぎ、実機での6ラウンドの反復検証を経て
+最終的に正しく動作することを確認した。
+
+- [x] Kaset の bundle identifier確認。GitHub上の `Info.plist` の `CFBundleURLName`
+      （`com.sertacozercan.kaset`、小文字k）は**罠**で、実際のbundle identifierは
+      `Scripts/build-app.sh:16` の `BUNDLE_ID="com.sertacozercan.Kaset"`（大文字K）。
+      `CFBundleURLName` はURLスキーム登録名の一種にすぎず、bundle identifierと
+      一致するとは限らない
+- [x] `NowPlayingManager.chromiumBrowsers` を `youtubeMusicApplications` にリネーム
+      （宣言含め全参照箇所を修正）+ Kaset を追加。ブラウザに限らない「YTM 相当の
+      MediaRemote 発行元」という位置づけに変更
+- [x] `.youTubeMusic` は新規 `MusicSource` ケースを作らず既存のものへ統合（既存の
+      `enableYouTubeMusic` トグル・優先度ロジックをそのまま流用）
+- [x] Phase C の C1/C2 をこのタスクの前提として先取り実施（複数の YTM 発行元が同時に
+      起動している場合の当てずっぽうバグを解消しないと Kaset 追加自体が不安定になるため）
+- [x] `applyState` のアートワーク carry-forward パスが `sourceBundleIdentifier` を
+      引き継いでいなかった実バグを発見・修正
+- [x] **Kaset側のアーキテクチャに起因する実バグを発見・修正**（実機検証で判明、
+      Kasetのソース `Sources/Kaset/Services/Player/NowPlayingManager.swift` の
+      `desiredClaim` を直接読んで特定）: Kasetは内部で実際のYouTube MusicページをWKWebViewで
+      描画しており、**再生中は自分のbundle id（`com.sertacozercan.Kaset`）では
+      Now Playing情報を発行しない**（`.playing/.buffering/.loading` → `.handsOff`）。
+      再生中の本物のメタデータは埋め込みWebKitヘルパープロセス
+      （`com.apple.WebKit.GPU` 等、macOS共有のシステムプロセスでSafari等とbundle id共有）
+      が発行し、Kaset自身のbundle idは一時停止/ロード中のフォールバック情報のみを出す。
+      これに対応するため:
+      - `MediaRemoteBridge.bundleIdentifierFilter`（`(String?) -> Bool`）を
+        `bundleIdentifierResolver`（`(TrackInfo.Payload) -> String?`）に設計変更。
+        単なる許可/拒否ではなく「どのbundle idに帰属させるか」を返す形に一般化
+      - `NowPlayingManager.resolveBundleIdentifier` という `static` 純粋関数を新設。
+        `com.apple.WebKit.` prefixのイベントは、`payload.applicationName` が
+        既知アプリの表示名で**前方一致**する場合のみ、そのアプリの本来のbundle idに
+        正規化して受理する（`com.apple.WebKit.GPU`をそのまま許可リストに加えると
+        Safari等の無関係なWebページ音声まで誤検知するため危険 — 却下した設計案）
+      - `applicationName` は実測で `"Kaset Graphics and Media"` のような
+        `"<アプリ名> <コンポーネント説明>"` 形式で、完全一致ではなく `hasPrefix` が必要
+        だったことも実機ログで確定（最初は完全一致で実装し、1ラウンド無駄にした）
+      - `NowPlayingState.init?(fromMediaRemote:)` に `overrideBundleIdentifier` を追加し、
+        正規化後のbundle idを `sourceBundleIdentifier` として使うようにした
+- [x] swift-logの `Logger.logLevel` はインスタンスごとにデフォルト `.info` で `.debug` ログが
+      握りつぶされる問題を発見・修正（`LoggingSystem.bootstrap` 未使用のプロジェクトでは
+      各 `Logger` 生成直後に `logLevel = .debug` を明示設定する必要がある）
+- [x] 副次的に発見した設定画面が開きにくい問題を修正: `MenuBarController.openSettings()` の
+      単発100ms sleepを、50ms×最大10回のポーリングに変更（`docs/progress.md` 既知の
+      macOS 14+ Settings起動タイミング問題の系譜、Phase 2c-fix/2e T3/2f T0 と同種）
+- [x] テスト追加: `NowPlayingStateTests`（`sourceBundleIdentifier` の伝搬・Equatable差分）、
+      `NowPlayingManagerTests`（`matchesTerminatedApp`・`resolveBundleIdentifier` を
+      `static` 純粋関数として切り出し単体テスト。WebKitヘルパー経由の正規化・
+      前方一致・未知アプリ拒否を含む）
+- [x] 実機で3曲以上の切り替えを含む複数ラウンドの検証を実施し、タイトル・アートワークが
+      正しく更新されることを確認済み
+
+**既知の制限**: `applicationName` の前方一致判定はKaset固有の内部文字列
+（`"Kaset Graphics and Media"`）に依存する reverse-engineered な挙動であり、
+Kaset側のアップデートで表示名パターンが変わると再度壊れうる。公式に保証された仕様ではない。
 
 ### 将来（Phase 4）: Core Audio Taps への載せ替え
 
