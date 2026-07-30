@@ -691,6 +691,39 @@ Timer等はスコープ外（既存合意通りPhase Fとして切り出し済�
 **vendored`perch/Vendor/NookSurface/`配下は本フェーズで変更しない**（`NookStyle`の
 角丸19/24pt化は意図的に対象外、別タスクとして切り出す）。
 
+### Phase B6: Now Playing 実機フィードバック第2弾（2026-07-31〜）
+
+Phase B5完了後、実機で追加のフィードバックが8件出た。うち1件（一時停止/シーク時に
+シークバー・歌詞が0にリセットされる）は重大バグで、原因をExploreエージェント調査で
+特定済み（Apple Musicの一時停止通知がelapsedTime=0を強制代入している）。
+
+確定した設計判断（ユーザー確認済み）:
+- 再生元アイコンはブランドロゴSVG/PNGを使う（`docs/AppleMusic.svg`/`Spotify.svg`/
+  `YoutubeMusic.svg`をユーザーが用意済み、個人利用のため商標リスクは許容）
+- Apple Musicロゴは軽量化してから使う（現状839KBの2048×2048 PNGをbase64埋め込みした
+  疑似SVG。Spotify/YouTube Musicは本物のベクターSVGで1〜1.5KB）
+
+- [ ] B6-1（最重要・重大バグ）: 一時停止/シークでelapsedTimeが0リセットされる —
+      `NowPlayingState.init?(appleMusicPlayerState:...)`が`elapsedTime=0`を無条件セット。
+      `com.apple.Music.playerInfo`通知は曲変更時だけでなくPlay/Pauseトグル時にも発火する
+      ため、一時停止するだけでシークバー・歌詞ハイライトが0:00へ飛ぶ。`isSameTrack`
+      純粋関数で同一曲判定し、同じ曲なら`previous?.liveElapsed(at:)`を引き継ぐ設計で修正
+- [ ] B6-2: 歌詞更新の遅延バグ — 曲が変わっても`refreshLyrics()`が`lyrics`配列を
+      即座にクリアせず、フェッチ完了まで前曲の歌詞が残り続ける
+- [ ] B6-3: 歌詞の中央配置ずれ修正 — `LyricsView`の`ScrollView`自体に
+      `.frame(maxWidth: .infinity)`が無く、狭い実効幅の中で中央揃えになっていた
+- [ ] B6-4: 歌詞ロード中アニメーションをProgressViewに変更 — 自作の3本正弦波描画
+      （「謎の波」）を標準`ProgressView(.circular)`に置き換え、歌詞カラム中央に配置
+- [ ] B6-5: アルバム名2行化＋タイトル1行化 — 128pt制約内に収めるためタイトルを
+      `lineLimit(2)→1`、アルバムを`lineLimit(1)→2`に変更
+- [ ] B6-6: シークバー位置調整 — `progressSection`のVStack spacingを4→10に拡大し、
+      秒数表示に近づける
+- [ ] B6-7: コントロールボタン間隔・サイズ拡大 — spacing 8→14、prev/next 30→36pt、
+      play/pause 40→46pt
+- [ ] B6-8: 再生元アイコンをブランドロゴに差し替え — Apple Music/Spotify/YouTube Music
+      のSVG/PNGをAssets.xcassetsに追加し、`sourceBadge`をブランドロゴ表示に変更。
+      `.mrMediaRemote`はSF Symbolフォールバックを維持
+
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
 **参照**: `docs/macOS-Battery-Monitoring-Animation-Handbook-ja.md`（全39章、
