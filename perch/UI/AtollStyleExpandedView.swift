@@ -73,8 +73,10 @@ struct AtollStyleExpandedView: View {
     }
 
     private func refreshLyrics() async {
+        // Clear immediately on every re-entry (track change) so the previous track's
+        // lyrics never linger on screen while the new fetch is in flight.
+        lyrics = []
         guard let state = currentState, state.source != .mrMediaRemote, !state.isAd else {
-            lyrics = []
             isLyricsLoading = false
             return
         }
