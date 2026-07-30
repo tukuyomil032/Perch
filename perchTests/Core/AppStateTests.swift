@@ -148,6 +148,16 @@ struct AppStateTests {
         #expect(appState.presentation == .expanded(.nowPlaying))
     }
 
+    @Test("a surface-initiated expand with no prior selection defaults to nowPlaying")
+    func surfaceInitiatedExpandWithoutSelectionDefaultsToNowPlaying() {
+        let appState = AppState()
+        // activeCard is .idle by default — nothing has selected a card yet, e.g. the
+        // very first hover expand after launch.
+        appState.applySurfaceExpanded()
+        #expect(appState.activeCard == .nowPlaying)
+        #expect(appState.presentation == .expanded(.nowPlaying))
+    }
+
     @Test("a hidden surface is not reported as compact")
     func hiddenIsDistinctFromCompact() {
         let appState = AppState()

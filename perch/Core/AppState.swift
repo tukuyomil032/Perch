@@ -177,6 +177,12 @@ final class AppState {
     func applySurfaceExpanded() {
         isSurfaceVisible = true
         requestedExpansion = true
+        // A hover/file-drag expand never went through `expand(to:)`, so `activeCard` can
+        // still be the launch default `.idle` here — fall back to Home rather than
+        // rendering the empty `.idle` module.
+        if activeCard == .idle {
+            activeCard = .nowPlaying
+        }
         presentation = .expanded(activeCard)
     }
 
