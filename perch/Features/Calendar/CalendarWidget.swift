@@ -5,6 +5,7 @@ import SwiftUI
 /// not a preset-driven one, so there's no registry slot for this to occupy.
 struct CalendarWidget: View {
     @State private var store = CalendarStore()
+    @State private var isHovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -15,6 +16,8 @@ struct CalendarWidget: View {
         .task {
             await store.requestAccessAndRefresh()
         }
+        .onHover { isHovering = $0 }
+        .animation(DesignSystem.springAnimation, value: isHovering)
     }
 
     private var header: some View {
@@ -31,6 +34,17 @@ struct CalendarWidget: View {
 
     @ViewBuilder
     private var content: some View {
+        if isHovering, store.authorizationState != .notDetermined {
+            monthGridView
+                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .center)))
+        } else {
+            simpleContent
+                .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var simpleContent: some View {
         switch store.authorizationState {
         case .notDetermined:
             ProgressView()
@@ -58,6 +72,39 @@ struct CalendarWidget: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(store.todayEvents.prefix(4)) { event in
                         eventRow(event)
+                    }
+                }
+            }
+        }
+    }
+
+    private var monthGridView: some View {
+        let grid = CalendarMonthGrid.build(referenceDate: Date())
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 0) {
+                ForEach(grid.weekdaySymbols, id: \.self) { symbol in
+                    Text(symbol)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            ForEach(Array(grid.weeks.enumerated()), id: \.offset) { _, week in
+                HStack(spacing: 0) {
+                    ForEach(week) { day in
+                        Text("\(day.dayNumber)")
+                            .font(.system(size: 10, weight: day.isToday ? .bold : .regular))
+                            .foregroundStyle(
+                                day.isToday
+                                    ? .white
+                                    : day.isInCurrentMonth ? .white.opacity(0.6) : .white.opacity(0.2)
+                            )
+                            .frame(maxWidth: .infinity, minHeight: 18)
+                            .background {
+                                if day.isToday {
+                                    Circle().fill(.white.opacity(0.18))
+                                }
+                            }
                     }
                 }
             }
