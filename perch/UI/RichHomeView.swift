@@ -44,6 +44,12 @@ struct RichHomeView: View {
                     centerColumn
                         .frame(maxWidth: .infinity, alignment: .center)
                         .frame(height: SurfaceMetrics.lyricsColumnHeight)
+                        // Centering above is against NowPlayingCard's own height, but
+                        // IslandTopBar sits above this whole row — the header's height
+                        // visibly pulls the true center of the visible pill higher than
+                        // NowPlayingCard's center alone. Nudge up by half the header's
+                        // height to compensate.
+                        .offset(y: -SurfaceMetrics.headerHeight / 2)
                 }
                 // The vendored NookView sizes the whole expanded surface via `.fixedSize()`,
                 // which lays out this subtree against an *unconstrained* (nil) proposal —

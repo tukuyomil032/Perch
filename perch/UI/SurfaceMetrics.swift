@@ -27,4 +27,11 @@ nonisolated enum SurfaceMetrics {
     /// line spacing): `(13 * 1.3 + 10) * 4 ≈ 130pt`, where 13*1.3 approximates a single
     /// line's rendered height (font size × typical line-height multiplier).
     static let lyricsColumnHeight: CGFloat = 130
+
+    /// `IslandTopBar`'s own rendered height (10pt top padding + 26pt tallest control +
+    /// 8pt bottom padding = 44pt) plus the hairline `Divider` `ExpandedIslandView` draws
+    /// below it. An approximation from the source, not a measurement — used only to
+    /// compensate `RichHomeView`'s lyrics/events column centering for the header sitting
+    /// above the row it's actually centered against (see `RichHomeView`).
+    static let headerHeight: CGFloat = 45
 }
