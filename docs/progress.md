@@ -743,12 +743,12 @@ Phase B6完了後の実機フィードバックで、歌詞ボックスの垂直
 アートワーク取得不安定の計6件の指摘があった。詳細な真因分析は
 `~/.claude/plans/phasec-phaseb-b-docs-playful-cocoa.md`のPhase B7セクション参照。
 
-- [ ] B7-1: 命名整理 — `AtollStyleExpandedView` → `RichHomeView`（ファイル名・型名・
+- [x] B7-1: 命名整理 — `AtollStyleExpandedView` → `RichHomeView`（ファイル名・型名・
       12ファイルのコメント参照）に機械的リネーム。過去のGit履歴は書き換えない
-      （AskUserQuestionでユーザーと合意済み）
-- [ ] B7-2: 歌詞ボックスの縦方向センタリング — `RichHomeView.swift`のHStack
+      （AskUserQuestionでユーザーと合意済み）。コミット`77383b0`。
+- [x] B7-2: 歌詞ボックスの縦方向センタリング — `RichHomeView.swift`のHStack
       `alignment: .top` → `.center`。あわせて`.frame(idealWidth: SurfaceMetrics.baseContentWidth)`
-      追加で横方向のfixedSize/nilプロポーザル起因の中央寄せ崩れも修正
+      追加で横方向のfixedSize/nilプロポーザル起因の中央寄せ崩れも修正。コミット`eed3b29`。
 - [ ] B7-3: シークバーとアートワークの間隔調整 — `progressSection`に`.padding(.top, 8)`追加
 - [ ] B7-4: 再生元バッジの黒円削除＋アイコン拡大（18pt→40pt）
 - [ ] B7-5: Spotifyアートワークキャッシュの成功後書き込み化（`ArtworkFetcher.swift`）
