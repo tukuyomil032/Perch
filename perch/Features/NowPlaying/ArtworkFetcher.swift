@@ -1,6 +1,7 @@
 // perch/Features/NowPlaying/ArtworkFetcher.swift
 @preconcurrency import AppKit
 import Foundation
+import Logging
 
 /// Fetches album artwork via AppleScript for Spotify and Apple Music.
 /// `actor` isolation serializes fetches so NSAppleScript is never called concurrently.
@@ -9,6 +10,11 @@ actor ArtworkFetcher {
     private init() {}
 
     private var lastSpotifyURL: String = ""
+    private let logger: Logger = {
+        var logger = Logger(label: "com.tukuyomi032.perch.ArtworkFetcher")
+        logger.logLevel = .debug
+        return logger
+    }()
 
     // MARK: - Spotify
 
@@ -41,7 +47,8 @@ actor ArtworkFetcher {
 
     /// Returns artwork data by reading binary image data directly from the AppleScript descriptor.
     func fetchAppleMusicArtworkData() async -> Data? {
-        await Task.detached {
+        let logger = logger
+        return await Task.detached {
             var error: NSDictionary?
             let script = NSAppleScript(
                 source: """
@@ -52,9 +59,21 @@ actor ArtworkFetcher {
                         return art
                     end tell
                     """)
-            guard let result = script?.executeAndReturnError(&error), error == nil else { return nil }
-            let data = result.data
-            guard !data.isEmpty else { return nil }
+            let result = script?.executeAndReturnError(&error)
+            if let error {
+                // -1743 (errAEEventNotPermitted) means Automation permission for Music.app
+                // hasn't been granted — logged distinctly so a track that simply has no
+                // artwork isn't confused with a permission outage affecting every track.
+                let code = error[NSAppleScript.errorNumber] as? Int ?? 0
+                logger.debug(
+                    "fetchAppleMusicArtworkData failed [\(code)]: \(error[NSAppleScript.errorMessage] as? String ?? "unknown")"
+                )
+                return nil
+            }
+            guard let data = result?.data, !data.isEmpty else {
+                logger.debug("fetchAppleMusicArtworkData: no artwork data on current track")
+                return nil
+            }
             return data
         }.value
     }
@@ -102,11 +121,18 @@ actor ArtworkFetcher {
     // MARK: - Private
 
     private func runAppleScript(_ source: String) async -> String? {
-        await Task.detached {
+        let logger = logger
+        return await Task.detached {
             var error: NSDictionary?
             let script = NSAppleScript(source: source)
             let result = script?.executeAndReturnError(&error)
-            guard error == nil else { return nil }
+            if let error {
+                let code = error[NSAppleScript.errorNumber] as? Int ?? 0
+                logger.debug(
+                    "runAppleScript failed [\(code)]: \(error[NSAppleScript.errorMessage] as? String ?? "unknown")"
+                )
+                return nil
+            }
             return result?.stringValue
         }.value
     }
