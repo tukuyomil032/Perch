@@ -807,6 +807,22 @@ Command+Space直接起動だとどちらも動く」という不可解な報告�
 Phase B9は3タスク全完了。B9-1は過去に断片化したTCC Automation権限までは自動修復しないため、
 実機検証時に再度の許可ダイアログが出る可能性がある旨をユーザーに案内する必要あり。
 
+### Phase B10: Automation権限プロンプト欠落修正 + AppleScript失敗の診断強化 + 歌詞左寄せ（2026-07-31〜）
+
+Phase B9でCFBundleIdentifierを修正した後、`just run`・直接起動どちらでもアートワーク取得・
+再生コントロールが全く動作しなくなった。調査の結果、`perch/Resources/Info.plist`に
+`NSAppleEventsUsageDescription`が無く、macOSがAutomation権限プロンプト自体を表示できず
+AppleScript呼び出しが即座に権限拒否（-1743）で失敗する状態だったことが判明。加えて
+AppleScript失敗時のログが一切無く原因切り分けができなかったため診断ログを追加する。
+歌詞テキストの水平配置も中央揃え→左寄せへの変更依頼があった。詳細は
+`~/.claude/plans/phasec-phaseb-b-docs-playful-cocoa.md`のPhase B10セクション参照。
+
+- [ ] B10-1: `NSAppleEventsUsageDescription`をInfo.plistに追加
+      （Automation権限プロンプトが表示されない根本原因の修正）
+- [ ] B10-2: `NowPlayingManager.runAppleScript`にエラー診断ログを追加
+- [ ] B10-3: `ArtworkFetcher`に`Logger`を追加し各AppleScript失敗パスにログを追加
+- [ ] B10-4: 歌詞テキストを中央揃え→左寄せに変更（`LyricsView.swift`）
+
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
 **参照**: `docs/macOS-Battery-Monitoring-Animation-Handbook-ja.md`（全39章、
