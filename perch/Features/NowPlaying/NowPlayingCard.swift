@@ -122,32 +122,30 @@ struct NowPlayingCard: View {
     /// card appears (handbook §11.2) so it doesn't compete with the artwork itself for
     /// attention the instant the card mounts.
     private var sourceBadge: some View {
-        Circle()
-            .fill(.black.opacity(0.7))
-            .frame(width: 36, height: 36)
-            .overlay {
-                if let assetName = sourceLogoAssetName(state.source) {
-                    Image(assetName)
-                        .resizable()
-                        .renderingMode(.original)
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 18, height: 18)
-                } else {
-                    Image(systemName: state.source.symbolName)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
+        Group {
+            if let assetName = sourceLogoAssetName(state.source) {
+                Image(assetName)
+                    .resizable()
+                    .renderingMode(.original)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 40, height: 40)
+            } else {
+                Image(systemName: state.source.symbolName)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
             }
-            .scaleEffect(sourceBadgeVisible ? 1 : 0.6)
-            .opacity(sourceBadgeVisible ? 1 : 0)
-            .accessibilityLabel(state.source.displayName)
-            .task(id: state.artworkID) {
-                sourceBadgeVisible = false
-                try? await Task.sleep(for: .milliseconds(300))
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
-                    sourceBadgeVisible = true
-                }
+        }
+        .scaleEffect(sourceBadgeVisible ? 1 : 0.6)
+        .opacity(sourceBadgeVisible ? 1 : 0)
+        .accessibilityLabel(state.source.displayName)
+        .task(id: state.artworkID) {
+            sourceBadgeVisible = false
+            try? await Task.sleep(for: .milliseconds(300))
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                sourceBadgeVisible = true
             }
+        }
     }
 
     // MARK: - Track Info
