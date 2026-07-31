@@ -90,16 +90,17 @@ private struct IslandTab: View {
 }
 
 private struct NowPlayingTab: View {
-    @Default(.enableSpotify) private var enableSpotify
-    @Default(.enableAppleMusic) private var enableAppleMusic
-    @Default(.enableYouTubeMusic) private var enableYouTubeMusic
+    @Default(.preferredNowPlayingSource) private var preferredNowPlayingSource
 
     var body: some View {
         Form {
             Section(L10n.string("settings.sources")) {
-                Toggle(L10n.string("settings.spotify"), isOn: $enableSpotify)
-                Toggle(L10n.string("settings.apple_music"), isOn: $enableAppleMusic)
-                Toggle(L10n.string("settings.youtube_music"), isOn: $enableYouTubeMusic)
+                Picker(L10n.string("settings.nowplaying_source"), selection: $preferredNowPlayingSource) {
+                    ForEach(NowPlayingSourcePreference.allCases) { source in
+                        Text(L10n.string(source.displayNameKey)).tag(source)
+                    }
+                }
+                .pickerStyle(.menu)
             }
         }
         .formStyle(.grouped)

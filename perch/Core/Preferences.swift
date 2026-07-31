@@ -6,15 +6,18 @@ import Foundation
 /// in that file, so the vendored-adjacent source stays free of Perch's persistence choice.
 extension ScreenPreference: Defaults.Serializable {}
 extension UpdateChannel: Defaults.Serializable {}
+extension NowPlayingSourcePreference: Defaults.Serializable {}
 
 extension Defaults.Keys {
     static let launchAtLogin = Key<Bool>("launchAtLogin", default: false)
     static let showInAllSpaces = Key<Bool>("showInAllSpaces", default: true)
     static let autoCollapseDelay = Key<Double>("autoCollapseDelay", default: 3.0)
     static let showNowPlayingSource = Key<Bool>("showNowPlayingSource", default: false)
-    static let enableSpotify = Key<Bool>("enableSpotify", default: true)
-    static let enableAppleMusic = Key<Bool>("enableAppleMusic", default: true)
-    static let enableYouTubeMusic = Key<Bool>("enableYouTubeMusic", default: true)
+    /// Replaces the old `enableSpotify`/`enableAppleMusic`/`enableYouTubeMusic` triple of
+    /// independent toggles; existing installs are migrated once at launch by
+    /// `PreferencesMigration`.
+    static let preferredNowPlayingSource = Key<NowPlayingSourcePreference>(
+        "preferredNowPlayingSource", default: .auto)
     static let languageCode = Key<String>("languageCode", default: "en")
     static let updateChannel = Key<UpdateChannel>("updateChannel", default: .stable)
     static let aiRefreshInterval = Key<RefreshInterval>("aiRefreshInterval", default: .fiveMinutes)

@@ -23,6 +23,8 @@
 
 /* Settings — Now Playing */
 "settings.sources" = "ソース";
+"settings.nowplaying_source" = "音楽ソース";
+"settings.nowplaying_source.auto" = "自動（どのソースでも検知）";
 "settings.spotify" = "Spotify";
 "settings.apple_music" = "Apple Music";
 "settings.youtube_music" = "YouTube Music";

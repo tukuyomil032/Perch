@@ -45,6 +45,9 @@ final class NowPlayingManager {
     private nonisolated(unsafe) var amPositionTask: Task<Void, Never>?
     private nonisolated(unsafe) var lyricsPrefetchTask: Task<Void, Never>?
     private nonisolated(unsafe) var mediaRemoteStateTask: Task<Void, Never>?
+    // Same non-Sendability shape as `IslandHost`'s preference observations — see its
+    // `chromeStyleObservation` comment.
+    private nonisolated(unsafe) var preferredSourceObservation: (any Defaults.Observation)?
     private var isYTMPolling: Bool = false
     private var wasYTMPolling: Bool = false
     // Bounded retry for Apple Music artwork: `com.apple.Music.playerInfo` only fires on
@@ -104,6 +107,27 @@ final class NowPlayingManager {
                 }
             }
         }
+
+        // Every observer above is purely reactive — Spotify/Music's DistributedNotification
+        // only fires on a state *transition*, so a track already playing when Perch launches
+        // produces no event until the user pauses/resumes it. Seed currentState with an
+        // active query instead of waiting for that.
+        Task { @MainActor [weak self] in await self?.refreshActiveState() }
+
+        // Switching the preferred source in Settings should take effect immediately: drop
+        // whatever's showing if it's no longer the selected source, then actively re-detect
+        // the new selection rather than waiting for its next notification.
+        preferredSourceObservation = Defaults.observe(.preferredNowPlayingSource) { [weak self] change in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let exclusiveSource = change.newValue.exclusiveSource,
+                    self.currentState?.source != exclusiveSource
+                {
+                    self.currentState = nil
+                }
+                await self.refreshActiveState()
+            }
+        }
     }
 
     deinit {
@@ -114,7 +138,97 @@ final class NowPlayingManager {
         amPositionTask?.cancel()
         lyricsPrefetchTask?.cancel()
         mediaRemoteStateTask?.cancel()
+        preferredSourceObservation?.invalidate()
         Task { @MainActor in MediaRemoteBridge.shared.stop() }
+    }
+
+    // MARK: - Active State Detection
+
+    /// Actively queries whichever source(s) the current preference allows, so a track
+    /// already playing before Perch started (or before a source switch) is picked up
+    /// immediately instead of waiting for the next play/pause/track-change notification.
+    private func refreshActiveState() async {
+        let preference = Defaults[.preferredNowPlayingSource]
+        if let exclusiveSource = preference.exclusiveSource {
+            if let state = await detectActiveState(for: exclusiveSource) {
+                applyState(state, source: state.source.rawValue)
+            }
+            return
+        }
+        // `.auto`: try every source; applyState's existing priority arbitration
+        // (`sourcePriority(_:)`) resolves which one wins if more than one is playing.
+        for source in [MusicSource.spotify, .appleMusic, .youTubeMusic] {
+            if let state = await detectActiveState(for: source) {
+                applyState(state, source: state.source.rawValue)
+            }
+        }
+    }
+
+    private func detectActiveState(for source: MusicSource) async -> NowPlayingState? {
+        switch source {
+        case .spotify: return await detectActiveSpotifyState()
+        case .appleMusic: return await detectActiveAppleMusicState()
+        case .youTubeMusic: return detectActiveYouTubeMusicState()
+        case .mrMediaRemote: return nil
+        }
+    }
+
+    private func detectActiveSpotifyState() async -> NowPlayingState? {
+        let script = """
+            tell application "Spotify"
+                if not running then return "NOTRUNNING"
+                if player state is stopped then return "STOPPED"
+                set st to player state as string
+                set n to name of current track
+                set a to artist of current track
+                set al to album of current track
+                set d to duration of current track
+                set p to player position
+                return st & "\\n" & n & "\\n" & a & "\\n" & al & "\\n" & (d as string) & "\\n" & (p as string)
+            end tell
+            """
+        guard let result = await runAppleScript(script) else { return nil }
+        let lines = result.components(separatedBy: "\n")
+        guard lines.count >= 6, lines[0] != "NOTRUNNING", lines[0] != "STOPPED" else { return nil }
+        return NowPlayingState(
+            spotifyPlayerState: lines[0], title: lines[1], artist: lines[2],
+            album: lines[3].isEmpty ? nil : lines[3],
+            durationMs: Double(lines[4]), position: Double(lines[5])
+        )
+    }
+
+    private func detectActiveAppleMusicState() async -> NowPlayingState? {
+        let script = """
+            tell application "Music"
+                if not running then return "NOTRUNNING"
+                if player state is stopped then return "STOPPED"
+                set st to player state as string
+                set n to name of current track
+                set a to artist of current track
+                set al to album of current track
+                set d to duration of current track
+                return st & "\\n" & n & "\\n" & a & "\\n" & al & "\\n" & (d as string)
+            end tell
+            """
+        guard let result = await runAppleScript(script) else { return nil }
+        let lines = result.components(separatedBy: "\n")
+        guard lines.count >= 5, lines[0] != "NOTRUNNING", lines[0] != "STOPPED" else { return nil }
+        // Music.app's AppleScript `duration` property is in seconds; the initializer expects
+        // the same millisecond convention as the "Total Time" notification field.
+        let totalTimeMs = Double(lines[4]).map { $0 * 1000 }
+        return NowPlayingState(
+            appleMusicPlayerState: lines[0], title: lines[1], artist: lines[2],
+            album: lines[3].isEmpty ? nil : lines[3], totalTime: totalTimeMs
+        )
+    }
+
+    /// `MediaRemoteBridge` already tracks the live state reactively (it's the source that
+    /// feeds `stateUpdates`), so this is a synchronous read rather than a new query — gated
+    /// on `isYTMPolling` the same way the stream consumer above is, so a stale state isn't
+    /// applied when no YTM-capable app is actually running.
+    private func detectActiveYouTubeMusicState() -> NowPlayingState? {
+        guard isYTMPolling else { return nil }
+        return MediaRemoteBridge.shared.currentState
     }
 
     // MARK: - Playback Controls
@@ -545,14 +659,13 @@ final class NowPlayingManager {
     // MARK: - State Application
 
     private func applyState(_ newState: NowPlayingState?, source: String) {
-        // Respect per-source enable settings
-        if let incoming = newState {
-            switch incoming.source {
-            case .spotify where !Defaults[.enableSpotify]: return
-            case .appleMusic where !Defaults[.enableAppleMusic]: return
-            case .youTubeMusic where !Defaults[.enableYouTubeMusic]: return
-            default: break
-            }
+        // `.auto` accepts every source (existing priority arbitration below decides which
+        // wins); a specific preference ignores every source but that one entirely.
+        if let incoming = newState,
+            let exclusiveSource = Defaults[.preferredNowPlayingSource].exclusiveSource,
+            incoming.source != exclusiveSource
+        {
+            return
         }
         // Prevent lower-priority source from clearing higher-priority active state.
         // MRMediaRemote returning nil (blocked on macOS 16) must not override Spotify.
