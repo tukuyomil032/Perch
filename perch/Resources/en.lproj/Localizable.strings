@@ -10,6 +10,7 @@
 "settings.nowplaying" = "Now Playing";
 "settings.language" = "Language";
 "settings.ai_usage" = "AI Usage";
+"settings.permissions" = "Permissions";
 "settings.debug" = "Debug";
 "settings.updates" = "Updates";
 
@@ -25,6 +26,19 @@
 "settings.spotify" = "Spotify";
 "settings.apple_music" = "Apple Music";
 "settings.youtube_music" = "YouTube Music";
+
+/* Settings — Permissions */
+"settings.permissions.section" = "Required Permissions";
+"settings.permissions.calendar" = "Calendar";
+"settings.permissions.screen_recording" = "Screen Recording";
+"settings.permissions.automation_spotify" = "Automation — Spotify";
+"settings.permissions.automation_apple_music" = "Automation — Apple Music";
+"settings.permissions.status.authorized" = "Granted";
+"settings.permissions.status.not_determined" = "Not requested yet";
+"settings.permissions.status.denied" = "Denied";
+"settings.permissions.status.unknown" = "Unknown (app not running)";
+"settings.permissions.request" = "Request";
+"settings.permissions.open_system_settings" = "Open System Settings";
 "settings.show_source" = "Show music source in pill";
 
 /* Settings — Language */

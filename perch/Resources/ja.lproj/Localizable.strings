@@ -10,6 +10,7 @@
 "settings.nowplaying" = "Now Playing";
 "settings.language" = "言語";
 "settings.ai_usage" = "AI使用状況";
+"settings.permissions" = "権限";
 "settings.debug" = "デバッグ";
 "settings.updates" = "アップデート";
 
@@ -25,6 +26,19 @@
 "settings.spotify" = "Spotify";
 "settings.apple_music" = "Apple Music";
 "settings.youtube_music" = "YouTube Music";
+
+/* Settings — Permissions */
+"settings.permissions.section" = "必要な権限";
+"settings.permissions.calendar" = "カレンダー";
+"settings.permissions.screen_recording" = "画面収録";
+"settings.permissions.automation_spotify" = "オートメーション — Spotify";
+"settings.permissions.automation_apple_music" = "オートメーション — Apple Music";
+"settings.permissions.status.authorized" = "許可済み";
+"settings.permissions.status.not_determined" = "未確認";
+"settings.permissions.status.denied" = "拒否済み";
+"settings.permissions.status.unknown" = "不明（アプリ未起動）";
+"settings.permissions.request" = "許可を求める";
+"settings.permissions.open_system_settings" = "システム設定を開く";
 "settings.show_source" = "ピルに音楽ソースを表示";
 
 /* Settings — Language */
