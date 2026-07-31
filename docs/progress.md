@@ -749,8 +749,9 @@ Phase B6完了後の実機フィードバックで、歌詞ボックスの垂直
 - [x] B7-2: 歌詞ボックスの縦方向センタリング — `RichHomeView.swift`のHStack
       `alignment: .top` → `.center`。あわせて`.frame(idealWidth: SurfaceMetrics.baseContentWidth)`
       追加で横方向のfixedSize/nilプロポーザル起因の中央寄せ崩れも修正。コミット`eed3b29`。
-- [ ] B7-3: シークバーとアートワークの間隔調整 — `progressSection`に`.padding(.top, 8)`追加
-- [ ] B7-4: 再生元バッジの黒円削除＋アイコン拡大（18pt→40pt）
+- [x] B7-3: シークバーとアートワークの間隔調整 — `progressSection`に`.padding(.top, 8)`追加。
+      コミット`d3aee25`。
+- [x] B7-4: 再生元バッジの黒円削除＋アイコン拡大（18pt→40pt）。コミット`70ce418`。
 - [ ] B7-5: Spotifyアートワークキャッシュの成功後書き込み化（`ArtworkFetcher.swift`）
 - [ ] B7-6: Apple Musicアートワークのバウンド付き再試行（`NowPlayingManager.swift`）
 
