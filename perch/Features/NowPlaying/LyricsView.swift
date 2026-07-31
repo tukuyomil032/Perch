@@ -6,6 +6,8 @@ struct LyricsView: View {
     let elapsedTime: TimeInterval
     var fontSize: CGFloat = 13
 
+    private static let visibleLineCount = 4
+
     private var activeIndex: Int? {
         guard !lines.isEmpty else { return nil }
         for i in stride(from: lines.count - 1, through: 0, by: -1) {
@@ -14,62 +16,48 @@ struct LyricsView: View {
         return nil
     }
 
+    /// Start of the fixed 4-line window shown on screen. A window, not a scroll
+    /// position, so the column only ever renders whole lines — no partial fade-in/out
+    /// line peeking past its edges the way a continuously-scrolled view would. Biases
+    /// the active line to the window's second slot (one line of context above, two
+    /// lines of what's coming below), clamping at both ends of `lines`.
+    private var windowStart: Int {
+        guard !lines.isEmpty else { return 0 }
+        let count = min(Self.visibleLineCount, lines.count)
+        let active = activeIndex ?? 0
+        let desired = active - 1
+        return max(0, min(desired, lines.count - count))
+    }
+
+    private var window: [(offset: Int, element: LyricsLine)] {
+        let count = min(Self.visibleLineCount, lines.count)
+        let start = windowStart
+        return Array(Array(lines.enumerated())[start..<(start + count)])
+    }
+
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(alignment: .center, spacing: 10) {
-                    Color.clear.frame(height: 6)
-                    ForEach(Array(lines.enumerated()), id: \.element.id) { idx, line in
-                        Text(line.text)
-                            .font(.system(size: fontSize, weight: .regular))
-                            .foregroundStyle(.white.opacity(lineOpacity(idx)))
-                            .scaleEffect(idx == activeIndex ? 1.13 : 1.0, anchor: .center)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .frame(maxWidth: .infinity)
-                            .animation(.spring(response: 0.40, dampingFraction: 0.82), value: activeIndex)
-                            .id(line.id)
-                    }
-                    Color.clear.frame(height: 6)
-                }
-                .padding(.horizontal, 16)
-                .frame(maxWidth: .infinity)
-            }
-            .frame(maxWidth: .infinity)
-            .onChange(of: activeIndex) { _, newIdx in
-                guard let newIdx else { return }
-                withAnimation(.easeInOut(duration: 0.4)) {
-                    proxy.scrollTo(lines[newIdx].id, anchor: UnitPoint(x: 0.5, y: 0.35))
-                }
-            }
-            .onAppear {
-                guard let idx = activeIndex else { return }
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(100))
-                    proxy.scrollTo(lines[idx].id, anchor: UnitPoint(x: 0.5, y: 0.35))
-                }
+        VStack(spacing: 10) {
+            ForEach(window, id: \.element.id) { idx, line in
+                Text(line.text)
+                    .font(.system(size: fontSize, weight: .regular))
+                    .foregroundStyle(.white.opacity(lineOpacity(idx)))
+                    .scaleEffect(idx == activeIndex ? 1.13 : 1.0, anchor: .center)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity)
+                    .animation(.spring(response: 0.40, dampingFraction: 0.82), value: activeIndex)
             }
         }
-        .mask(
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0),
-                    .init(color: .black, location: 0.05),
-                    .init(color: .black, location: 0.92),
-                    .init(color: .clear, location: 1),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity)
+        .id(windowStart)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        .animation(.easeInOut(duration: 0.4), value: windowStart)
     }
 
     private func lineOpacity(_ idx: Int) -> Double {
         guard let active = activeIndex else { return 0.40 }
         if idx == active { return 1.0 }
-        let distance = abs(idx - active)
-        if distance == 1 { return 0.65 }
-        if distance == 2 { return 0.45 }
-        return max(0.20, 0.32 - Double(distance - 3) * 0.05)
+        return abs(idx - active) == 1 ? 0.65 : 0.40
     }
 }
