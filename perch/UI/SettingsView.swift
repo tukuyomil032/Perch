@@ -24,7 +24,7 @@ struct SettingsView: View {
             SettingsUpdateTab()
                 .tabItem { Label(L10n.string("settings.updates"), systemImage: "arrow.down.circle") }
         }
-        .frame(width: 420, height: 360)
+        .frame(width: 600, height: 360)
         .id(languageCode)
     }
 }
