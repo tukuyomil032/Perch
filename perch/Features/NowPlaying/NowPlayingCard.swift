@@ -152,7 +152,6 @@ struct NowPlayingCard: View {
 
     private var trackInfo: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Spacer(minLength: 0)
             Text(state.title)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
@@ -165,7 +164,6 @@ struct NowPlayingCard: View {
                 Text(album)
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(.white.opacity(0.4))
-                    .lineLimit(2)
             }
             Spacer(minLength: 0)
         }
