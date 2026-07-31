@@ -735,6 +735,25 @@ Phase B5完了後、実機で追加のフィードバックが8件出た。う�
 
 Phase B6は8タスク全完了。実機検証は次回実機起動時に通しで実施予定。
 
+### Phase B7: RichHomeレイアウト微調整 + バッジ + 命名整理 + アートワーク安定化（2026-07-31〜）
+
+Phase B6完了後の実機フィードバックで、歌詞ボックスの垂直センタリング未解決（横ではなく縦方向）、
+シークバーとアートワークの間隔、再生元バッジの不要な黒円+アイコンサイズ、
+`AtollStyleExpandedView`という参考先アプリ名を含む命名の中立化、Spotify/Apple Musicの
+アートワーク取得不安定の計6件の指摘があった。詳細な真因分析は
+`~/.claude/plans/phasec-phaseb-b-docs-playful-cocoa.md`のPhase B7セクション参照。
+
+- [ ] B7-1: 命名整理 — `AtollStyleExpandedView` → `RichHomeView`（ファイル名・型名・
+      12ファイルのコメント参照）に機械的リネーム。過去のGit履歴は書き換えない
+      （AskUserQuestionでユーザーと合意済み）
+- [ ] B7-2: 歌詞ボックスの縦方向センタリング — `RichHomeView.swift`のHStack
+      `alignment: .top` → `.center`。あわせて`.frame(idealWidth: SurfaceMetrics.baseContentWidth)`
+      追加で横方向のfixedSize/nilプロポーザル起因の中央寄せ崩れも修正
+- [ ] B7-3: シークバーとアートワークの間隔調整 — `progressSection`に`.padding(.top, 8)`追加
+- [ ] B7-4: 再生元バッジの黒円削除＋アイコン拡大（18pt→40pt）
+- [ ] B7-5: Spotifyアートワークキャッシュの成功後書き込み化（`ArtworkFetcher.swift`）
+- [ ] B7-6: Apple Musicアートワークのバウンド付き再試行（`NowPlayingManager.swift`）
+
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
 **参照**: `docs/macOS-Battery-Monitoring-Animation-Handbook-ja.md`（全39章、
