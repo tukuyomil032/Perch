@@ -817,11 +817,16 @@ AppleScript失敗時のログが一切無く原因切り分けができなかっ
 歌詞テキストの水平配置も中央揃え→左寄せへの変更依頼があった。詳細は
 `~/.claude/plans/phasec-phaseb-b-docs-playful-cocoa.md`のPhase B10セクション参照。
 
-- [ ] B10-1: `NSAppleEventsUsageDescription`をInfo.plistに追加
-      （Automation権限プロンプトが表示されない根本原因の修正）
-- [ ] B10-2: `NowPlayingManager.runAppleScript`にエラー診断ログを追加
-- [ ] B10-3: `ArtworkFetcher`に`Logger`を追加し各AppleScript失敗パスにログを追加
-- [ ] B10-4: 歌詞テキストを中央揃え→左寄せに変更（`LyricsView.swift`）
+- [x] B10-1: `NSAppleEventsUsageDescription`をInfo.plistに追加
+      （Automation権限プロンプトが表示されない根本原因の修正）。実機ビルドで反映確認済み。
+      コミット`155b74b`。
+- [x] B10-2: `NowPlayingManager.runAppleScript`にエラー診断ログを追加。コミット`d8f1b21`。
+- [x] B10-3: `ArtworkFetcher`に`Logger`を追加し各AppleScript失敗パスにログを追加。
+      コミット`3f9efe8`。
+- [x] B10-4: 歌詞テキストを中央揃え→左寄せに変更（`LyricsView.swift`）。コミット`a78aabd`。
+
+Phase B10は4タスク全完了。B10-1は実機で許可ダイアログが表示され、許可後にアートワーク取得・
+コントロールボタンが動作することの確認が必要。
 
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
