@@ -51,7 +51,7 @@ private struct ModuleSwitcher: View {
     @Namespace private var selectionNamespace
 
     var body: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: 8) {
             ForEach(modules) { module in
                 Button {
                     withAnimation(DesignSystem.springAnimation) {
