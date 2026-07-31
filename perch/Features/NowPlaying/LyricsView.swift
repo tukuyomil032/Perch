@@ -45,14 +45,14 @@ struct LyricsView: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity)
-                    .animation(.spring(response: 0.40, dampingFraction: 0.82), value: activeIndex)
+                    .animation(.spring(response: 0.55, dampingFraction: 0.82), value: activeIndex)
             }
         }
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity)
         .id(windowStart)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
-        .animation(.easeInOut(duration: 0.4), value: windowStart)
+        .animation(.easeInOut(duration: 0.55), value: windowStart)
     }
 
     private func lineOpacity(_ idx: Int) -> Double {
