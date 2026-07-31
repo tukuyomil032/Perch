@@ -865,6 +865,25 @@ Phase B12は3タスク全完了。実機検証時、設定画面7タブ全てが
 歌詞が中央揃え・大きめフォントで表示され`lyricsColumnHeight`(130pt)枠からはみ出していないことを
 確認する。
 
+### Phase B13: Now Playingソース排他選択化 + 起動時アクティブ検知 + PR作成・マージ（2026-07-31〜）
+
+設定画面のNow Playingソーストグル（Spotify/Apple Music/YouTube Music）が実際の動作に反映
+されていない、Atoll型の排他Picker（自動含む4択）にしたい、Perch起動時に既に再生中の音楽が
+検知されない（一度停止するまで検知されない）、の3件を修正。加えてPhase B12のフォントサイズ
+拡大で歌詞の長い行が省略記号で切り詰められる問題（`lineLimit`緩和で対応）も修正。全完了後PRを
+作成しmainへマージする。詳細は`~/.claude/plans/phasec-phaseb-b-docs-playful-cocoa.md`の
+Phase B13セクション参照。
+
+- [ ] B13-1: 歌詞`lineLimit`緩和（省略記号切り詰めの解消）
+- [ ] B13-2: `NowPlayingSourcePreference`新規enum + `Defaults.Key`追加 + 旧3Bool削除
+- [ ] B13-3: 旧設定からの移行処理 + テスト
+- [ ] B13-4: `SettingsView`のNowPlayingTabを排他Pickerに置き換え
+- [ ] B13-5: `applyState`の排他ゲート化
+- [ ] B13-6: 設定変更の即時反映（Defaults監視+currentStateクリア）
+- [ ] B13-7: 起動時・切替時のアクティブ検知（Spotify/Apple Music/YouTube Music）
+- [ ] B13-8: ローカライズ文字列更新（Pickerの選択肢名）
+- [ ] B13-9: PR作成 → レビュー登録 → マージ
+
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
 **参照**: `docs/macOS-Battery-Monitoring-Animation-Handbook-ja.md`（全39章、
