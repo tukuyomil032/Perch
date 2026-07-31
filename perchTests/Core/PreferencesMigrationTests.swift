@@ -26,11 +26,16 @@ import Testing
 struct PreferencesMigrationTests {
     private static let chromeKey = Defaults.Keys.islandChromeStyle.name
     private static let legacyChromeKey = PreferencesMigration.LegacyKey.notchSimulationMode
+    private static let sourceKey = Defaults.Keys.preferredNowPlayingSource.name
     private static let touchedKeys = [
         chromeKey,
         legacyChromeKey,
         PreferencesMigration.LegacyKey.pillSize,
         PreferencesMigration.LegacyKey.pillBackgroundStyle,
+        sourceKey,
+        PreferencesMigration.LegacyKey.enableSpotify,
+        PreferencesMigration.LegacyKey.enableAppleMusic,
+        PreferencesMigration.LegacyKey.enableYouTubeMusic,
     ]
 
     /// Snapshots every key the migration touches, hands the caller a clean slate, and
@@ -133,6 +138,56 @@ struct PreferencesMigrationTests {
             #expect(store.string(forKey: Self.chromeKey) == IslandChromeStyle.floating.rawValue)
             #expect(store.object(forKey: Self.legacyChromeKey) == nil)
             #expect(store.object(forKey: PreferencesMigration.LegacyKey.pillSize) == nil)
+        }
+    }
+
+    @Test(
+        "migrateSourcePreference maps exactly-one-enabled to that source, everything else to .auto",
+        arguments: [
+            (true, false, false, NowPlayingSourcePreference.spotify),
+            (false, true, false, NowPlayingSourcePreference.appleMusic),
+            (false, false, true, NowPlayingSourcePreference.youTubeMusic),
+            (true, true, true, NowPlayingSourcePreference.auto),
+            (false, false, false, NowPlayingSourcePreference.auto),
+            (true, true, false, NowPlayingSourcePreference.auto),
+        ]
+    )
+    func migrateSourcePreferenceMapping(
+        spotify: Bool, appleMusic: Bool, youTubeMusic: Bool, expected: NowPlayingSourcePreference
+    ) {
+        let result = PreferencesMigration.migrateSourcePreference(
+            spotifyEnabled: spotify, appleMusicEnabled: appleMusic, youTubeMusicEnabled: youTubeMusic)
+        #expect(result == expected)
+    }
+
+    @Test("a legacy source toggle set is migrated to the matching exclusive preference")
+    func migratesLegacySourceToggle() {
+        withCleanStore { store in
+            store.set(false, forKey: PreferencesMigration.LegacyKey.enableSpotify)
+            store.set(true, forKey: PreferencesMigration.LegacyKey.enableAppleMusic)
+            store.set(false, forKey: PreferencesMigration.LegacyKey.enableYouTubeMusic)
+            PreferencesMigration.migrateNowPlayingSourceToggles(in: store)
+            #expect(store.string(forKey: Self.sourceKey) == NowPlayingSourcePreference.appleMusic.rawValue)
+        }
+    }
+
+    @Test("consuming the legacy source toggles makes the migration one-shot")
+    func consumesLegacySourceToggles() {
+        withCleanStore { store in
+            store.set(false, forKey: PreferencesMigration.LegacyKey.enableSpotify)
+            PreferencesMigration.migrateNowPlayingSourceToggles(in: store)
+            #expect(store.object(forKey: PreferencesMigration.LegacyKey.enableSpotify) == nil)
+            #expect(store.object(forKey: PreferencesMigration.LegacyKey.enableAppleMusic) == nil)
+            #expect(store.object(forKey: PreferencesMigration.LegacyKey.enableYouTubeMusic) == nil)
+        }
+    }
+
+    @Test("a fresh install with no legacy source toggles is left alone")
+    func freshInstallSourceTogglesUntouched() {
+        withCleanStore { store in
+            store.set(NowPlayingSourcePreference.spotify.rawValue, forKey: Self.sourceKey)
+            PreferencesMigration.migrateNowPlayingSourceToggles(in: store)
+            #expect(store.string(forKey: Self.sourceKey) == NowPlayingSourcePreference.spotify.rawValue)
         }
     }
 

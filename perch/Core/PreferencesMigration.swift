@@ -27,13 +27,64 @@ enum PreferencesMigration {
         /// tinted the capsule `CompactPillView` drew, and the backdrop is now the vendored
         /// surface's, chosen by `NookBridge.makeBackdrop(reduceTransparency:)`.
         static let pillBackgroundStyle = "pillBackgroundStyle"
+        /// The three independent `Bool` toggles (each defaulted `true`), replaced by the
+        /// single `preferredNowPlayingSource` picker.
+        static let enableSpotify = "enableSpotify"
+        static let enableAppleMusic = "enableAppleMusic"
+        static let enableYouTubeMusic = "enableYouTubeMusic"
     }
 
     /// Runs every pending migration. Call once, early, before any `Defaults[...]` read that
     /// a migration is meant to populate.
     static func runAll(in store: UserDefaults = .standard) {
         migrateIslandChromeStyle(in: store)
+        migrateNowPlayingSourceToggles(in: store)
         removeRetiredKeys(in: store)
+    }
+
+    /// Carries the three legacy source toggles over to `preferredNowPlayingSource`, then
+    /// drops them.
+    ///
+    /// Gated on "at least one of the three was ever explicitly written," the same shape as
+    /// ``migrateIslandChromeStyle(in:)`` — the toggles were removed from `Defaults.Keys` in
+    /// this release, so `register(defaults:)` no longer runs for them and `object(forKey:)`
+    /// is `nil` unless the user actually flipped one in a previous build. A user who never
+    /// touched any of them had the old all-enabled default, which is exactly what `.auto`
+    /// means now, so there is nothing to migrate.
+    static func migrateNowPlayingSourceToggles(in store: UserDefaults = .standard) {
+        guard
+            store.object(forKey: LegacyKey.enableSpotify) != nil
+                || store.object(forKey: LegacyKey.enableAppleMusic) != nil
+                || store.object(forKey: LegacyKey.enableYouTubeMusic) != nil
+        else { return }
+
+        let migrated = Self.migrateSourcePreference(
+            spotifyEnabled: store.object(forKey: LegacyKey.enableSpotify) as? Bool ?? true,
+            appleMusicEnabled: store.object(forKey: LegacyKey.enableAppleMusic) as? Bool ?? true,
+            youTubeMusicEnabled: store.object(forKey: LegacyKey.enableYouTubeMusic) as? Bool ?? true
+        )
+        store.set(migrated.rawValue, forKey: Defaults.Keys.preferredNowPlayingSource.name)
+
+        store.removeObject(forKey: LegacyKey.enableSpotify)
+        store.removeObject(forKey: LegacyKey.enableAppleMusic)
+        store.removeObject(forKey: LegacyKey.enableYouTubeMusic)
+    }
+
+    /// Pure, so the mapping is unit-testable without touching `UserDefaults`. Exactly one
+    /// enabled source carries over as that explicit choice; the old default (all three
+    /// enabled) and any other combination (two enabled, none enabled — states the toggle UI
+    /// could reach but that have no equivalent in the new four-way picker) fall back to
+    /// `.auto`, which is strictly more permissive than any of those combinations and never
+    /// drops activity the user was seeing.
+    nonisolated static func migrateSourcePreference(
+        spotifyEnabled: Bool, appleMusicEnabled: Bool, youTubeMusicEnabled: Bool
+    ) -> NowPlayingSourcePreference {
+        switch (spotifyEnabled, appleMusicEnabled, youTubeMusicEnabled) {
+        case (true, false, false): return .spotify
+        case (false, true, false): return .appleMusic
+        case (false, false, true): return .youTubeMusic
+        default: return .auto
+        }
     }
 
     /// Carries a persisted `notchSimulationMode` over to `islandChromeStyle`, then drops
