@@ -36,15 +36,15 @@ struct LyricsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .center, spacing: 10) {
             ForEach(window, id: \.element.id) { idx, line in
                 Text(line.text)
                     .font(.system(size: fontSize, weight: .regular))
                     .foregroundStyle(.white.opacity(lineOpacity(idx)))
                     .scaleEffect(idx == activeIndex ? 1.13 : 1.0, anchor: .center)
-                    .multilineTextAlignment(.leading)
+                    .multilineTextAlignment(.center)
                     .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .animation(.spring(response: 0.55, dampingFraction: 0.82), value: activeIndex)
             }
         }
