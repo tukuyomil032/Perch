@@ -233,6 +233,7 @@ struct NowPlayingCard: View {
                 }
             }
         }
+        .padding(.top, 8)
     }
 
     private var scrubElapsedLabel: String {
