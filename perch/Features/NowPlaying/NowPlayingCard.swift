@@ -167,6 +167,7 @@ struct NowPlayingCard: View {
             }
             Spacer(minLength: 0)
         }
+        .padding(.top, 10)
     }
 
     // MARK: - Progress
