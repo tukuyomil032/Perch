@@ -19,6 +19,8 @@ struct SettingsView: View {
                 .tabItem { Label(L10n.string("settings.language"), systemImage: "globe") }
             AIUsageTab()
                 .tabItem { Label(L10n.string("settings.ai_usage"), systemImage: "cpu") }
+            PermissionsTab()
+                .tabItem { Label(L10n.string("settings.permissions"), systemImage: "checkmark.shield") }
             SettingsUpdateTab()
                 .tabItem { Label(L10n.string("settings.updates"), systemImage: "arrow.down.circle") }
         }
@@ -102,6 +104,66 @@ private struct NowPlayingTab: View {
         }
         .formStyle(.grouped)
         .padding()
+    }
+}
+
+private struct PermissionsTab: View {
+    @State private var store = PermissionsStore()
+
+    var body: some View {
+        Form {
+            Section(L10n.string("settings.permissions.section")) {
+                ForEach(PermissionsStore.Kind.allCases) { kind in
+                    row(for: kind)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+        .onAppear { store.refreshAll() }
+    }
+
+    @ViewBuilder
+    private func row(for kind: PermissionsStore.Kind) -> some View {
+        let status = store.statuses[kind] ?? .notDetermined
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(kind.displayName)
+                Text(statusLabel(status))
+                    .font(.caption)
+                    .foregroundStyle(statusColor(status))
+            }
+            Spacer()
+            if status != .authorized {
+                Button(actionLabel(status)) {
+                    Task { await store.request(kind) }
+                }
+            }
+        }
+    }
+
+    private func statusLabel(_ status: PermissionsStore.PermissionStatus) -> String {
+        switch status {
+        case .authorized: L10n.string("settings.permissions.status.authorized")
+        case .notDetermined: L10n.string("settings.permissions.status.not_determined")
+        case .denied: L10n.string("settings.permissions.status.denied")
+        case .unknown: L10n.string("settings.permissions.status.unknown")
+        }
+    }
+
+    private func statusColor(_ status: PermissionsStore.PermissionStatus) -> Color {
+        switch status {
+        case .authorized: .green
+        case .notDetermined: .yellow
+        case .denied: .red
+        case .unknown: .secondary
+        }
+    }
+
+    private func actionLabel(_ status: PermissionsStore.PermissionStatus) -> String {
+        status == .denied
+            ? L10n.string("settings.permissions.open_system_settings")
+            : L10n.string("settings.permissions.request")
     }
 }
 
