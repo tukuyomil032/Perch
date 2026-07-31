@@ -20,7 +20,7 @@ struct NowPlayingLyricsColumn: View {
                     LyricsView(
                         lines: lyrics,
                         elapsedTime: state.liveElapsed(at: ctx.date) ?? 0,
-                        fontSize: 13
+                        fontSize: 15
                     )
                 }
             } else {

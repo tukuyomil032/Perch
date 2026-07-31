@@ -4,7 +4,7 @@ import SwiftUI
 struct LyricsView: View {
     let lines: [LyricsLine]
     let elapsedTime: TimeInterval
-    var fontSize: CGFloat = 13
+    var fontSize: CGFloat = 15
 
     private static let visibleLineCount = 4
 

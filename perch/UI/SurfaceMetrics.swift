@@ -23,9 +23,10 @@ nonisolated enum SurfaceMetrics {
 
     /// Rich mode's center column when it's showing lyrics (`NowPlayingLyricsColumn`) or
     /// today's events (`TodayEventsColumn`) — independent of whatever height the left
-    /// column happens to measure at. ~4 lines of `LyricsView` text (13pt font, 10pt
-    /// line spacing): `(13 * 1.3 + 10) * 4 ≈ 130pt`, where 13*1.3 approximates a single
-    /// line's rendered height (font size × typical line-height multiplier).
+    /// column happens to measure at. ~4 lines of `LyricsView` text (15pt font, 10pt
+    /// line spacing): `(15 * 1.3 + 10) * 4 ≈ 118pt`, where 15*1.3 approximates a single
+    /// line's rendered height (font size × typical line-height multiplier); 130 keeps a
+    /// little slack over that estimate.
     static let lyricsColumnHeight: CGFloat = 130
 
     /// `IslandTopBar`'s own rendered height (10pt top padding + 26pt tallest control +
