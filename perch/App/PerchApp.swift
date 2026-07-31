@@ -8,6 +8,7 @@ struct PerchApp: App {
         Settings {
             SettingsView()
                 .environment(appDelegate.appState)
+                .environment(appDelegate.sparkleUpdateController)
         }
     }
 }

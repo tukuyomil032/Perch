@@ -19,6 +19,9 @@ STABLE_KEYS = ("STABLE_MARKETING_VERSION", "STABLE_BUILD_NUMBER")
 BETA_KEYS = ("BETA_MARKETING_VERSION", "BETA_PRERELEASE_NUMBER", "BETA_BUILD_NUMBER")
 LEGACY_KEYS = ("MARKETING_VERSION", "BUILD_NUMBER")
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+BETA_DISPLAY_VERSION_RE = re.compile(
+    r"^((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))-beta\.([1-9]\d*)$"
+)
 
 
 class ReleaseError(Exception):
@@ -200,7 +203,11 @@ def appcast_max_build(path: Path) -> int:
     return max_build
 
 
-def resolve_metadata(channel: str, values: dict[str, str]) -> dict[str, str]:
+def resolve_metadata(
+    channel: str,
+    values: dict[str, str],
+    beta_display_version: str = "",
+) -> dict[str, str]:
     """Build GitHub Actions outputs for a release channel.
 
     Args:
@@ -220,11 +227,21 @@ def resolve_metadata(channel: str, values: dict[str, str]) -> dict[str, str]:
         version = base_version
         is_beta = "false"
     elif channel == "beta":
-        base_version = parse_semver(require(values, "BETA_MARKETING_VERSION"), "BETA_MARKETING_VERSION")
-        prerelease_number = parse_positive_int(
-            require(values, "BETA_PRERELEASE_NUMBER"),
-            "BETA_PRERELEASE_NUMBER",
-        )
+        if beta_display_version:
+            match = BETA_DISPLAY_VERSION_RE.fullmatch(beta_display_version)
+            if match is None:
+                raise ReleaseError(
+                    "beta display version must be MAJOR.MINOR.PATCH-beta.N like 0.3.1-beta.1"
+                )
+            base_version, prerelease_number = match.groups()
+        else:
+            base_version = parse_semver(require(values, "BETA_MARKETING_VERSION"), "BETA_MARKETING_VERSION")
+            prerelease_number = str(
+                parse_positive_int(
+                    require(values, "BETA_PRERELEASE_NUMBER"),
+                    "BETA_PRERELEASE_NUMBER",
+                )
+            )
         build_number = parse_positive_int(require(values, "BETA_BUILD_NUMBER"), "BETA_BUILD_NUMBER")
         version = f"{base_version}-beta.{prerelease_number}"
         is_beta = "true"
@@ -313,6 +330,7 @@ def main() -> int:
     parser.add_argument("--preview-branch", default="")
     parser.add_argument("--preview-run", default="")
     parser.add_argument("--preview-base-version", default="")
+    parser.add_argument("--beta-display-version", default="")
     parser.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT", ""))
     args = parser.parse_args()
 
@@ -331,7 +349,10 @@ def main() -> int:
             write_outputs(outputs, args.github_output)
             return 0
 
-        outputs = resolve_metadata(channel, current)
+        if args.event_name == "workflow_dispatch" and channel == "beta" and not args.beta_display_version:
+            raise ReleaseError("beta display version is required for a manual beta release")
+
+        outputs = resolve_metadata(channel, current, args.beta_display_version)
         max_build = appcast_max_build(args.appcast)
         build_number = int(outputs["build_number"])
         if build_number <= max_build:

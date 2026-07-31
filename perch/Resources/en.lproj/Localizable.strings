@@ -11,6 +11,7 @@
 "settings.language" = "Language";
 "settings.ai_usage" = "AI Usage";
 "settings.debug" = "Debug";
+"settings.updates" = "Updates";
 
 /* Settings — General */
 "settings.launch_at_login" = "Launch at login";
@@ -28,6 +29,18 @@
 
 /* Settings — Language */
 "settings.language_picker" = "Language";
+
+/* Settings — Updates */
+"settings.updates.automatic" = "Automatically check for updates";
+"settings.updates.automatic_hint" = "Perch checks for updates in the background.";
+"settings.updates.channel" = "Update channel";
+"settings.updates.channel.stable" = "Stable";
+"settings.updates.channel.beta" = "Beta";
+"settings.updates.channel_hint" = "Beta includes stable releases and early preview builds.";
+"settings.updates.version" = "Version";
+"settings.updates.check" = "Check for Updates…";
+"settings.updates.check_hint" = "Checks the selected update channel now.";
+"settings.updates.configuration_required" = "Updates will be available after the release public key is configured.";
 
 /* Settings — Island Position */
 "settings.island_position" = "Island Position";

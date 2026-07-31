@@ -6,19 +6,15 @@ Dependencies: stdlib only (xml.etree.ElementTree, email.utils)
               No pip/uv required.
 
 Usage:
-    python3 scripts/update-appcast.py <version> <build> <dmg_url> <dmg_size> [channel]
+    python3 scripts/update-appcast.py <version> <build> <dmg_url> <dmg_size> <ed_signature> [channel]
 
 Arguments:
     version   Marketing version string (e.g. 0.3.1)
     build     Build number from version.env (e.g. 2)
     dmg_url   GitHub Releases direct download URL of the DMG
     dmg_size  File size in bytes (from stat -f%z)
-    channel   Optional: "beta" for pre-release channel (omit for stable)
-
-Note on edSignature:
-    Set to PLACEHOLDER_PHASE6 until EdDSA keys are generated in Phase 6.
-    After Phase 6: generate keys with `generate_keys`, sign each DMG with
-    `sign_update`, and replace PLACEHOLDER_PHASE6 in each entry.
+    ed_signature  EdDSA signature emitted by Sparkle's sign_update
+    channel       Optional: "beta" for pre-release channel (omit for stable)
 """
 
 import sys
@@ -34,32 +30,30 @@ def s(tag: str) -> str:
     return f"{{{SPARKLE_NS}}}{tag}"
 
 
-def main() -> None:
-    if len(sys.argv) < 5:
-        print(f"Usage: {sys.argv[0]} <version> <build> <dmg_url> <dmg_size> [channel]",
-              file=sys.stderr)
-        sys.exit(1)
-
-    version  = sys.argv[1]
-    build    = sys.argv[2]
-    dmg_url  = sys.argv[3]
-    dmg_size = sys.argv[4]
-    channel  = sys.argv[5] if len(sys.argv) > 5 else ""
-    pub_date = format_datetime(datetime.now(tz=timezone.utc))
+def update_appcast(
+    appcast_path: str,
+    version: str,
+    build: str,
+    dmg_url: str,
+    dmg_size: str,
+    ed_signature: str,
+    channel: str = "",
+) -> None:
+    """Insert a signed item while retaining every existing appcast item."""
+    if not ed_signature:
+        raise ValueError("ed_signature must not be empty")
 
     ET.register_namespace("sparkle", SPARKLE_NS)
-
-    tree = ET.parse(APPCAST_PATH)
+    tree = ET.parse(appcast_path)
     root = tree.getroot()
     ch = root.find("channel")
     if ch is None:
-        print("Error: <channel> not found in appcast.xml", file=sys.stderr)
-        sys.exit(1)
+        raise ValueError("<channel> not found in appcast.xml")
 
     item = ET.Element("item")
     ET.SubElement(item, "title").text = version
-    ET.SubElement(item, "pubDate").text = pub_date
-    ET.SubElement(item, s("minimumSystemVersion")).text = "14.0"
+    ET.SubElement(item, "pubDate").text = format_datetime(datetime.now(tz=timezone.utc))
+    ET.SubElement(item, s("minimumSystemVersion")).text = "15.0"
     if channel:
         ET.SubElement(item, s("channel")).text = channel
 
@@ -69,7 +63,7 @@ def main() -> None:
     enc.set("type", "application/x-apple-diskimage")
     enc.set(s("version"), build)
     enc.set(s("shortVersionString"), version)
-    enc.set(s("edSignature"), "PLACEHOLDER_PHASE6")
+    enc.set(s("edSignature"), ed_signature)
 
     existing = ch.findall("item")
     if existing:
@@ -78,7 +72,26 @@ def main() -> None:
         ch.append(item)
 
     ET.indent(tree, space="    ")
-    tree.write(APPCAST_PATH, encoding="unicode", xml_declaration=True)
+    tree.write(appcast_path, encoding="unicode", xml_declaration=True)
+
+
+def main() -> None:
+    if len(sys.argv) not in {6, 7}:
+        print(f"Usage: {sys.argv[0]} <version> <build> <dmg_url> <dmg_size> <ed_signature> [channel]",
+              file=sys.stderr)
+        sys.exit(1)
+
+    version  = sys.argv[1]
+    build    = sys.argv[2]
+    dmg_url  = sys.argv[3]
+    dmg_size = sys.argv[4]
+    ed_signature = sys.argv[5]
+    channel = sys.argv[6] if len(sys.argv) > 6 else ""
+    try:
+        update_appcast(APPCAST_PATH, version, build, dmg_url, dmg_size, ed_signature, channel)
+    except (OSError, ET.ParseError, ValueError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        sys.exit(1)
     print(f"Updated {APPCAST_PATH}: inserted entry for v{version} (build {build})")
 
 

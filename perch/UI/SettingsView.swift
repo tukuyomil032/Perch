@@ -19,6 +19,8 @@ struct SettingsView: View {
                 .tabItem { Label(L10n.string("settings.language"), systemImage: "globe") }
             AIUsageTab()
                 .tabItem { Label(L10n.string("settings.ai_usage"), systemImage: "cpu") }
+            SettingsUpdateTab()
+                .tabItem { Label(L10n.string("settings.updates"), systemImage: "arrow.down.circle") }
         }
         .frame(width: 420, height: 360)
         .id(languageCode)

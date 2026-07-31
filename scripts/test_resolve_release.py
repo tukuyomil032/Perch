@@ -52,6 +52,58 @@ def test_resolve_preview_metadata_rejects_non_positive_run_number():
         resolve_release.resolve_preview_metadata("0.4.0", "feature-foo", "0")
 
 
+def test_resolve_manual_beta_display_version_keeps_numeric_base_version_and_build():
+    outputs = resolve_release.resolve_metadata(
+        "beta",
+        {"BETA_BUILD_NUMBER": "12"},
+        "0.4.0-beta.2",
+    )
+
+    assert outputs["version"] == "0.4.0-beta.2"
+    assert outputs["base_version"] == "0.4.0"
+    assert outputs["build_number"] == "12"
+
+
+def test_resolve_manual_beta_display_version_rejects_non_beta_semver():
+    with pytest.raises(resolve_release.ReleaseError, match="beta display version"):
+        resolve_release.resolve_metadata(
+            "beta",
+            {"BETA_BUILD_NUMBER": "12"},
+            "0.4.0",
+        )
+
+
+def test_main_manual_beta_requires_display_version(tmp_path, monkeypatch, capsys):
+    version_env = tmp_path / "version.env"
+    version_env.write_text("BETA_MARKETING_VERSION=0.4.0\nBETA_PRERELEASE_NUMBER=2\nBETA_BUILD_NUMBER=12\n")
+    appcast = tmp_path / "appcast.xml"
+    appcast.write_text("<xml></xml>")
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "resolve-release.py",
+            "--current",
+            str(version_env),
+            "--event-name",
+            "workflow_dispatch",
+            "--channel",
+            "beta",
+            "--appcast",
+            str(appcast),
+            "--github-output",
+            "",
+        ],
+    )
+
+    exit_code = resolve_release.main()
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "beta display version is required" in captured.err
+
+
 def test_main_preview_falls_back_to_stable_marketing_version(tmp_path, monkeypatch, capsys):
     version_env = tmp_path / "version.env"
     version_env.write_text(

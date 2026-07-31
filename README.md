@@ -32,6 +32,11 @@ brew install --cask perch
 
 **GitHub Releases** (coming soon): Download the signed `.dmg` from the [Releases](https://github.com/tukuyomi032/perch/releases) page and drag Perch.app to your Applications folder.
 
+Stable and beta DMGs are signed for Sparkle updates before their appcast entries
+are published. The application-side updater and public-key configuration are
+completed as part of Phase 6; contributors can find the release and key setup
+procedure in [docs/release.md](docs/release.md).
+
 Once installed, Perch launches at login and appears as a pill at the top center of your screen. No further configuration is required to get started.
 
 ## Features

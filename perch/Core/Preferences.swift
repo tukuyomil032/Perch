@@ -5,6 +5,7 @@ import Foundation
 /// modification note at the top of `ScreenLocator.swift`. The conformance lives here, not
 /// in that file, so the vendored-adjacent source stays free of Perch's persistence choice.
 extension ScreenPreference: Defaults.Serializable {}
+extension UpdateChannel: Defaults.Serializable {}
 
 extension Defaults.Keys {
     static let launchAtLogin = Key<Bool>("launchAtLogin", default: false)
@@ -15,6 +16,7 @@ extension Defaults.Keys {
     static let enableAppleMusic = Key<Bool>("enableAppleMusic", default: true)
     static let enableYouTubeMusic = Key<Bool>("enableYouTubeMusic", default: true)
     static let languageCode = Key<String>("languageCode", default: "en")
+    static let updateChannel = Key<UpdateChannel>("updateChannel", default: .stable)
     static let aiRefreshInterval = Key<RefreshInterval>("aiRefreshInterval", default: .fiveMinutes)
     /// How the island chrome presents itself. Replaces `notchSimulationMode`; existing
     /// installs are migrated once at launch by `PreferencesMigration`.

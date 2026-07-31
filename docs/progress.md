@@ -361,7 +361,11 @@
 
 - [ ] T6-1: NotificationService（UNNotificationCenter + カスタムMP3）
 - [ ] T6-2: デザインシステム最終整備
-- [ ] T6-3: Sparkle統合（自動アップデート）
+- [x] T6-3: Sparkle統合（自動アップデート）
+  - [x] T6-3a: Sparkle 配布パイプライン — stable/beta DMGをEdDSA署名し、macOS 15.0の
+    署名済みappcast項目をmainへ直接更新。
+  - [x] T6-3b: アプリ側 Sparkle 統合 — Sparkle 2.9.4、`SUPublicEDKey`、`SUFeedURL`、
+    stable/beta チャンネルと Settings の情報タブを追加。
 - [ ] T6-4: Homebrew Cask（tukuyomil032/homebrew-tap）
 - [ ] T6-5: 追加Provider（OpenAI, OpenRouter）
 - [ ] T6-6: HUD（バッテリー、音量表示）

@@ -20,6 +20,10 @@ on:
         description: 'Preview base version (e.g. 0.4.0). Defaults to STABLE_MARKETING_VERSION when empty. Ignored unless channel is preview.'
         required: false
         type: string
+      beta_display_version:
+        description: 'Beta display version (e.g. 0.4.0-beta.1). Required for a manual beta release; ignored for stable and preview.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -67,10 +71,13 @@ jobs:
 
       - name: Resolve release metadata
         id: version
+        env:
+          BETA_DISPLAY_VERSION: ${{ github.event.inputs.beta_display_version }}
         run: |
           PREVIOUS_ARGS=()
           CHANNEL_ARGS=()
           PREVIEW_ARGS=()
+          BETA_DISPLAY_VERSION_ARGS=()
 
           if [ "${{ github.event_name }}" = "push" ]; then
             PREVIOUS_ARGS=(--previous /tmp/version-before.env)
@@ -87,12 +94,17 @@ jobs:
             )
           fi
 
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.channel }}" = "beta" ]; then
+            BETA_DISPLAY_VERSION_ARGS=(--beta-display-version "$BETA_DISPLAY_VERSION")
+          fi
+
           UV_CACHE_DIR=.uv-cache uv run python scripts/resolve-release.py \
             --current version.env \
             "${PREVIOUS_ARGS[@]}" \
             --event-name "${{ github.event_name }}" \
             "${CHANNEL_ARGS[@]}" \
             "${PREVIEW_ARGS[@]}" \
+            "${BETA_DISPLAY_VERSION_ARGS[@]}" \
             --appcast appcast.xml
 
       - name: Stop when version.env did not change a release block
@@ -195,6 +207,39 @@ jobs:
             "build/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" \
             "build/dmg"
 
+      - name: Sign DMG for Sparkle
+        if: env.CHANNEL != 'preview'
+        id: sparkle_signature
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SPARKLE_PRIVATE_KEY" || {
+            echo "::error::SPARKLE_PRIVATE_KEY is required for stable and beta releases."
+            exit 1
+          }
+
+          KEY_FILE=$(mktemp "${RUNNER_TEMP}/sparkle-private-key.XXXXXX")
+          trap 'rm -f -- "$KEY_FILE"' EXIT
+          chmod 600 "$KEY_FILE"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
+
+          brew install sparkle
+          SIGN_UPDATE="$(brew --prefix sparkle)/bin/sign_update"
+          test -x "$SIGN_UPDATE" || {
+            echo "::error::Sparkle sign_update was not installed."
+            exit 1
+          }
+
+          DMG_PATH="build/dmg/${APP_NAME}-${VERSION}.dmg"
+          SIGN_UPDATE_OUTPUT=$("$SIGN_UPDATE" --ed-key-file "$KEY_FILE" "$DMG_PATH")
+          ED_SIGNATURE=$(printf '%s\n' "$SIGN_UPDATE_OUTPUT" | awk -F'"' '/edSignature=/{ print $2; exit }')
+          test -n "$ED_SIGNATURE" || {
+            echo "::error::Could not read an edSignature from sign_update output."
+            exit 1
+          }
+          echo "ed_signature=$ED_SIGNATURE" >> "$GITHUB_OUTPUT"
+
       - name: Create release tag
         run: |
           git config user.name "github-actions[bot]"
@@ -244,7 +289,7 @@ jobs:
           CHANNEL_ARG=""
           [[ "$IS_BETA" == "true" ]] && CHANNEL_ARG="beta"
 
-          if gh api "repos/${GITHUB_REPOSITORY}/contents/appcast.xml" \
+          if gh api "repos/${GITHUB_REPOSITORY}/contents/appcast.xml?ref=main" \
                --jq '.content' 2>/dev/null | python3 -c 'import base64,sys;sys.stdout.buffer.write(base64.b64decode(sys.stdin.buffer.read()))' > appcast.xml; then
             echo "Fetched existing appcast.xml from main"
           else
@@ -253,13 +298,15 @@ jobs:
 
           if [[ -n "$CHANNEL_ARG" ]]; then
             UV_CACHE_DIR=.uv-cache uv run python scripts/update-appcast.py \
-              "$VERSION" "$BUILD_NUMBER" "$DMG_URL" "$DMG_SIZE" "$CHANNEL_ARG"
+              "$VERSION" "$BUILD_NUMBER" "$DMG_URL" "$DMG_SIZE" \
+              "${{ steps.sparkle_signature.outputs.ed_signature }}" "$CHANNEL_ARG"
           else
             UV_CACHE_DIR=.uv-cache uv run python scripts/update-appcast.py \
-              "$VERSION" "$BUILD_NUMBER" "$DMG_URL" "$DMG_SIZE"
+              "$VERSION" "$BUILD_NUMBER" "$DMG_URL" "$DMG_SIZE" \
+              "${{ steps.sparkle_signature.outputs.ed_signature }}"
           fi
 
-          SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/appcast.xml" \
+          SHA=$(gh api "repos/${GITHUB_REPOSITORY}/contents/appcast.xml?ref=main" \
             --jq '.sha' 2>/dev/null || echo "")
 
           ENCODED=$(base64 -i appcast.xml | tr -d '\n')
@@ -267,7 +314,7 @@ jobs:
             --arg message "appcast: add v${VERSION} (build ${BUILD_NUMBER})" \
             --arg content  "$ENCODED" \
             --arg sha      "$SHA" \
-            '{"message": $message, "content": $content}
+            '{"message": $message, "content": $content, "branch": "main"}
              + (if $sha != "" then {"sha": $sha} else {} end)' \
           | gh api "repos/${GITHUB_REPOSITORY}/contents/appcast.xml" \
               --method PUT \

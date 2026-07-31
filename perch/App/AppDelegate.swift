@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var islandHost: IslandHost?
     private var menuBarController: MenuBarController?
     let appState = AppState()
+    let sparkleUpdateController = SparkleUpdateController()
     private let logger = Logger(label: "com.tukuyomi032.perch.AppDelegate")
 
     func applicationDidFinishLaunching(_ notification: Notification) {

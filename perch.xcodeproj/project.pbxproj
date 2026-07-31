@@ -12,6 +12,7 @@
 		BA0A72422FCEBA4F00F08C06 /* InMemoryLogging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72412FCEBA4F00F08C06 /* InMemoryLogging */; };
 		BA0A72442FCEBA4F00F08C06 /* Logging in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72432FCEBA4F00F08C06 /* Logging */; };
 		BA0A724A2FCEBABC00F08C06 /* LyricsKit in Frameworks */ = {isa = PBXBuildFile; productRef = BA0A72492FCEBABC00F08C06 /* LyricsKit */; };
+		D7A91A3A6ED14D8DB4E90001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = D7A91A3A6ED14D8DB4E90002 /* Sparkle */; };
 		CF26B21B955740D69EB91851 /* MediaRemoteAdapter in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 5EC016E2A8BA4516AB09390A /* MediaRemoteAdapter */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -80,6 +81,7 @@
 				BA0A724A2FCEBABC00F08C06 /* LyricsKit in Frameworks */,
 				BA0A72442FCEBA4F00F08C06 /* Logging in Frameworks */,
 				0E9B581DEA7444588A383555 /* MediaRemoteAdapter in Frameworks */,
+				D7A91A3A6ED14D8DB4E90001 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -146,6 +148,7 @@
 				BA0A72432FCEBA4F00F08C06 /* Logging */,
 				BA0A72492FCEBABC00F08C06 /* LyricsKit */,
 				5EC016E2A8BA4516AB09390A /* MediaRemoteAdapter */,
+				D7A91A3A6ED14D8DB4E90002 /* Sparkle */,
 			);
 			productName = perch;
 			productReference = BA0A707E2FCD694B00F08C06 /* perch.app */;
@@ -235,6 +238,7 @@
 				BA0A72402FCEBA4F00F08C06 /* XCRemoteSwiftPackageReference "swift-log" */,
 				BA0A72482FCEBABC00F08C06 /* XCRemoteSwiftPackageReference "LyricsKit" */,
 				185D8EF0AE794F73837563A8 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */,
+				D7A91A3A6ED14D8DB4E90004 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA0A707F2FCD694B00F08C06 /* Products */;
@@ -646,6 +650,14 @@
 				minimumVersion = 1.9.0;
 			};
 		};
+		D7A91A3A6ED14D8DB4E90004 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.9.4;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -673,6 +685,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BA0A72482FCEBABC00F08C06 /* XCRemoteSwiftPackageReference "LyricsKit" */;
 			productName = LyricsKit;
+		};
+		D7A91A3A6ED14D8DB4E90002 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D7A91A3A6ED14D8DB4E90004 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

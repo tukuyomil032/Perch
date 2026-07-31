@@ -11,6 +11,7 @@
 "settings.language" = "言語";
 "settings.ai_usage" = "AI使用状況";
 "settings.debug" = "デバッグ";
+"settings.updates" = "アップデート";
 
 /* Settings — General */
 "settings.launch_at_login" = "ログイン時に起動";
@@ -28,6 +29,18 @@
 
 /* Settings — Language */
 "settings.language_picker" = "言語設定";
+
+/* Settings — Updates */
+"settings.updates.automatic" = "アップデートを自動的に確認";
+"settings.updates.automatic_hint" = "Perch がバックグラウンドでアップデートを確認します。";
+"settings.updates.channel" = "アップデートチャンネル";
+"settings.updates.channel.stable" = "安定版";
+"settings.updates.channel.beta" = "ベータ版";
+"settings.updates.channel_hint" = "ベータ版では、安定版に加えて先行ビルドも受け取ります。";
+"settings.updates.version" = "バージョン";
+"settings.updates.check" = "アップデートを確認…";
+"settings.updates.check_hint" = "選択中のアップデートチャンネルを今すぐ確認します。";
+"settings.updates.configuration_required" = "リリース用公開鍵の設定後にアップデートを利用できます。";
 
 /* Settings — Island Position */
 "settings.island_position" = "アイランド位置";

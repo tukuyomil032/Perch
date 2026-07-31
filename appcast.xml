@@ -5,6 +5,6 @@
         <link>https://raw.githubusercontent.com/tukuyomil032/perch/main/appcast.xml</link>
         <description>Perch release feed for Sparkle auto-update</description>
         <!-- Entries are managed by CI via scripts/update-appcast.py. Do not edit manually. -->
-        <!-- Phase 6: Replace sparkle:edSignature="PLACEHOLDER_PHASE6" with real EdDSA signatures. -->
+        <!-- CI signs every stable/beta DMG with Sparkle EdDSA before adding it here. -->
     </channel>
 </rss>
