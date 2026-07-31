@@ -1,10 +1,15 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version='1.0' encoding='utf-8'?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>Perch</title>
         <link>https://raw.githubusercontent.com/tukuyomil032/perch/main/appcast.xml</link>
         <description>Perch release feed for Sparkle auto-update</description>
-        <!-- Entries are managed by CI via scripts/update-appcast.py. Do not edit manually. -->
-        <!-- CI signs every stable/beta DMG with Sparkle EdDSA before adding it here. -->
+        <item>
+            <title>0.3.1-beta.7</title>
+            <pubDate>Fri, 31 Jul 2026 02:51:52 +0000</pubDate>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <sparkle:channel>beta</sparkle:channel>
+            <enclosure url="https://github.com/tukuyomil032/Perch/releases/download/v0.3.1-beta.7/perch-0.3.1-beta.7.dmg" length="7920427" type="application/x-apple-diskimage" sparkle:version="3" sparkle:shortVersionString="0.3.1-beta.7" sparkle:edSignature="uEjEoW06CJCNF3LWb1/lfHKWqym0cUP2MpMVLs3ncjGdTP3HsT7UFXYwsWtlxM5PXCFzjaCDIb2ChKuwLvkOCA==" />
+        </item>
     </channel>
 </rss>
