@@ -762,6 +762,26 @@ Phase B7は6タスク全完了。実機検証は次回実機起動時に通し�
 （歌詞ボックスの垂直/水平センタリング、シークバー間隔、バッジ、Spotify/Apple Music
 アートワーク安定性を重点確認）。
 
+### Phase B8: 歌詞ウィンドウ表示化 + 垂直センタリング再修正 + ヘッダー整理（2026-07-31〜）
+
+Phase B7の実機検証で、歌詞ボックスの垂直中央がまだズレている（今度は下寄り、ヘッダー分の高さを
+考慮していなかった）、歌詞前後の行が透けて見える（`.mask`によるフェードが実質縁取りのみで
+opacityが0にならない設計だった）、シークバーがまだアートワークに近すぎる（非対称パディング）、
+再生元バッジ拡大に伴う曲名エリアとの近接、ヘッダーの閉じるボタンが不要、ModuleSwitcherの
+アイコン間隔が広すぎる、の6件の指摘があった。詳細な真因分析は
+`~/.claude/plans/phasec-phaseb-b-docs-playful-cocoa.md`のPhase B8セクション参照。
+
+- [ ] B8-1: 歌詞ウィンドウ表示化 — `LyricsView.swift`をScrollView+mask方式から固定4行の
+      ウィンドウ表示に作り替え、前後行の透け見えを根治
+- [ ] B8-2: 歌詞ボックスの垂直センタリング再修正 — `SurfaceMetrics.headerHeight`定数を追加し
+      `RichHomeView.swift`のcenterColumnに`.offset(y: -headerHeight/2)`でヘッダー分を補正
+- [ ] B8-3: シークバーをartwork行とcontrolsSectionの中間に揃える —
+      `progressSection`の`.padding(.top, 8)` → `.padding(.vertical, 8)`
+- [ ] B8-4: trackInfoを上にずらす＋アルバム名の改行制限撤廃 — 上側Spacer削除、
+      アルバムの`.lineLimit(2)`削除
+- [ ] B8-5: ヘッダーの閉じるボタン削除（`IslandTopBar.swift`）
+- [ ] B8-6: ModuleSwitcherのアイコン間隔を詰める（spacing 24→8）
+
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
 **参照**: `docs/macOS-Battery-Monitoring-Animation-Handbook-ja.md`（全39章、
