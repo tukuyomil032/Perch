@@ -10,16 +10,15 @@ import SwiftUI
 
 /// The notch chrome itself: arches around the menu-bar notch, switches between expanded and
 /// compact-with-side-slots, and paints the configured backdrop behind both.
-struct NookView<Expanded, CompactLeading, CompactTrailing>: View
-where Expanded: View, CompactLeading: View, CompactTrailing: View {
-    @ObservedObject private var nook: Nook<Expanded, CompactLeading, CompactTrailing>
+struct NookView: View {
+    @ObservedObject private var nook: Nook
     @State private var compactLeadingWidth: CGFloat = 0
     @State private var compactTrailingWidth: CGFloat = 0
     @State private var trackedExpandedSize: CGSize = .zero
     @State private var ambientColor: Color?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(nook: Nook<Expanded, CompactLeading, CompactTrailing>) {
+    init(nook: Nook) {
         self.nook = nook
     }
 

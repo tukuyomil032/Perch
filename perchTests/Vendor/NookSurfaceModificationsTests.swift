@@ -40,6 +40,19 @@ struct NookSurfaceModificationsTests {
 
     // MARK: - syntheticNotchWidth
 
+    @Test("content is type-erased at the Nook boundary")
+    func contentIsTypeErasedAtNookBoundary() {
+        let nook = Nook(
+            expanded: { Text("Expanded") },
+            compactLeading: { Image(systemName: "chevron.left") },
+            compactTrailing: { Color.clear }
+        )
+
+        #expect(type(of: nook.expandedContent) == AnyView.self)
+        #expect(type(of: nook.compactLeadingContent) == AnyView.self)
+        #expect(type(of: nook.compactTrailingContent) == AnyView.self)
+    }
+
     @Test("synthetic notch defaults to real-notch dimensions, not the upstream 300pt")
     func syntheticNotchWidthDefault() {
         let nook = Nook(hoverBehavior: [.keepVisible]) { EmptyView() }

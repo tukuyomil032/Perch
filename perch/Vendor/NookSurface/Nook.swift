@@ -44,8 +44,7 @@ import SwiftUI
 /// compiler-checked guarantee instead of a convention and lets every transition share
 /// one serial generation token without a lock.
 @MainActor
-public final class Nook<Expanded, CompactLeading, CompactTrailing>: ObservableObject, NookControllable
-where Expanded: View, CompactLeading: View, CompactTrailing: View {
+public final class Nook: ObservableObject, NookControllable {
     /// The chrome's window controller, or `nil` while hidden. **Internal-only** - the
     /// supported host seam for window inspection is ``hasLiveWindow``, and the
     /// supported mutation seam is ``configureWindow(_:)``. Exposing the controller
@@ -117,9 +116,9 @@ where Expanded: View, CompactLeading: View, CompactTrailing: View {
         }
     }
 
-    let expandedContent: Expanded
-    let compactLeadingContent: CompactLeading
-    let compactTrailingContent: CompactTrailing
+    let expandedContent: AnyView
+    let compactLeadingContent: AnyView
+    let compactTrailingContent: AnyView
     /// Construction-time flags set by the no-compact convenience init. Immutable so
     /// they can't be flipped mid-flight and trip the view's transition heuristics - 
     /// the no-compact case is a build-time choice, not runtime state.
@@ -257,18 +256,18 @@ where Expanded: View, CompactLeading: View, CompactTrailing: View {
 
     private var cancellables = Set<AnyCancellable>()
 
-    public init(
+    public init<Expanded, CompactLeading, CompactTrailing>(
         hoverBehavior: NookHoverBehavior = .all,
         style: NookStyle = .standard,
         @ViewBuilder expanded: @escaping () -> Expanded,
         @ViewBuilder compactLeading: @escaping () -> CompactLeading = { EmptyView() },
         @ViewBuilder compactTrailing: @escaping () -> CompactTrailing = { EmptyView() }
-    ) {
+    ) where Expanded: View, CompactLeading: View, CompactTrailing: View {
         self.hoverBehavior = hoverBehavior
         self.style = style
-        self.expandedContent = expanded()
-        self.compactLeadingContent = compactLeading()
-        self.compactTrailingContent = compactTrailing()
+        self.expandedContent = AnyView(expanded())
+        self.compactLeadingContent = AnyView(compactLeading())
+        self.compactTrailingContent = AnyView(compactTrailing())
         self.disableCompactLeading = false
         self.disableCompactTrailing = false
 
@@ -280,7 +279,7 @@ where Expanded: View, CompactLeading: View, CompactTrailing: View {
     /// Internal designated init for the no-compact-content case. The `disableCompact*`
     /// flags are stored as `let` so they can't drift at runtime - the no-compact case
     /// is a build-time choice.
-    private init(
+    private init<Expanded, CompactLeading, CompactTrailing>(
         hoverBehavior: NookHoverBehavior,
         style: NookStyle,
         expanded: @escaping () -> Expanded,
@@ -288,12 +287,12 @@ where Expanded: View, CompactLeading: View, CompactTrailing: View {
         compactTrailing: @escaping () -> CompactTrailing,
         disableCompactLeading: Bool,
         disableCompactTrailing: Bool
-    ) {
+    ) where Expanded: View, CompactLeading: View, CompactTrailing: View {
         self.hoverBehavior = hoverBehavior
         self.style = style
-        self.expandedContent = expanded()
-        self.compactLeadingContent = compactLeading()
-        self.compactTrailingContent = compactTrailing()
+        self.expandedContent = AnyView(expanded())
+        self.compactLeadingContent = AnyView(compactLeading())
+        self.compactTrailingContent = AnyView(compactTrailing())
         self.disableCompactLeading = disableCompactLeading
         self.disableCompactTrailing = disableCompactTrailing
 
@@ -304,11 +303,11 @@ where Expanded: View, CompactLeading: View, CompactTrailing: View {
     }
 
     /// Convenience for the no-compact-content case. Compact mode collapses to hide.
-    public convenience init(
+    public convenience init<Expanded>(
         hoverBehavior: NookHoverBehavior = [.keepVisible],
         style: NookStyle = .standard,
         @ViewBuilder expanded: @escaping () -> Expanded
-    ) where CompactLeading == EmptyView, CompactTrailing == EmptyView {
+    ) where Expanded: View {
         self.init(
             hoverBehavior: hoverBehavior,
             style: style,

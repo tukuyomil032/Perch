@@ -23,7 +23,7 @@ private let logger = Logger(label: "com.tukuyomi032.perch.IslandHost")
 @MainActor
 final class IslandHost {
     private let appState: AppState
-    private let surface: Nook<AnyView, AnyView, AnyView>
+    private let surface: Nook
     private let bridge: NookBridge
 
     // `nonisolated(unsafe)`: written once on the main actor during `init` and read only in
@@ -64,9 +64,9 @@ final class IslandHost {
         // timing), so these — and `DesignSystem.shellOpen`/`shellClose` below — are the
         // animation handbook's own recommended values rather than measurements.
         //
-        // Erased to `AnyView` so the generic parameters do not spread into this type's
-        // stored properties and from there into every signature that touches it.
-        let nook = Nook<AnyView, AnyView, AnyView>(
+        // `Nook` erases each content closure to `AnyView` at its boundary, keeping the
+        // surface lifetime independent of the concrete SwiftUI view tree.
+        let nook = Nook(
             hoverBehavior: [.keepVisible],
             style: NookStyle(
                 topCornerRadius: NookStyle.standard.topCornerRadius,
