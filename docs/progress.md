@@ -771,16 +771,20 @@ opacityが0にならない設計だった）、シークバーがまだアート
 アイコン間隔が広すぎる、の6件の指摘があった。詳細な真因分析は
 `~/.claude/plans/phasec-phaseb-b-docs-playful-cocoa.md`のPhase B8セクション参照。
 
-- [ ] B8-1: 歌詞ウィンドウ表示化 — `LyricsView.swift`をScrollView+mask方式から固定4行の
-      ウィンドウ表示に作り替え、前後行の透け見えを根治
-- [ ] B8-2: 歌詞ボックスの垂直センタリング再修正 — `SurfaceMetrics.headerHeight`定数を追加し
-      `RichHomeView.swift`のcenterColumnに`.offset(y: -headerHeight/2)`でヘッダー分を補正
-- [ ] B8-3: シークバーをartwork行とcontrolsSectionの中間に揃える —
-      `progressSection`の`.padding(.top, 8)` → `.padding(.vertical, 8)`
-- [ ] B8-4: trackInfoを上にずらす＋アルバム名の改行制限撤廃 — 上側Spacer削除、
-      アルバムの`.lineLimit(2)`削除
-- [ ] B8-5: ヘッダーの閉じるボタン削除（`IslandTopBar.swift`）
-- [ ] B8-6: ModuleSwitcherのアイコン間隔を詰める（spacing 24→8）
+- [x] B8-1: 歌詞ウィンドウ表示化 — `LyricsView.swift`をScrollView+mask方式から固定4行の
+      ウィンドウ表示に作り替え、前後行の透け見えを根治。コミット`f6a4525`。
+- [x] B8-2: 歌詞ボックスの垂直センタリング再修正 — `SurfaceMetrics.headerHeight`定数を追加し
+      `RichHomeView.swift`のcenterColumnに`.offset(y: -headerHeight/2)`でヘッダー分を補正。
+      コミット`a4ed7e4`。
+- [x] B8-3: シークバーをartwork行とcontrolsSectionの中間に揃える —
+      `progressSection`の`.padding(.top, 8)` → `.padding(.vertical, 8)`。コミット`34f1e60`。
+- [x] B8-4: trackInfoを上にずらす＋アルバム名の改行制限撤廃 — 上側Spacer削除、
+      アルバムの`.lineLimit(2)`削除。コミット`c261396`。
+- [x] B8-5: ヘッダーの閉じるボタン削除（`IslandTopBar.swift`）。コミット`89632df`。
+- [x] B8-6: ModuleSwitcherのアイコン間隔を詰める（spacing 24→8）。コミット`22a0de7`。
+
+Phase B8は6タスク全完了。実機検証は次回実機起動時に通しで実施予定
+（歌詞の垂直位置・4行固定表示・シークバー位置・trackInfo位置・ヘッダーの見た目を重点確認）。
 
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
