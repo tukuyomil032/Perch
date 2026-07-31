@@ -796,12 +796,16 @@ Command+Space直接起動だとどちらも動く」という不可解な報告�
 開発証明書版が別アプリとして扱われ、片方にしかSpotify/Music操作の許可が付与されていなかった。
 詳細は`~/.claude/plans/phasec-phaseb-b-docs-playful-cocoa.md`のPhase B9セクション参照。
 
-- [ ] B9-1: `perch/Resources/Info.plist`に`CFBundleIdentifier`
+- [x] B9-1: `perch/Resources/Info.plist`に`CFBundleIdentifier`
       （`$(PRODUCT_BUNDLE_IDENTIFIER)`）を追加——起動方法によるアートワーク/コントロール
-      不整合の根治
-- [ ] B9-2: trackInfoの垂直位置を10pt下げる（Phase B8で上に寄せすぎた）
-- [ ] B9-3: 歌詞のアクティブ行切り替え・ウィンドウ遷移アニメーションを緩やかにする
-      （spring response 0.40→0.55、easeInOut duration 0.4→0.55）
+      不整合の根治。実機で`Identifier=com.tukuyomi032.perch`への反映を確認済み。
+      コミット`9163764`。
+- [x] B9-2: trackInfoの垂直位置を10pt下げる（Phase B8で上に寄せすぎた）。コミット`ec71b55`。
+- [x] B9-3: 歌詞のアクティブ行切り替え・ウィンドウ遷移アニメーションを緩やかにする
+      （spring response 0.40→0.55、easeInOut duration 0.4→0.55）。コミット`ea8afe3`。
+
+Phase B9は3タスク全完了。B9-1は過去に断片化したTCC Automation権限までは自動修復しないため、
+実機検証時に再度の許可ダイアログが出る可能性がある旨をユーザーに案内する必要あり。
 
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
