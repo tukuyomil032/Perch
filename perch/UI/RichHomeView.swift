@@ -24,7 +24,12 @@ struct RichHomeView: View {
     var body: some View {
         Group {
             if let state = currentState {
-                HStack(alignment: .top, spacing: 0) {
+                // `alignment: .center` (not `.top`) — centerColumn is height-locked to
+                // SurfaceMetrics.lyricsColumnHeight (130pt) while NowPlayingCard's natural
+                // height runs 220-260pt; top-aligning left the lyrics box pinned to the row's
+                // top edge with dead space below it instead of sitting centered against the
+                // taller card next to it.
+                HStack(alignment: .center, spacing: 0) {
                     NowPlayingCard(state: state, manager: appState.nowPlayingManager)
                         .frame(minWidth: 260, idealWidth: 300, alignment: .leading)
 
@@ -40,6 +45,18 @@ struct RichHomeView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .frame(height: SurfaceMetrics.lyricsColumnHeight)
                 }
+                // The vendored NookView sizes the whole expanded surface via `.fixedSize()`,
+                // which lays out this subtree against an *unconstrained* (nil) proposal —
+                // not just a one-time size query. Without an explicit idealWidth here, this
+                // HStack's own ideal width under that nil proposal is just NowPlayingCard's
+                // ideal (300pt) plus the lyrics text's natural width, typically well under
+                // SurfaceMetrics.baseContentWidth (640pt); ExpandedIslandView's outer
+                // `.frame(minWidth: 640)` then centers that narrower HStack as a whole block
+                // inside the 640pt window, leaving centerColumn's `.frame(maxWidth: .infinity)`
+                // with nothing to actually expand into. Proposing 640 explicitly here makes
+                // the HStack lay out normally against a concrete width, so centerColumn
+                // receives the real remaining space instead of just its content's natural size.
+                .frame(idealWidth: SurfaceMetrics.baseContentWidth)
             } else {
                 CalendarStandaloneView(store: calendarStore)
             }
