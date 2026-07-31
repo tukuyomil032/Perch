@@ -786,6 +786,23 @@ opacityが0にならない設計だった）、シークバーがまだアート
 Phase B8は6タスク全完了。実機検証は次回実機起動時に通しで実施予定
 （歌詞の垂直位置・4行固定表示・シークバー位置・trackInfo位置・ヘッダーの見た目を重点確認）。
 
+### Phase B9: CFBundleIdentifier欠落修正 + trackInfo位置微調整 + 歌詞遷移速度調整（2026-07-31〜）
+
+Phase B8実機検証で「`just run`起動だとアートワーク取得・コントロールボタンが効かないが、
+Command+Space直接起動だとどちらも動く」という不可解な報告があった。調査の結果、
+`perch/Resources/Info.plist`に`CFBundleIdentifier`が定義されておらず、ビルドごとに異なる
+仮識別子・署名アイデンティティが生成されていたことが判明——macOSのTCC（Automation権限）は
+署名アイデンティティ単位でも権限を区別するため、`/Applications`のad-hoc版と`run.sh`が起動する
+開発証明書版が別アプリとして扱われ、片方にしかSpotify/Music操作の許可が付与されていなかった。
+詳細は`~/.claude/plans/phasec-phaseb-b-docs-playful-cocoa.md`のPhase B9セクション参照。
+
+- [ ] B9-1: `perch/Resources/Info.plist`に`CFBundleIdentifier`
+      （`$(PRODUCT_BUNDLE_IDENTIFIER)`）を追加——起動方法によるアートワーク/コントロール
+      不整合の根治
+- [ ] B9-2: trackInfoの垂直位置を10pt下げる（Phase B8で上に寄せすぎた）
+- [ ] B9-3: 歌詞のアクティブ行切り替え・ウィンドウ遷移アニメーションを緩やかにする
+      （spring response 0.40→0.55、easeInOut duration 0.4→0.55）
+
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
 **参照**: `docs/macOS-Battery-Monitoring-Animation-Handbook-ja.md`（全39章、
