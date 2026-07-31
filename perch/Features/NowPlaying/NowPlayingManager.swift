@@ -425,11 +425,22 @@ final class NowPlayingManager {
     }
 
     private func runAppleScript(_ source: String) async -> String? {
-        await Task.detached {
+        let logger = logger
+        return await Task.detached {
             var error: NSDictionary?
             let script = NSAppleScript(source: source)
             let result = script?.executeAndReturnError(&error)
-            guard error == nil else { return nil }
+            if let error {
+                // -1743 (errAEEventNotPermitted) means Automation permission for this
+                // target app hasn't been granted — logged distinctly from other failures
+                // so a silent playback-control/artwork outage is diagnosable from Console
+                // instead of just "nothing happens".
+                let code = error[NSAppleScript.errorNumber] as? Int ?? 0
+                logger.debug(
+                    "runAppleScript failed [\(code)]: \(error[NSAppleScript.errorMessage] as? String ?? "unknown")"
+                )
+                return nil
+            }
             return result?.stringValue
         }.value
     }
