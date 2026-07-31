@@ -752,8 +752,15 @@ Phase B6完了後の実機フィードバックで、歌詞ボックスの垂直
 - [x] B7-3: シークバーとアートワークの間隔調整 — `progressSection`に`.padding(.top, 8)`追加。
       コミット`d3aee25`。
 - [x] B7-4: 再生元バッジの黒円削除＋アイコン拡大（18pt→40pt）。コミット`70ce418`。
-- [ ] B7-5: Spotifyアートワークキャッシュの成功後書き込み化（`ArtworkFetcher.swift`）
-- [ ] B7-6: Apple Musicアートワークのバウンド付き再試行（`NowPlayingManager.swift`）
+- [x] B7-5: Spotifyアートワークキャッシュの成功後書き込み化（`ArtworkFetcher.swift`）。
+      コミット`a206251`。
+- [x] B7-6: Apple Musicアートワークのバウンド付き再試行（`NowPlayingManager.swift`）。
+      `pollAppleMusicPosition()`の既存1.5秒間隔ポーリングに相乗りし上限3回まで再試行。
+      コミット`1e7ba74`。
+
+Phase B7は6タスク全完了。実機検証は次回実機起動時に通しで実施予定
+（歌詞ボックスの垂直/水平センタリング、シークバー間隔、バッジ、Spotify/Apple Music
+アートワーク安定性を重点確認）。
 
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
