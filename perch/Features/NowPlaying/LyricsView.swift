@@ -43,7 +43,7 @@ struct LyricsView: View {
                     .foregroundStyle(.white.opacity(lineOpacity(idx)))
                     .scaleEffect(idx == activeIndex ? 1.13 : 1.0, anchor: .center)
                     .multilineTextAlignment(.center)
-                    .lineLimit(2)
+                    .lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .animation(.spring(response: 0.55, dampingFraction: 0.82), value: activeIndex)
             }
