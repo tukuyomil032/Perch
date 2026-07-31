@@ -20,6 +20,8 @@
     <string>l6IhQF6lojaWbwcObjcaHKIHC9LMuEvWDkh5dTLbmz4=</string>
     <key>NSCalendarsFullAccessUsageDescription</key>
     <string>Perch shows today's events in its expanded calendar widget.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Perch controls Spotify and Music to show playback status and artwork, and to respond to its own play/pause and skip buttons.</string>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSExceptionDomains</key>
