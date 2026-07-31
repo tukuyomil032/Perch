@@ -2,9 +2,9 @@ import SwiftUI
 
 /// The expanded island's top row: three zones per
 /// docs/macOS-Expanded-Surface-Layout-Handbook-ja.md §8 ("ヘッダーの3領域設計") — left
-/// (close button + module switcher, `maxWidth: .infinity` leading), center (a reserved
-/// gap the width of the physical/synthetic notch, so nothing renders under it), right
-/// (`SystemStatusCluster`, `maxWidth: .infinity` trailing).
+/// (module switcher, `maxWidth: .infinity` leading), center (a reserved gap the width of
+/// the physical/synthetic notch, so nothing renders under it), right (`SystemStatusCluster`,
+/// `maxWidth: .infinity` trailing).
 ///
 /// Modules reuse the existing `IslandCard` enum rather than a new type — `activeCard`
 /// was kept through Phase A specifically for this (see `AppState.activeCard`'s doc
@@ -12,8 +12,6 @@ import SwiftUI
 /// are the only two buttons; `.fileShelf` / `.devStatus` / `.hud` stay unreachable until
 /// their features exist.
 struct IslandTopBar: View {
-    @Environment(AppState.self) private var appState
-
     private static let modules: [IslandCard] = [.nowPlaying, .aiUsage]
 
     /// The vendored surface has no environment-exposed path to `Nook.notchSize` (only
@@ -27,19 +25,11 @@ struct IslandTopBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Button {
-                    appState.collapse()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.tertiary)
-                        .imageScale(.medium)
-                }
-                .buttonStyle(.plain)
-
-                ModuleSwitcher(modules: Self.modules)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // No explicit close button — moving the cursor off the expanded surface
+            // already collapses it (see `NookBridge`'s hover-exit handling), so a
+            // dedicated affordance here was redundant chrome.
+            ModuleSwitcher(modules: Self.modules)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             Color.clear
                 .frame(width: notchReservationWidth)
