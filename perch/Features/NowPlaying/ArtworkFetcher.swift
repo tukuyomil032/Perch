@@ -25,9 +25,12 @@ actor ArtworkFetcher {
             urlString != lastSpotifyURL,
             let url = URL(string: urlString)
         else { return nil }
-        lastSpotifyURL = urlString
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
+            // Only recorded once the download actually succeeds — recording it earlier
+            // meant a single transient failure (e.g. startup network flakiness) marked the
+            // track as "tried" forever, since this same URL would never be attempted again.
+            lastSpotifyURL = urlString
             return data
         } catch {
             return nil
