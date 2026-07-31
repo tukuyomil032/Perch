@@ -3,7 +3,7 @@ import CoreGraphics
 /// Resolves Rich mode's Home content target size from screen width, per
 /// docs/macOS-Expanded-Surface-Layout-Handbook-ja.md §4 ("Size Resolver") — one pure
 /// function both the window floor (`ExpandedIslandView`) and the content layout
-/// (`AtollStyleExpandedView`) read, instead of each carrying its own hardcoded number.
+/// (`RichHomeView`) read, instead of each carrying its own hardcoded number.
 ///
 /// `PageKind` has one case today because Rich mode has one page shape (Home). The
 /// handbook's Resolver switches on several page kinds (Timer, Notes, Terminal, ...);

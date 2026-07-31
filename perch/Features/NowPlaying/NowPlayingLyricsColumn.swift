@@ -2,10 +2,10 @@ import SwiftUI
 
 /// Rich mode's center column: complex multi-line lyrics, kept alongside the artwork/
 /// controls column rather than the single-line afterthought other Dynamic Island style
-/// apps show. Display-only — the caller (`AtollStyleExpandedView`) owns the fetch
+/// apps show. Display-only — the caller (`RichHomeView`) owns the fetch
 /// lifecycle since this column's data outlives any one `NowPlayingCard` render.
 ///
-/// Only ever shown while lyrics exist or are loading — `AtollStyleExpandedView` falls
+/// Only ever shown while lyrics exist or are loading — `RichHomeView` falls
 /// back to `TodayEventsColumn` once loading finishes with nothing found, so there's no
 /// "no lyrics" state to render here.
 struct NowPlayingLyricsColumn: View {

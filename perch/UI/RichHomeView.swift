@@ -10,7 +10,7 @@ import SwiftUI
 ///
 /// Not preset-driven like Minimal mode's `presetContent` — this is a fixed layout, so
 /// there's nothing here for `PresetTabBar` to switch between (see `ExpandedIslandView`).
-struct AtollStyleExpandedView: View {
+struct RichHomeView: View {
     @Environment(AppState.self) private var appState
     @State private var contentVisible = false
     @State private var lyrics: [LyricsLine] = []

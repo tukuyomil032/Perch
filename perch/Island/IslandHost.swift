@@ -58,7 +58,7 @@ final class IslandHost {
         // on it.
         //
         // `compactTopCornerRadius`/`compactBottomCornerRadius` round the compact pill
-        // further than the vendored default (6, 14) — an Atoll-inspired look. A `/vfr`
+        // further than the vendored default (6, 14) — a rounder pill look. A `/vfr`
         // pass over the user's reference recording didn't yield frame-accurate spring
         // constants (the capture's resolution/compression obscured the shell's exact
         // timing), so these — and `DesignSystem.shellOpen`/`shellClose` below — are the

@@ -17,7 +17,7 @@ struct ExpandedIslandView: View {
         VStack(spacing: 0) {
             IslandTopBar()
             // Preset switching is a Minimal-mode-only concept — Rich mode's Home module is
-            // a fixed layout (`AtollStyleExpandedView`), not preset-driven, so there is
+            // a fixed layout (`RichHomeView`), not preset-driven, so there is
             // nothing for a preset tab bar to switch between.
             if uiMode == .minimal, IslandModuleContent.showsPresetTabBar(for: appState.activeCard) {
                 HStack {
@@ -40,7 +40,7 @@ struct ExpandedIslandView: View {
 
     /// Rich mode's Home layout wants more room than Minimal mode's single-column widget
     /// stack or the AI Usage full-screen view, so only widen the floor when
-    /// `AtollStyleExpandedView` is actually what's rendering.
+    /// `RichHomeView` is actually what's rendering.
     private var minExpandedWidth: CGFloat {
         guard uiMode == .rich, IslandModuleContent.content(for: appState.activeCard) == .presetDriven
         else { return 420 }
@@ -53,7 +53,7 @@ struct ExpandedIslandView: View {
     // MARK: - Module Content
 
     /// Routes to the active module's content. `.nowPlaying` (Home) renders
-    /// `AtollStyleExpandedView` in Rich mode or the active preset's widgets in Minimal
+    /// `RichHomeView` in Rich mode or the active preset's widgets in Minimal
     /// mode; `.aiUsage` bypasses both entirely and shows the full AI usage screen
     /// regardless of `uiMode` — it was never preset-driven to begin with. See
     /// `IslandModuleContent` for the pure mapping this switches on.
@@ -62,7 +62,7 @@ struct ExpandedIslandView: View {
         switch IslandModuleContent.content(for: appState.activeCard) {
         case .presetDriven:
             if uiMode == .rich {
-                AtollStyleExpandedView()
+                RichHomeView()
             } else {
                 presetContent
             }

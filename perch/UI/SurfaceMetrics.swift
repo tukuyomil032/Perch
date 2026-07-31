@@ -5,9 +5,9 @@ import CoreGraphics
 /// numbers scattered across views are how a 540pt width and a 260/300pt width end up
 /// disagreeing with each other.
 nonisolated enum SurfaceMetrics {
-    /// The handbook's own basis (§0.1) is 640pt, sized for a fuller Atoll layout
+    /// The handbook's own basis (§0.1) is 640pt, sized for a fuller reference layout
     /// (Mirror included). Perch has no Mirror; 640 is kept anyway as the width that
-    /// visibly closes the gap the user flagged against Atoll's real screenshot.
+    /// visibly closes the gap the user flagged against the reference mockup.
     static let baseContentWidth: CGFloat = 640
     static let minContentWidth: CGFloat = 480
     static let maxContentWidthFloor: CGFloat = 400

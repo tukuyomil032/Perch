@@ -5,7 +5,7 @@ import SwiftUI
 /// docs/macOS-Expanded-Surface-Layout-Handbook-ja.md §13 ("Standalone Calendar"): a
 /// month grid (with day tap-to-select) on the left, the selected day's events on the
 /// right. Display-only — `store`'s fetch lifecycle belongs to the parent
-/// (`AtollStyleExpandedView`), same pattern as `NowPlayingLyricsColumn`.
+/// (`RichHomeView`), same pattern as `NowPlayingLyricsColumn`.
 ///
 /// Supersedes the old `CalendarMonthColumn` (hover-to-reveal grid, today-only
 /// highlight, no selection) — that shape only made sense as a narrow column sharing

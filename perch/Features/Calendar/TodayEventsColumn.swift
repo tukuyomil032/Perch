@@ -3,7 +3,7 @@ import SwiftUI
 /// Rich mode's center column when there's no now-playing content to show (no music, or
 /// music with no lyrics): today's calendar events, or the calendar permission state.
 /// Display-only — `store`'s fetch lifecycle belongs to the parent
-/// (`AtollStyleExpandedView`), same pattern as `NowPlayingLyricsColumn`.
+/// (`RichHomeView`), same pattern as `NowPlayingLyricsColumn`.
 struct TodayEventsColumn: View {
     let store: CalendarStore
 

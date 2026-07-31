@@ -38,8 +38,8 @@ public struct NookEdgeInsets: Equatable, Sendable {
 /// bottom is the larger rounding where the panel meets the wallpaper.
 // Modified for Perch: added `compactTopCornerRadius`/`compactBottomCornerRadius` so a host
 // can tune the compact pill's roundedness. `NookView.compactCornerRadii` previously ignored
-// this struct entirely and hardcoded (6, 14) — Perch's Atoll-inspired look needs a rounder
-// pill than that default.
+// this struct entirely and hardcoded (6, 14) — Perch's rounder pill look needs more
+// rounding than that default.
 public struct NookStyle: Equatable, Sendable {
     public var topCornerRadius: CGFloat
     public var bottomCornerRadius: CGFloat

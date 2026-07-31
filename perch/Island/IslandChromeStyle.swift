@@ -1,8 +1,8 @@
 import Defaults
 import Foundation
 
-/// How the Perch island chrome presents itself: notch-attached (the default, "Atoll
-/// 風" pseudo-notch regardless of whether the Mac has a physical notch) or a floating
+/// How the Perch island chrome presents itself: notch-attached (the default, a
+/// pseudo-notch pill regardless of whether the Mac has a physical notch) or a floating
 /// pill below the menu bar.
 ///
 /// Deliberately two-valued, not three. The vendored `NookPresentation` offers an
@@ -19,8 +19,8 @@ import Foundation
 enum IslandChromeStyle:
     String, Codable, CaseIterable, Sendable, Defaults.Serializable, Defaults.PreferRawRepresentable
 {
-    /// Pseudo-notch chrome (Atoll-style), used whether or not the display has a
-    /// physical notch. The default.
+    /// Pseudo-notch chrome (a floating pill styled to sit flush with the display top),
+    /// used whether or not the display has a physical notch. The default.
     case notch
     /// A free-floating rounded pill just below the menu bar.
     case floating
