@@ -828,6 +828,24 @@ AppleScript失敗時のログが一切無く原因切り分けができなかっ
 Phase B10は4タスク全完了。B10-1は実機で許可ダイアログが表示され、許可後にアートワーク取得・
 コントロールボタンが動作することの確認が必要。
 
+### Phase B11: 設定画面「権限」タブ新設（2026-07-31〜）
+
+Phase B10の`NSAppleEventsUsageDescription`追加後も実機でAutomation権限エラー（-1743）が
+継続。TCCの既知の挙動（コード署名が変わると過去の許可/拒否記録が新しいビルドに引き継がれず、
+かつOSが自動で再プロンプトを出さない）が原因と判明。AskUserQuestionで相談の結果、設定画面に
+「権限」タブを新設し、Calendar/Screen Recording/Automation(Spotify・Apple Music)の状態確認・
+付与を行えるようにする方針で合意。詳細は
+`~/.claude/plans/phasec-phaseb-b-docs-playful-cocoa.md`のPhase B11セクション参照。
+
+**OSレベルの制約（コードでは解決不可）**: 既に拒否済みの権限はアプリから再プロンプトを強制
+できない。ユーザーには本タスク実装を待たずにシステム設定でMusicトグルをオフ→オン、または
+`tccutil reset AppleEvents com.tukuyomi032.perch`実行後の再起動を案内済み。
+
+- [ ] B11-1: `PermissionsStore`新規実装（Calendar/Screen Recording/Automation×2の状態確認・
+      付与ロジック）
+- [ ] B11-2: `SettingsView`に`PermissionsTab`追加
+- [ ] B11-3: ローカライズ文字列追加（項目名・ボタン文言）
+
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
 **参照**: `docs/macOS-Battery-Monitoring-Animation-Handbook-ja.md`（全39章、
