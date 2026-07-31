@@ -874,15 +874,22 @@ Phase B12は3タスク全完了。実機検証時、設定画面7タブ全てが
 作成しmainへマージする。詳細は`~/.claude/plans/phasec-phaseb-b-docs-playful-cocoa.md`の
 Phase B13セクション参照。
 
-- [ ] B13-1: 歌詞`lineLimit`緩和（省略記号切り詰めの解消）
-- [ ] B13-2: `NowPlayingSourcePreference`新規enum + `Defaults.Key`追加 + 旧3Bool削除
-- [ ] B13-3: 旧設定からの移行処理 + テスト
-- [ ] B13-4: `SettingsView`のNowPlayingTabを排他Pickerに置き換え
-- [ ] B13-5: `applyState`の排他ゲート化
-- [ ] B13-6: 設定変更の即時反映（Defaults監視+currentStateクリア）
-- [ ] B13-7: 起動時・切替時のアクティブ検知（Spotify/Apple Music/YouTube Music）
-- [ ] B13-8: ローカライズ文字列更新（Pickerの選択肢名）
+- [x] B13-1: 歌詞`lineLimit`緩和（省略記号切り詰めの解消）。コミット`e036b21`。
+- [x] B13-2〜7: `NowPlayingSourcePreference`新規enum + `Defaults.Key`追加 + 旧3Bool削除、
+      `SettingsView`のNowPlayingTabを排他Pickerに置き換え、`applyState`の排他ゲート化、
+      設定変更の即時反映（Defaults監視+currentStateクリア）、起動時・切替時のアクティブ検知
+      （Spotify/Apple Music/YouTube Music）、ローカライズ文字列更新。一体の変更のため
+      1コミットにまとめた。コミット`982809c`。
+- [x] B13-3（移行処理+テスト、上記とは別コミット）: 旧3Boolトグルから
+      `preferredNowPlayingSource`への移行処理を追加、`PreferencesMigrationTests`に
+      純粋関数マッピング・移行実行・冪等性のテストを追加。コミット`3d2e8b3`。
 - [ ] B13-9: PR作成 → レビュー登録 → マージ
+
+Phase B4〜B13の一連の実機フィードバック対応はこれでB13-9（PR作成・マージ）を残すのみ。
+次フェーズ候補の棚卸し: Phase D（バッテリー監視）・Phase E（WiFi拡張）・Phase F（メディア
+プレイヤー）はいずれも「未着手・タスク分割のみ」で緊急性なし。**Phase C（波形の実音キャプチャ
+修理）はC1・C2のみ完了・C0とC3〜C9が未着手**——ユーザー希望のオーディオスペクトラム完成と
+一致する、優先度上も次に着手して差し支えない状態。
 
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
