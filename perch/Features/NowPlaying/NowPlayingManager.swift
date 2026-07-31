@@ -47,6 +47,13 @@ final class NowPlayingManager {
     private nonisolated(unsafe) var mediaRemoteStateTask: Task<Void, Never>?
     private var isYTMPolling: Bool = false
     private var wasYTMPolling: Bool = false
+    // Bounded retry for Apple Music artwork: `com.apple.Music.playerInfo` only fires on
+    // Play/Pause toggle or track change (unlike Spotify's frequent position notifications),
+    // so a single failed AppleScript fetch right after a track change (e.g. Music.app hasn't
+    // cached a streaming track's artwork locally yet) had no further chance to retry. These
+    // piggyback on the existing 1.5s position poll instead of a bespoke timer.
+    private var appleMusicArtworkRetryTrack: String = ""
+    private var appleMusicArtworkRetryCount: Int = 0
     private let logger: Logger = {
         var logger = Logger(label: "com.tukuyomi032.perch.NowPlayingManager")
         logger.logLevel = .debug
@@ -473,6 +480,17 @@ final class NowPlayingManager {
             isPlaying: current.isPlaying, duration: current.duration,
             elapsedTime: position, timestamp: Date(), source: current.source
         )
+
+        guard current.artwork == nil else { return }
+        if appleMusicArtworkRetryTrack != current.title {
+            appleMusicArtworkRetryTrack = current.title
+            appleMusicArtworkRetryCount = 0
+        }
+        guard appleMusicArtworkRetryCount < 3 else { return }
+        appleMusicArtworkRetryCount += 1
+        Task { [weak self] in
+            await self?.fetchAndApplyArtwork(for: current)
+        }
     }
 
     // MARK: - MRMediaRemote fallback
