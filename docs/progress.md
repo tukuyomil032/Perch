@@ -841,10 +841,14 @@ Phase B10の`NSAppleEventsUsageDescription`追加後も実機でAutomation権限
 できない。ユーザーには本タスク実装を待たずにシステム設定でMusicトグルをオフ→オン、または
 `tccutil reset AppleEvents com.tukuyomi032.perch`実行後の再起動を案内済み。
 
-- [ ] B11-1: `PermissionsStore`新規実装（Calendar/Screen Recording/Automation×2の状態確認・
-      付与ロジック）
-- [ ] B11-2: `SettingsView`に`PermissionsTab`追加
-- [ ] B11-3: ローカライズ文字列追加（項目名・ボタン文言）
+- [x] B11-1: `PermissionsStore`新規実装（Calendar/Screen Recording/Automation×2の状態確認・
+      付与ロジック）。コミット`a039945`。
+- [x] B11-2: `SettingsView`に`PermissionsTab`追加。コミット`364997c`。
+- [x] B11-3: ローカライズ文字列追加（項目名・ボタン文言）。コミット`475e133`。
+
+Phase B11は3タスク全完了。実機検証時、Automation - Apple Musicが「拒否済み」表示になっている
+はずなので、「システム設定を開く」ボタンでAutomationペインが実際に開くこと、システム設定側で
+トグルをオフ→オンにした後「権限」タブを開き直すと状態が更新されることを確認する。
 
 ### Phase D: バッテリー監視・アニメーション本格実装（未着手・タスク分割のみ）
 
