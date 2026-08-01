@@ -24,10 +24,12 @@ Hover or click to expand. Get at-a-glance information on your AI usage, what's p
 > [!WARNING]
 > Perch is currently in beta and not yet publicly available for download. The options below will be enabled at v1.0 release.
 
-**Homebrew Cask** (coming at v1.0):
+**Homebrew Cask**:
 ```bash
 brew tap tukuyomil032/tap
+
 brew install --cask perch
+brew install --cask perch@latest
 ```
 
 **GitHub Releases** (coming soon): Download the signed `.dmg` from the [Releases](https://github.com/tukuyomi032/perch/releases) page and drag Perch.app to your Applications folder.
@@ -199,12 +201,3 @@ docs/           — Design references, progress log, specs
 | Card corner radius | 28pt (continuous) |
 | Typography | SF Pro / SF Mono (system fonts only) |
 | Background material | `NSVisualEffectView` `.ultraDark` vibrancy |
-
-> [!NOTE]
-> Perch follows [hallmark](https://github.com/nutlope/hallmark) anti-AI-slop design rules. Avoid generic LLM-flavored UI. When in doubt, reference macOS HIG and the existing `DesignSystem`.
-
-### Inspired by
-
-- [Boring Notch](https://github.com/TheBoredTeam/boring.notch) — Dynamic Island UI, Now Playing patterns
-- [NotchDrop](https://github.com/Lakr233/NotchDrop) — transparent window control, notch detection
-- [CodexBar](https://github.com/steipete/CodexBar) — AI usage monitoring, provider separation design
