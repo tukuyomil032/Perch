@@ -67,3 +67,6 @@ __pycache__/
 *.pyd
 .uv/
 *.egg-info/
+.cctrace/
+*-ja.md
+default.profraw
