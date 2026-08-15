@@ -34,7 +34,7 @@ nonisolated enum CostCalculator {
         "claude-opus-4-6": ModelPricing(
             inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50, cacheWritePerMillion: 6.25),
         "claude-sonnet-5": ModelPricing(
-            inputPerMillion: 2.0, outputPerMillion: 10.0, cacheReadPerMillion: 0.20, cacheWritePermillion: 2.50),
+            inputPerMillion: 2.0, outputPerMillion: 10.0, cacheReadPerMillion: 0.20, cacheWritePerMillion: 2.50),
         "claude-sonnet-4-6": ModelPricing(
             inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.30, cacheWritePerMillion: 3.75),
         "claude-sonnet-4-5": ModelPricing(
