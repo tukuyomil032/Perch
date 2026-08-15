@@ -18,26 +18,35 @@ nonisolated enum CostCalculator {
         }
     }
 
-    // Updated: 2026-06-12. Sources: Anthropic pricing docs, CodexBar CostUsagePricing.swift,
+    // Updated: 2026-08-15. Sources: Anthropic pricing docs, CodexBar CostUsagePricing.swift,
     // OpenAI API pricing, Google AI Gemini pricing.
     // Review when providers change their pricing.
     static let pricing: [String: ModelPricing] = [
         // ── Claude (Anthropic) ──────────────────────────────────────────────
-        "claude-opus-4-6": ModelPricing(
+        "claude-fable-5": ModelPricing(
+            inputPerMillion: 10.0, outputPerMillion: 50.0, cacheReadPerMillion: 1.0, cacheWritePerMillion: 12.50),
+        "claude-opus-5": ModelPricing(
             inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50, cacheWritePerMillion: 6.25),
         "claude-opus-4-7": ModelPricing(
             inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50, cacheWritePerMillion: 6.25),
         "claude-opus-4-8": ModelPricing(
             inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50, cacheWritePerMillion: 6.25),
-        "claude-sonnet-4-5": ModelPricing(
-            inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.30, cacheWritePerMillion: 3.75),
+        "claude-opus-4-6": ModelPricing(
+            inputPerMillion: 5.0, outputPerMillion: 25.0, cacheReadPerMillion: 0.50, cacheWritePerMillion: 6.25),
+        "claude-sonnet-5": ModelPricing(
+            inputPerMillion: 2.0, outputPerMillion: 10.0, cacheReadPerMillion: 0.20, cacheWritePermillion: 2.50),
         "claude-sonnet-4-6": ModelPricing(
+            inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.30, cacheWritePerMillion: 3.75),
+        "claude-sonnet-4-5": ModelPricing(
             inputPerMillion: 3.0, outputPerMillion: 15.0, cacheReadPerMillion: 0.30, cacheWritePerMillion: 3.75),
         "claude-haiku-4-5": ModelPricing(
             inputPerMillion: 1.0, outputPerMillion: 5.0, cacheReadPerMillion: 0.10, cacheWritePerMillion: 1.25),
         "claude-haiku-4-5-20251001": ModelPricing(
             inputPerMillion: 1.0, outputPerMillion: 5.0, cacheReadPerMillion: 0.10, cacheWritePerMillion: 1.25),
-        // ── OpenAI (GPT-5 / Codex) ── Updated 2026-06-16 ───────────────────
+        // ── OpenAI (GPT-5 / Codex) ── Updated 2026-08-15 ───────────────────
+        "gpt-5.6-sol": ModelPricing(inputPerMillion: 5.0, outputPerMillion: 30.0, cacheReadPerMillion: 12.50),
+        "gpt-5.6-terra": ModelPricing(inputPerMillion: 2.0, outputPerMillion: 12.0, cacheReadPerMillion: 5.0),
+        "gpt-5.6-luna": ModelPricing(inputPerMillion: 0.20, outputPerMillion: 1.20, cacheReadPerMillion: 0.50),
         "gpt-5.5": ModelPricing(inputPerMillion: 5.0, outputPerMillion: 30.0, cacheReadPerMillion: 0.50),
         "gpt-5.4": ModelPricing(inputPerMillion: 2.5, outputPerMillion: 15.0, cacheReadPerMillion: 0.25),
         "gpt-5.4-mini": ModelPricing(inputPerMillion: 0.75, outputPerMillion: 4.50, cacheReadPerMillion: 0.075),
@@ -51,6 +60,8 @@ nonisolated enum CostCalculator {
         "o3": ModelPricing(inputPerMillion: 2.0, outputPerMillion: 8.0, cacheReadPerMillion: 0.50),
         "o4-mini": ModelPricing(inputPerMillion: 0.55, outputPerMillion: 2.20, cacheReadPerMillion: nil),
         // ── Google Gemini ────────────────────────────────────────────────────
+        "gemini-3.7-flash": ModelPricing(inputPerMillion: 0.75, outputPerMillion: 3.75, cacheReadPerMillion: 0.15),
+        "gemini-3.6-flash": ModelPricing(inputPerMillion: 1.50, outputPerMillion: 7.50, cacheReadPerMillion: 0.15),
         "gemini-3.5-flash": ModelPricing(inputPerMillion: 1.50, outputPerMillion: 9.0, cacheReadPerMillion: 0.15),
         "gemini-3.1-pro-preview": ModelPricing(inputPerMillion: 2.0, outputPerMillion: 12.0, cacheReadPerMillion: 0.20),
         "gemini-3.1-flash-lite-preview": ModelPricing(
